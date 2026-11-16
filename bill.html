@@ -52,14 +52,15 @@
   <div class="card" id="main" style="display:none">
     <div class="lb">Tháng hóa đơn</div>
     <input id="thang" placeholder="11-2026">
-    <div class="lb">Nạp ảnh hóa đơn (tên file có mã phòng)</div>
-    <label class="drop" for="file"><b>+ Chọn ảnh hóa đơn</b><div class="hint">Chọn nhiều ảnh cùng lúc · tên file chứa mã phòng (vd 101-T16)</div></label>
+    <div class="lb">Nạp ảnh hóa đơn</div>
+    <label class="drop" for="file"><b>+ Chọn ảnh hóa đơn</b><div class="hint">Chọn nhiều ảnh cùng lúc · app tự đọc mã phòng in trên hóa đơn</div></label>
     <input id="file" type="file" accept="image/*" multiple style="display:none">
     <p class="hint" id="status" style="margin-top:10px"></p>
     <div id="list"></div>
   </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 var PW='', CONTACTS=[];
@@ -92,11 +93,44 @@ function findContact(fname){
   CONTACTS.forEach(function(c){ var p=String(c.phong||'').toLowerCase(); if(p && f.indexOf(p)>-1){ if(!best||p.length>String(best.phong).length) best=c; } });
   return best;
 }
+function findByRoom(room){
+  if(!room) return null;
+  var r=String(room).toUpperCase().replace(/\s+/g,'');
+  var best=null;
+  CONTACTS.forEach(function(c){ var p=String(c.phong||'').toUpperCase().replace(/\s+/g,''); if(p && (p===r || r.indexOf(p)>-1 || p.indexOf(r)>-1)){ if(!best||p.length>String(best.phong).length) best=c; } });
+  return best;
+}
 function mkMsg(c,thang,link){
   var vi='Kính gửi '+c.ten+', LUXHOME xin gửi hóa đơn tiền thuê căn hộ '+c.phong+' - tháng '+thang+'. Vui lòng xem hóa đơn và thanh toán giúp ạ: '+link+'. Trân trọng, LUXHOME.';
   var en='Dear '+c.ten+', LUXHOME sends you the rental invoice for apartment '+c.phong+' - '+thang+'. Please view your invoice and make the payment: '+link+'. Best regards, LUXHOME.';
   return vi+'\n\n'+en;
 }
+
+/* ===== OCR đọc mã phòng ngay trong trình duyệt (Tesseract.js) ===== */
+var _worker=null, _workerReady=null;
+function getWorker(){
+  if(_workerReady) return _workerReady;
+  _workerReady=(async function(){
+    try{
+      var w=await Tesseract.createWorker('eng');
+      try{ await w.setParameters({ tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-:/ ' }); }catch(e){}
+      _worker=w; return w;
+    }catch(e){ return null; }
+  })();
+  return _workerReady;
+}
+function roomFromText(txt){
+  var m=String(txt||'').match(/([A-Za-z0-9]{1,4})\s*[-–]\s*T\s*(\d{1,3})/i);
+  return m ? (m[1]+'-T'+m[2]).toUpperCase().replace(/\s+/g,'') : '';
+}
+async function ocrImage(dataUrl){
+  try{
+    var w=await getWorker(); if(!w) return '';
+    var res=await w.recognize(dataUrl);
+    return roomFromText(res && res.data ? res.data.text : '');
+  }catch(e){ return ''; }
+}
+
 document.getElementById('file').addEventListener('change',function(e){
   var fs=Array.prototype.slice.call(e.target.files); e.target.value='';
   var thang=document.getElementById('thang').value.trim()||'';
@@ -107,51 +141,55 @@ function handle(file,thang){
   r.onload=function(){
     var im=new Image();
     im.onload=function(){
-      var mx=1600,w=im.width,h=im.height; if(w>mx||h>mx){ if(w>h){h=Math.round(h*mx/w);w=mx;}else{w=Math.round(w*mx/h);h=mx;} }
-      var cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(im,0,0,w,h);
-      up(file.name, cv.toDataURL('image/jpeg',0.85), thang);
+      var w=im.width,h=im.height,mx=1600,sc=(w>mx||h>mx)?mx/Math.max(w,h):1;
+      var fw=Math.round(w*sc),fh=Math.round(h*sc);
+      var cv=document.createElement('canvas');cv.width=fw;cv.height=fh;cv.getContext('2d').drawImage(im,0,0,fw,fh);
+      var fullData=cv.toDataURL('image/jpeg',0.85);
+      // cắt ~45% phía trên (nơi in mã phòng) để OCR nhanh & chính xác hơn
+      var ch=Math.max(1,Math.round(h*0.45));
+      var oc=document.createElement('canvas');oc.width=w;oc.height=ch;oc.getContext('2d').drawImage(im,0,0,w,ch,0,0,w,ch);
+      var ocrData=oc.toDataURL('image/jpeg',0.92);
+      up(file.name, fullData, ocrData, thang);
     };
-    im.onerror=function(){ up(file.name, r.result, thang); };
+    im.onerror=function(){ up(file.name, r.result, r.result, thang); };
     im.src=r.result;
   };
   r.readAsDataURL(file);
 }
-function findByRoom(room){
-  if(!room) return null;
-  var r=String(room).toUpperCase().replace(/\s+/g,'');
-  var best=null;
-  CONTACTS.forEach(function(c){ var p=String(c.phong||'').toUpperCase().replace(/\s+/g,''); if(p && (p===r || r.indexOf(p)>-1 || p.indexOf(r)>-1)){ if(!best||p.length>String(best.phong).length) best=c; } });
-  return best;
+async function up(fname, fullData, ocrData, thang){
+  var cFile=findContact(fname);                 // thử theo tên file trước (nếu có mã phòng trong tên)
+  var box=addRow(fullData, cFile?cFile.phong:'đang đọc mã phòng…', cFile, null, null, thang, true);
+  var c=cFile, room='';
+  if(!c){
+    room=await ocrImage(ocrData);               // đọc mã phòng từ ảnh
+    c=findByRoom(room);
+  }
+  var key=(c?c.phong:(room||('x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6))));
+  // đọc link cũ để biết khi nào link mới xuất hiện
+  callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d0){
+    doUpload(box, c, key, room, thang, fullData, (d0&&d0.ok)?(d0.link||''):'');
+  }, function(){ doUpload(box, c, key, room, thang, fullData, ''); });
 }
-function up(fname, dataUrl, thang){
-  var cFile=findContact(fname);                        // thử theo tên file trước
-  var mt=fname.match(/([A-Za-z0-9]{1,4}-T\d{1,3})/i);
-  var hint=cFile?cFile.phong:(mt?mt[1]:'đang đọc mã phòng…');
-  var box=addRow(dataUrl, hint, cFile, null, null, thang, true);
-  var uid='u'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+function doUpload(box, c, key, room, thang, fullData, oldLink){
   try{
     fetch(EXEC,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-      body:'bill=upload&pw='+enc(PW)+'&thang='+enc(thang)+'&uid='+enc(uid)+'&img='+enc(dataUrl)});
+      body:'bill=upload&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&img='+enc(fullData)});
   }catch(e){}
-  poll(box, cFile, thang, uid, 0);
+  poll(box, c, key, room, thang, oldLink, 0);
 }
-function poll(box, cFile, thang, uid, n){
-  if(n>18){ fillRow(box, (cFile?cFile.phong:'?'), cFile, null, 'Tải lên quá lâu, thử lại', thang); return; }
-  callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&uid='+enc(uid)+'&callback=cb&t='+Date.now(), function(d){
-    if(d && d.ok && !d.pending && d.link){
-      var c=cFile || findByRoom(d.room);              // khớp theo tên file, nếu không có thì theo mã phòng OCR đọc được
-      var room=c?c.phong:(d.room||'Không rõ');
-      fillRow(box, room, c, d.link, null, thang);
-    } else { setTimeout(function(){ poll(box, cFile, thang, uid, n+1); }, 1800); }
-  }, function(){ setTimeout(function(){ poll(box, cFile, thang, uid, n+1); }, 1800); });
+function poll(box, c, key, room, thang, oldLink, n){
+  if(n>15){ fillRow(box, (c?c.phong:(room||'?')), c, null, 'Tải lên quá lâu, thử lại', thang); return; }
+  callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d){
+    var link=(d&&d.ok)?(d.link||''):'';
+    if(link && link!==oldLink){ fillRow(box, (c?c.phong:(room||'Không rõ')), c, link, null, thang); }
+    else { setTimeout(function(){ poll(box, c, key, room, thang, oldLink, n+1); }, 1800); }
+  }, function(){ setTimeout(function(){ poll(box, c, key, room, thang, oldLink, n+1); }, 1800); });
 }
 function addRow(img, room, c, link, err, thang, loading){
   var box=document.createElement('div'); box.className='row';
   var im=document.createElement('img'); im.src=img; box.appendChild(im);
-  var info=document.createElement('div'); info.className='info'; info.id='info_'+Math.random().toString(36).slice(2,8);
-  box.appendChild(info);
-  var act=document.createElement('div'); act.className='act';
-  box.appendChild(act);
+  var info=document.createElement('div'); info.className='info'; box.appendChild(info);
+  var act=document.createElement('div'); act.className='act'; box.appendChild(act);
   document.getElementById('list').appendChild(box);
   box._info=info; box._act=act;
   renderInto(box, room, c, link, err, thang, loading);
@@ -162,9 +200,9 @@ function renderInto(box, room, c, link, err, thang, loading){
   var info=box._info, act=box._act;
   info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+' ('+esc(c.qt)+')</span>':'')+'</div>'+(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'');
   act.innerHTML='';
-  if(loading){ act.innerHTML='<span class="load">⏳ đang tải lên…</span>'; return; }
+  if(loading){ act.innerHTML='<span class="load">⏳ đang xử lý…</span>'; return; }
   if(err){ act.innerHTML='<span class="warn">⚠️ '+esc(err)+'</span>'; return; }
-  if(!c){ act.innerHTML='<span class="warn">⚠️ Không khớp mã phòng</span>'; return; }
+  if(!c){ act.innerHTML='<span class="warn">⚠️ Không đọc được mã phòng</span>'; return; }
   if(!c.sdt){ act.innerHTML='<span class="warn">⚠️ Chưa có SĐT</span>'; return; }
   if(!c.kenh){ act.innerHTML='<span class="warn">⚠️ Chưa chọn kênh</span>'; return; }
   var msg=mkMsg(c,thang||'',link||'');
