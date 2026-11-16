@@ -96,7 +96,7 @@
       <b style="font-size:1.05rem;color:var(--cyan)">⚙️ Email nhận cảnh báo</b>
       <button onclick="dongEmail()" style="background:none;border:0;font-size:1.3rem;color:var(--muted);cursor:pointer">✕</button>
     </div>
-    <p class="muted" style="margin:6px 0 2px">Mỗi sáng 7:00 các email dưới đây sẽ nhận danh sách khách sắp hết tạm trú & hợp đồng.</p>
+    <p class="muted" style="margin:6px 0 2px">Các email dưới đây nhận danh sách khách sắp/đã hết hạn — gửi theo các giờ bạn đặt ở phần "Giờ gửi" bên dưới.</p>
 
     <div id="eGate" style="margin-top:12px">
       <input id="eAdminPw" type="password" placeholder="Mật khẩu quản lý"
@@ -115,6 +115,17 @@
         <button class="btn" style="flex:0 0 auto" onclick="eAdd()">+ Thêm</button>
       </div>
       <p id="eMsg" class="muted" style="margin-top:10px"></p>
+
+      <hr style="border:0;border-top:1px solid var(--line);margin:18px 0 12px">
+      <b style="font-size:.98rem;color:var(--cyan)">⏰ Giờ gửi email hằng ngày</b>
+      <p class="muted" style="margin:4px 0 8px">Thêm bao nhiêu giờ tuỳ ý — mỗi giờ gửi 1 lần/ngày cho các email trên. Email tới trong vòng ~15 phút kể từ giờ đặt.</p>
+      <div id="sList"></div>
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <input id="sNew" type="time" value="07:00"
+               style="flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--fg)">
+        <button class="btn" style="flex:0 0 auto" onclick="sAdd()">+ Thêm giờ</button>
+      </div>
+      <p id="sMsg" class="muted" style="margin-top:8px"></p>
     </div>
   </div>
 </div>
@@ -328,7 +339,7 @@ function eLogin(){
   E_ADMIN=document.getElementById('eAdminPw').value;
   document.getElementById('eErr').style.display='none';
   cfgCall('get','', function(d){
-    if(d&&d.ok){ document.getElementById('eGate').style.display='none'; document.getElementById('eMain').style.display='block'; E_LIST=d.emails||[]; eRender(); }
+    if(d&&d.ok){ document.getElementById('eGate').style.display='none'; document.getElementById('eMain').style.display='block'; E_LIST=d.emails||[]; eRender(); loadSched(); }
     else { document.getElementById('eErr').textContent='Sai mật khẩu'; document.getElementById('eErr').style.display='block'; }
   }, function(){ document.getElementById('eErr').textContent='Không kết nối được'; document.getElementById('eErr').style.display='block'; });
 }
@@ -352,6 +363,29 @@ function eAdd(){ var v=document.getElementById('eNew').value.trim();
   if(E_LIST.indexOf(v)<0) E_LIST.push(v);
   document.getElementById('eNew').value=''; eSave(); }
 function eDel(i){ E_LIST.splice(i,1); eSave(); }
+
+// ===== Giờ gửi email cảnh báo (nhiều lần/ngày) =====
+var S_TIMES=[];
+function loadSched(){ cfgCall('getsched','', function(d){ if(d&&d.ok){ S_TIMES=d.times||[]; sRender(); } }); }
+function sRender(){
+  var h = S_TIMES.length ? S_TIMES.map(function(t,i){
+    return '<span style="display:inline-flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:5px 6px 5px 12px;margin:0 6px 6px 0;font-weight:700">'
+      +'🕐 '+esc(t)+'<button onclick="sDel('+i+')" style="background:none;border:0;color:var(--red);font-weight:700;cursor:pointer;font-size:1rem;line-height:1">✕</button></span>';
+  }).join('') : '<p class="muted">Chưa đặt giờ — mặc định 07:00.</p>';
+  document.getElementById('sList').innerHTML = h + '<div class="muted" style="margin-top:4px">'+S_TIMES.length+' lần/ngày</div>';
+}
+function sSave(){
+  document.getElementById('sMsg').textContent='Đang lưu…';
+  cfgCall('setsched','&times='+encodeURIComponent(JSON.stringify(S_TIMES)), function(d){
+    if(d&&d.ok){ S_TIMES=d.times||[]; sRender(); document.getElementById('sMsg').textContent='✓ Đã lưu'; setTimeout(function(){document.getElementById('sMsg').textContent='';},1500); }
+    else document.getElementById('sMsg').textContent='Lưu thất bại (sai mật khẩu?)';
+  }, function(){ document.getElementById('sMsg').textContent='Không kết nối được'; });
+}
+function sAdd(){ var v=(document.getElementById('sNew').value||'').trim();
+  if(!/^\d{1,2}:\d{2}$/.test(v)){ document.getElementById('sMsg').textContent='Giờ không hợp lệ'; return; }
+  if(S_TIMES.indexOf(v)<0) S_TIMES.push(v);
+  S_TIMES.sort(); sSave(); }
+function sDel(i){ S_TIMES.splice(i,1); sSave(); }
 
 // ===== Chỉnh sửa tin mẫu =====
 var T_ADMIN='';
