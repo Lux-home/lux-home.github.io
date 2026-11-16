@@ -82,7 +82,6 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5.1.1/dist/tesseract.min.js"></script>
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 var PW='', CONTACTS=[];
@@ -171,35 +170,8 @@ function findByRoom(room){
   return best;
 }
 
-/* ===== OCR đọc mã phòng ngay trong trình duyệt (Tesseract.js) ===== */
-var OCR_WL='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-T ';
-// Nhóm nhiều bộ đọc chạy SONG SONG (đọc được nhiều ảnh cùng lúc cho nhanh)
-var _schedReady=null;
-function getWorker(){   // giữ tên cũ: nạp sẵn nhóm đọc khi mở trang
-  if(_schedReady) return _schedReady;
-  _schedReady=(async function(){
-    try{
-      var sched=Tesseract.createScheduler();
-      var n=Math.max(1, Math.min(3, (navigator.hardwareConcurrency||2)-1 || 2));  // 2–3 bộ, nhẹ cho điện thoại
-      for(var i=0;i<n;i++){
-        try{
-          var w=await Tesseract.createWorker('eng');
-          try{ await w.setParameters({ tessedit_char_whitelist:OCR_WL, tessedit_pageseg_mode:'6' }); }catch(e){}
-          sched.addWorker(w);
-        }catch(e){}
-      }
-      return sched;
-    }catch(e){ return null; }
-  })();
-  return _schedReady;
-}
-function roomFromText(txt){
-  var m=String(txt||'').match(/([A-Za-z0-9]{1,4})\s*[-–]\s*T\s*(\d{1,3})/i);
-  return m ? (m[1]+'-T'+m[2]).toUpperCase().replace(/\s+/g,'') : '';
-}
-async function ocrImage(dataUrl){
-  try{ var s=await getWorker(); if(!s) return ''; var res=await s.addJob('recognize', dataUrl); return roomFromText(res&&res.data?res.data.text:''); }catch(e){ return ''; }
-}
+/* ===== Đọc mã phòng chạy trên MÁY CHỦ (Google Drive OCR) =====
+   Điện thoại chỉ gửi ảnh; máy chủ đọc mã phòng rồi trả về (nhanh, không ngốn máy). */
 
 /* ===== Gửi kèm ảnh JPG thật (Web Share) ===== */
 function canShareFiles(){
@@ -236,45 +208,51 @@ function handle(file,thang){
       var fw=Math.round(w*sc),fh=Math.round(h*sc);
       var cv=document.createElement('canvas');cv.width=fw;cv.height=fh;cv.getContext('2d').drawImage(im,0,0,fw,fh);
       var fullData=cv.toDataURL('image/jpeg',0.85);
-      // Ảnh cho OCR: chỉ lấy 45% trên (mã phòng ở đầu) và thu nhỏ còn ≤1000px cho đọc nhanh
-      var ch=Math.max(1,Math.round(h*0.45));
-      var osc=(w>1000)?1000/w:1, ow=Math.max(1,Math.round(w*osc)), oh=Math.max(1,Math.round(ch*osc));
-      var oc=document.createElement('canvas');oc.width=ow;oc.height=oh;oc.getContext('2d').drawImage(im,0,0,w,ch,0,0,ow,oh);
-      var ocrData=oc.toDataURL('image/jpeg',0.9);
-      up(file.name, fullData, ocrData, thang);
+      up(file.name, fullData, thang);
     };
-    im.onerror=function(){ up(file.name, r.result, r.result, thang); };
+    im.onerror=function(){ up(file.name, r.result, thang); };
     im.src=r.result;
   };
   r.readAsDataURL(file);
 }
-async function up(fname, fullData, ocrData, thang){
+function up(fname, fullData, thang){
   var cFile=findContact(fname);
-  var box=addRow(fullData, cFile, cFile?cFile.phong:'đang đọc mã phòng…', null, null, thang, true);
-  var c=cFile, room='';
-  if(!c){ room=await ocrImage(ocrData); c=findByRoom(room); }
-  box._c=c; box._room=room; box._thang=thang; box._full=fullData;
-  renderCard(box);                         // hiện ngay nút gửi kèm ảnh (dùng ảnh trên máy)
-  var key=(c?c.phong:(room||('x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6))));
-  // tải ảnh lên Drive để có link "xem bill" (nền)
-  callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d0){
-    doUpload(box, key, thang, fullData, (d0&&d0.ok)?(d0.link||''):'');
-  }, function(){ doUpload(box, key, thang, fullData, ''); });
+  if(cFile){
+    // Mã phòng đã có trong tên file → dùng luôn, không cần máy chủ đọc
+    var box=addRow(fullData, cFile, cFile.phong, null, null, thang, false);
+    box._c=cFile; box._room=cFile.phong; box._thang=thang; box._full=fullData;
+    renderCard(box);
+    doUpload(box, cFile.phong, thang, fullData, false);
+    return;
+  }
+  // Không có mã trong tên file → gửi ảnh để MÁY CHỦ đọc mã phòng
+  var box2=addRow(fullData, null, 'đang đọc mã phòng…', null, null, thang, true);
+  box2._thang=thang; box2._full=fullData;
+  var uid='x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  doUpload(box2, uid, thang, fullData, true);
 }
-function doUpload(box, key, thang, fullData, oldLink){
+function doUpload(box, key, thang, fullData, ocrFlag){
   try{
     fetch(EXEC,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-      body:'bill=upload&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&img='+enc(fullData)});
+      body:'bill=upload&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&ocr='+(ocrFlag?'1':'0')+'&img='+enc(fullData)});
   }catch(e){}
-  pollLink(box, key, thang, oldLink, 0);
+  pollLink(box, key, thang, !!ocrFlag, 0);
 }
-function pollLink(box, key, thang, oldLink, n){
-  if(n>15) return;
+function pollLink(box, key, thang, ocrFlag, n){
+  if(n>30){ if(box._loading){ box._loading=false; renderCard(box); } return; }
   callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d){
     var link=(d&&d.ok)?(d.link||''):'';
-    if(link && link!==oldLink){ box._link=link; renderCard(box); }
-    else { setTimeout(function(){ pollLink(box, key, thang, oldLink, n+1); }, 1800); }
-  }, function(){ setTimeout(function(){ pollLink(box, key, thang, oldLink, n+1); }, 1800); });
+    var room=(d&&d.ok)?(d.room||''):'';
+    if(link && !box._link){ box._link=link; renderCard(box); }
+    if(ocrFlag && room && !box._resolved){
+      box._resolved=true; box._room=room;
+      var c=findByRoom(room); if(c) box._c=c;
+      box._loading=false; renderCard(box);
+    }
+    var enough = box._link && (!ocrFlag || box._resolved);
+    if(enough) return;
+    setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1600);
+  }, function(){ setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1600); });
 }
 
 function addRow(img, c, room, link, err, thang, loading){
@@ -295,8 +273,8 @@ function renderCard(box){
   info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':'')+badge+'</div>'
     +(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'');
   act.innerHTML='';
-  if(box._loading){ act.innerHTML='<span class="load">⏳ đang đọc mã phòng…</span>'; return; }
-  if(!c){ act.innerHTML='<span class="warn">⚠️ Không đọc được mã phòng</span>'; return; }
+  if(box._loading){ act.innerHTML='<span class="load">⏳ máy chủ đang đọc mã phòng…</span>'; return; }
+  if(!c){ act.innerHTML='<span class="warn">'+(box._room?('⚠️ Đọc được "'+esc(box._room)+'" nhưng không khớp khách'):'⚠️ Không đọc được mã phòng')+'</span>'; return; }
   if(!c.sdt){ act.innerHTML='<span class="warn">⚠️ Chưa có SĐT</span>'; return; }
   function mk(){ markSent(thang, c.phong); setTimeout(function(){ renderCard(box); }, 300); }
   // Nút chính: gửi KÈM ẢNH (Web Share)
@@ -332,7 +310,6 @@ document.getElementById('tReset').onclick=function(){
 document.getElementById('btnReport').onclick=toggleReport;
 document.getElementById('btnTpl').onclick=toggleTpl;
 loadData();   // tự mở ngay, không cần đăng nhập
-getWorker();  // nạp sẵn bộ đọc chữ (OCR) ngay khi mở trang cho nhanh
 </script>
 </body>
 </html>
