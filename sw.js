@@ -1,6 +1,6 @@
 // LUXHOME app tổng — service worker (shell cache cho cài đặt PWA)
-const CACHE = "luxhome-v4";
-const SHELL = ["./index.html", "./luutru.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
+const CACHE = "luxhome-v5";
+const SHELL = ["./index.html", "./luutru.html", "./bill.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
