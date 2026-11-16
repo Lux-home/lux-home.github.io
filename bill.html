@@ -116,33 +116,34 @@ function handle(file,thang){
   };
   r.readAsDataURL(file);
 }
-function up(fname, dataUrl, thang){
-  var c=findContact(fname);
-  var mt=fname.match(/([A-Za-z0-9]{1,4}-T\d{1,3})/i);
-  var room=c?c.phong:(mt?mt[1]:fname);
-  var box=addRow(dataUrl, room, c, null, null, thang, true); // placeholder "đang tải lên"
-  // đọc link cũ (nếu có) để biết khi nào link mới xuất hiện
-  callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(room)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d0){
-    var oldLink=(d0&&d0.ok)?(d0.link||''):'';
-    // POST upload (no-cors, không đọc phản hồi)
-    try{
-      fetch(EXEC,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-        body:'bill=upload&pw='+enc(PW)+'&room='+enc(room)+'&thang='+enc(thang)+'&img='+enc(dataUrl)});
-    }catch(e){}
-    poll(box, room, c, thang, oldLink, 0);
-  }, function(){
-    try{ fetch(EXEC,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-      body:'bill=upload&pw='+enc(PW)+'&room='+enc(room)+'&thang='+enc(thang)+'&img='+enc(dataUrl)}); }catch(e){}
-    poll(box, room, c, thang, '', 0);
-  });
+function findByRoom(room){
+  if(!room) return null;
+  var r=String(room).toUpperCase().replace(/\s+/g,'');
+  var best=null;
+  CONTACTS.forEach(function(c){ var p=String(c.phong||'').toUpperCase().replace(/\s+/g,''); if(p && (p===r || r.indexOf(p)>-1 || p.indexOf(r)>-1)){ if(!best||p.length>String(best.phong).length) best=c; } });
+  return best;
 }
-function poll(box, room, c, thang, oldLink, n){
-  if(n>12){ fillRow(box, room, c, null, 'Tải lên quá lâu, thử lại', thang); return; }
-  callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(room)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d){
-    var link=(d&&d.ok)?(d.link||''):'';
-    if(link && link!==oldLink){ fillRow(box, room, c, link, null, thang); }
-    else { setTimeout(function(){ poll(box, room, c, thang, oldLink, n+1); }, 1800); }
-  }, function(){ setTimeout(function(){ poll(box, room, c, thang, oldLink, n+1); }, 1800); });
+function up(fname, dataUrl, thang){
+  var cFile=findContact(fname);                        // thử theo tên file trước
+  var mt=fname.match(/([A-Za-z0-9]{1,4}-T\d{1,3})/i);
+  var hint=cFile?cFile.phong:(mt?mt[1]:'đang đọc mã phòng…');
+  var box=addRow(dataUrl, hint, cFile, null, null, thang, true);
+  var uid='u'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  try{
+    fetch(EXEC,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
+      body:'bill=upload&pw='+enc(PW)+'&thang='+enc(thang)+'&uid='+enc(uid)+'&img='+enc(dataUrl)});
+  }catch(e){}
+  poll(box, cFile, thang, uid, 0);
+}
+function poll(box, cFile, thang, uid, n){
+  if(n>18){ fillRow(box, (cFile?cFile.phong:'?'), cFile, null, 'Tải lên quá lâu, thử lại', thang); return; }
+  callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&uid='+enc(uid)+'&callback=cb&t='+Date.now(), function(d){
+    if(d && d.ok && !d.pending && d.link){
+      var c=cFile || findByRoom(d.room);              // khớp theo tên file, nếu không có thì theo mã phòng OCR đọc được
+      var room=c?c.phong:(d.room||'Không rõ');
+      fillRow(box, room, c, d.link, null, thang);
+    } else { setTimeout(function(){ poll(box, cFile, thang, uid, n+1); }, 1800); }
+  }, function(){ setTimeout(function(){ poll(box, cFile, thang, uid, n+1); }, 1800); });
 }
 function addRow(img, room, c, link, err, thang, loading){
   var box=document.createElement('div'); box.className='row';
