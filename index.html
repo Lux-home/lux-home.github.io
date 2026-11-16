@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Quản lý</title>
+<meta name="theme-color" content="#0e7ba8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LUXHOME">
+<style>
+  :root{
+    --bg:#eef3f4; --surface:#fff; --fg:#13242a; --muted:#5f727a; --line:#e2eaec;
+    --cyan:#0e7ba8; --cyan2:#28c3dd; --gold:#d79f38;
+    --ok:#0f9d58; --soon:#8795a0;
+  }
+  @media (prefers-color-scheme:dark){:root{
+    --bg:#0c1518; --surface:#13222a; --fg:#e8f1f3; --muted:#90a4ac; --line:#20333c;
+    --ok:#3ec88a; --soon:#7d8d96;
+  }}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+    font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",system-ui,sans-serif;line-height:1.4}
+  .top{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;
+    padding:calc(env(safe-area-inset-top,0px) + 20px) 18px 22px;position:relative;overflow:hidden}
+  .top::after{content:"";position:absolute;right:-60px;top:-80px;width:240px;height:240px;
+    border-radius:50%;background:rgba(255,255,255,.08)}
+  .brand{font-size:1.9rem;font-weight:800;letter-spacing:3px;color:#ffd977;
+    text-shadow:0 2px 8px rgba(0,0,0,.18);margin:0}
+  .brand small{display:block;font-size:.8rem;font-weight:600;letter-spacing:4px;
+    color:#eafbff;opacity:.92;margin-top:4px;text-shadow:none}
+  .wrap{max-width:720px;margin:0 auto;padding:16px 14px 40px}
+  .sec-t{font-size:.82rem;font-weight:800;text-transform:uppercase;letter-spacing:.06em;
+    color:var(--muted);margin:18px 6px 10px;display:flex;align-items:center;gap:8px}
+  .sec-t .ln{flex:1;height:1px;background:var(--line)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:16px;
+    padding:14px 13px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:7px;
+    position:relative;min-height:112px;transition:transform .08s,box-shadow .15s}
+  .tile:active{transform:scale(.98)}
+  .tile.live{box-shadow:0 2px 12px rgba(14,123,168,.12)}
+  .ic{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;
+    font-size:1.5rem;background:linear-gradient(135deg,var(--cyan2),var(--cyan));flex:0 0 auto}
+  .tile.soon .ic{background:linear-gradient(135deg,#aeb9bf,#8795a0);filter:grayscale(.1)}
+  .nm{font-weight:700;font-size:.95rem;line-height:1.2}
+  .en{font-size:.72rem;color:var(--muted);font-weight:500;margin-top:-2px}
+  .pill{position:absolute;right:10px;top:10px;font-size:.62rem;font-weight:800;
+    padding:2px 8px;border-radius:999px;letter-spacing:.03em}
+  .pill.ok{background:rgba(15,157,88,.14);color:var(--ok)}
+  .pill.soon{background:rgba(135,149,160,.16);color:var(--soon)}
+  .foot{text-align:center;color:var(--muted);font-size:.72rem;margin-top:26px;line-height:1.6}
+  .install{display:none;margin:14px 6px 0;padding:11px 14px;border-radius:12px;
+    background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;font-weight:700;
+    font-size:.86rem;border:none;width:calc(100% - 12px);cursor:pointer}
+</style>
+</head>
+<body>
+<div class="top">
+  <h1 class="brand">LUXHOME<small>QUẢN LÝ CĂN HỘ</small></h1>
+</div>
+
+<div class="wrap">
+  <button id="installBtn" class="install">⬇️ Cài đặt app vào màn hình chính / Install app</button>
+
+  <div class="sec-t">✅ Đang hoạt động / Active <span class="ln"></span></div>
+  <div class="grid" id="gLive"></div>
+
+  <div class="sec-t">🛠️ Đang phát triển / Coming soon <span class="ln"></span></div>
+  <div class="grid" id="gSoon"></div>
+
+  <div class="foot">
+    LUXHOME · Hệ thống quản lý căn hộ<br>
+    Nhấn từng ô để mở chức năng · Tap a tile to open
+  </div>
+</div>
+
+<script>
+// ===== Cấu hình link các module =====
+const LINKS = {
+  catalog: "https://luxhome-apartment.netlify.app",
+  luutru:  "luutru.html"
+};
+
+const LIVE = [
+  {ic:"🏢", nm:"Danh mục căn hộ", en:"Apartment catalog", url:LINKS.catalog},
+  {ic:"🛂", nm:"Lưu trú & hạn visa", en:"Residence & visa", url:LINKS.luutru},
+];
+const SOON = [
+  {ic:"💰", nm:"Công nợ / Sao kê", en:"Payments & statements"},
+  {ic:"🏠", nm:"Phòng trống", en:"Vacant units & stats"},
+  {ic:"✅", nm:"Khách đã thanh toán", en:"Paid tenants"},
+  {ic:"📄", nm:"Hợp đồng PDF", en:"Auto-filed contracts"},
+  {ic:"⏰", nm:"Nhắc hết hợp đồng", en:"Lease expiry alerts"},
+  {ic:"🧾", nm:"Bill + QR", en:"Invoice & VietQR"},
+  {ic:"🧑‍💼", nm:"Chấm công NV", en:"Staff attendance"},
+  {ic:"🧹", nm:"Lịch vệ sinh / khử trùng", en:"Cleaning & disinfection"},
+  {ic:"🧯", nm:"Diễn tập PCCC", en:"Fire drill schedule"},
+  {ic:"📦", nm:"Tồn kho", en:"Inventory in/out"},
+  {ic:"🚪", nm:"Cảnh báo cổng", en:"Gate / stranger alert"},
+  {ic:"🔄", nm:"Đồng bộ trạng thái", en:"Sync status → catalog"},
+];
+
+function tile(m, live){
+  const a=document.createElement(m.url?"a":"div");
+  a.className="tile "+(live?"live":"soon");
+  if(m.url){a.href=m.url;a.target="_blank";a.rel="noopener";}
+  a.innerHTML=`<span class="pill ${live?'ok':'soon'}">${live?'Mở':'Sắp có'}</span>
+    <div class="ic">${m.ic}</div>
+    <div><div class="nm">${m.nm}</div><div class="en">${m.en}</div></div>`;
+  if(live && !m.url){ a.onclick=()=>alert("Module này sắp được nối link."); }
+  return a;
+}
+const gLive=document.getElementById("gLive"), gSoon=document.getElementById("gSoon");
+LIVE.forEach(m=>gLive.appendChild(tile(m,true)));
+SOON.forEach(m=>gSoon.appendChild(tile(m,false)));
+
+// PWA install
+let deferred=null;
+const btn=document.getElementById("installBtn");
+window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;btn.style.display="block";});
+btn.onclick=async()=>{ if(!deferred)return; deferred.prompt(); await deferred.userChoice; deferred=null; btn.style.display="none"; };
+if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+</script>
+</body>
+</html>

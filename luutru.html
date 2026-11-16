@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Lưu trú</title>
+<meta name="theme-color" content="#0e7ba8">
+<style>
+  :root{--bg:#f4f6f5;--card:#fff;--fg:#17201d;--muted:#5d6b66;--line:#e2e8e5;
+        --green:#0f6e5c;--cyan:#0e7ba8;--cyan2:#28c3dd;--red:#c0392b;--amber:#b7791f;--blue:#2d6cb5;}
+  @media (prefers-color-scheme:dark){:root{--bg:#0c1518;--card:#13222a;--fg:#e8f1f3;--muted:#90a4ac;--line:#20333c;}}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);
+       font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",sans-serif;line-height:1.45}
+  header{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#eafff8;
+         padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 14px;position:sticky;top:0;z-index:5}
+  header a.back{color:#eafff8;text-decoration:none;font-size:.85rem;opacity:.9}
+  header b{font-size:1.1rem;display:block;margin-top:2px} header .t{font-size:.76rem;opacity:.85;margin-top:2px}
+  .wrap{padding:14px;max-width:680px;margin:0 auto}
+  .cards{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+  .card .n{font-size:1.5rem;font-weight:800} .card .l{font-size:.78rem;color:var(--muted)}
+  .sec{background:var(--card);border:1px solid var(--line);border-radius:14px;margin-bottom:12px;overflow:hidden}
+  .sec h3{margin:0;padding:11px 14px;font-size:.9rem;display:flex;justify-content:space-between;
+          align-items:center;cursor:pointer}
+  .sec h3 .cnt{font-weight:800;color:#fff;border-radius:999px;padding:1px 9px;font-size:.78rem}
+  .r-red h3{color:var(--red)} .r-red .cnt{background:var(--red)}
+  .r-amber h3{color:var(--amber)} .r-amber .cnt{background:var(--amber)}
+  .r-blue h3{color:var(--blue)} .r-blue .cnt{background:var(--blue)}
+  .r-muted h3{color:var(--muted)} .r-muted .cnt{background:var(--muted)}
+  .r-dark h3{color:#b02020} .r-dark .cnt{background:#b02020}
+  .r-dark{border-color:rgba(176,32,32,.4)}
+  .nhac.urgent{border-color:#b02020;color:#b02020}
+  .nhac.urgent:active{background:#b02020;color:#fff}
+  .anhb{background:rgba(15,157,88,.14);color:#0f9d58;border-radius:7px;padding:2px 7px;font-size:.68rem;font-weight:700;white-space:nowrap}
+  .list{border-top:1px solid var(--line);max-height:46vh;overflow:auto;display:none}
+  .list.open{display:block}
+  .row{display:flex;justify-content:space-between;gap:8px;padding:9px 14px;border-bottom:1px solid rgba(128,128,128,.12);font-size:.85rem}
+  .row:last-child{border-bottom:0}
+  .row .ph{font-weight:700;min-width:64px} .row .nm{flex:1;color:var(--muted)}
+  .row .tag{font-size:.72rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .mini{display:inline-block;padding:3px 9px;font-size:.7rem;font-weight:800;border-radius:7px;white-space:nowrap;text-decoration:none;cursor:pointer;border:1px solid}
+  .mini.za{color:#0068ff;border-color:#0068ff;background:transparent}
+  .mini.wa{color:#12a150;border-color:#12a150;background:transparent}
+  .mini.wc{color:#07a84e;border-color:#07a84e;background:transparent}
+  .mini.za:active{background:#0068ff;color:#fff}
+  .mini.wa:active{background:#12a150;color:#fff}
+  .mini.wc:active{background:#07a84e;color:#fff}
+  .warn{color:var(--amber);font-size:.7rem;font-weight:700;background:rgba(183,121,31,.12);border-radius:7px;padding:3px 8px;white-space:nowrap}
+  .nhac{border:1px solid var(--cyan);background:transparent;color:var(--cyan);border-radius:8px;
+        padding:3px 9px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap}
+  .nhac:active{background:var(--cyan);color:#fff}
+  .empty{padding:12px 14px;color:var(--muted);font-size:.82rem}
+  .bar{display:flex;gap:8px;margin-bottom:12px}
+  button{font:inherit;border:0;border-radius:10px;padding:9px 14px;font-weight:700;cursor:pointer}
+  .btn{background:var(--cyan);color:#fff;flex:1}
+  .gate{max-width:360px;margin:16vh auto;background:var(--card);border:1px solid var(--line);
+        border-radius:16px;padding:22px;text-align:center}
+  .gate input{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;margin:10px 0;
+        background:var(--bg);color:var(--fg)}
+  .muted{color:var(--muted);font-size:.8rem}
+  code{background:rgba(128,128,128,.15);border-radius:4px;padding:0 4px;font-size:.82em}
+</style>
+</head>
+<body>
+<div id="gate" class="gate">
+  <b style="color:var(--cyan);font-size:1.15rem">LUXHOME · Lưu trú</b>
+  <p class="muted">Nhập mật khẩu để xem</p>
+  <input id="pw" type="password" placeholder="Mật khẩu" onkeydown="if(event.key==='Enter')vao()">
+  <button class="btn" style="width:100%" onclick="vao()">Xem</button>
+  <p id="err" style="color:var(--red);font-size:.8rem;display:none">Sai mật khẩu hoặc không kết nối được</p>
+  <p class="muted" style="margin-top:14px"><a href="index.html" style="color:var(--muted)">← Về trang chính</a></p>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <a class="back" href="index.html">← Trang chính</a>
+    <b>LUXHOME · Lưu trú</b><div class="t" id="cap">Đang tải…</div>
+  </header>
+  <div class="wrap">
+    <div class="bar">
+      <button class="btn" onclick="taiLai()">↻ Làm mới</button>
+      <button class="btn" style="flex:0 0 auto;background:#8a6d1f" onclick="moTpl()">✏️ Tin mẫu</button>
+      <button class="btn" style="flex:0 0 auto;background:#5d6b66" onclick="moEmail()">⚙️ Email</button>
+    </div>
+    <div class="cards" id="cards"></div>
+    <div id="secs"></div>
+  </div>
+</div>
+
+<!-- Quản lý email nhận cảnh báo -->
+<div id="emailWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;
+     padding:16px;overflow:auto">
+  <div style="max-width:460px;margin:8vh auto;background:var(--card);border-radius:16px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:1.05rem;color:var(--cyan)">⚙️ Email nhận cảnh báo</b>
+      <button onclick="dongEmail()" style="background:none;border:0;font-size:1.3rem;color:var(--muted);cursor:pointer">✕</button>
+    </div>
+    <p class="muted" style="margin:6px 0 2px">Mỗi sáng 7:00 các email dưới đây sẽ nhận danh sách khách sắp hết tạm trú & hợp đồng.</p>
+
+    <div id="eGate" style="margin-top:12px">
+      <input id="eAdminPw" type="password" placeholder="Mật khẩu quản lý"
+             style="width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--fg)"
+             onkeydown="if(event.key==='Enter')eLogin()">
+      <button class="btn" style="width:100%;margin-top:10px" onclick="eLogin()">Mở quản lý</button>
+      <p id="eErr" style="color:var(--red);font-size:.8rem;display:none;margin-top:8px">Sai mật khẩu</p>
+    </div>
+
+    <div id="eMain" style="display:none;margin-top:12px">
+      <div id="eList"></div>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <input id="eNew" type="email" placeholder="email nhân viên@..."
+               style="flex:1;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--fg)"
+               onkeydown="if(event.key==='Enter')eAdd()">
+        <button class="btn" style="flex:0 0 auto" onclick="eAdd()">+ Thêm</button>
+      </div>
+      <p id="eMsg" class="muted" style="margin-top:10px"></p>
+    </div>
+  </div>
+</div>
+
+<!-- Chỉnh sửa tin nhắn mẫu (song ngữ tự động) -->
+<div id="tplWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;padding:16px;overflow:auto">
+  <div style="max-width:620px;margin:5vh auto;background:var(--card);border-radius:16px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:1.05rem;color:#8a6d1f">✏️ Tin nhắn mẫu</b>
+      <button onclick="dongTpl()" style="background:none;border:0;font-size:1.3rem;color:var(--muted);cursor:pointer">✕</button>
+    </div>
+    <p class="muted" style="margin:6px 0 2px">Sửa nội dung <b>tiếng Việt</b>; khi lưu, hệ thống <b>tự dịch sang tiếng Anh</b> để gửi song ngữ.
+      Dùng các chỗ tự điền: <code>{ten}</code> <code>{phong}</code> <code>{ngay}</code> <code>{con}</code> (số ngày).</p>
+    <div id="tGate" style="margin-top:12px">
+      <input id="tAdminPw" type="password" placeholder="Mật khẩu quản lý"
+             style="width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--fg)"
+             onkeydown="if(event.key==='Enter')tLogin()">
+      <button class="btn" style="width:100%;margin-top:10px" onclick="tLogin()">Mở chỉnh sửa</button>
+      <p id="tErr" style="color:var(--red);font-size:.8rem;display:none;margin-top:8px">Sai mật khẩu</p>
+    </div>
+    <div id="tMain" style="display:none;margin-top:12px">
+      <div id="tFields"></div>
+      <button class="btn" style="width:100%;margin-top:6px" onclick="tSave()">💾 Lưu & tự dịch</button>
+      <button class="btn" style="width:100%;margin-top:8px;background:#5d6b66" onclick="tReset()">↩️ Khôi phục mẫu mặc định</button>
+      <p id="tMsg" class="muted" style="margin-top:10px"></p>
+    </div>
+  </div>
+</div>
+
+<script>
+// Màn hình Lưu trú chạy trên server app; chỉ LẤY DỮ LIỆU từ Google qua JSONP
+var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
+var PW='20252026';   // mở thẳng, không hỏi mật khẩu
+
+// Gọi Apps Script bằng fetch (CORS) rồi bóc lớp bọc cb(...) — đáng tin cả trong app đã cài
+function callExec(url, ok, fail){
+  var ctl = (typeof AbortController!=='undefined') ? new AbortController() : null;
+  var tm = setTimeout(function(){ if(ctl) ctl.abort(); }, 25000);
+  fetch(url, ctl ? {cache:'no-store', signal:ctl.signal} : {cache:'no-store'})
+    .then(function(r){ return r.text(); })
+    .then(function(t){
+      clearTimeout(tm);
+      var i=t.indexOf('('), j=t.lastIndexOf(')');
+      if(i<0||j<=i){ fail&&fail('parse'); return; }
+      var d; try{ d=JSON.parse(t.slice(i+1,j)); }catch(e){ fail&&fail('parse'); return; }
+      ok&&ok(d);
+    })
+    .catch(function(e){ clearTimeout(tm); fail&&fail(e); });
+}
+function fetchData(pw, ok, fail, fresh){
+  callExec(EXEC+'?callback=cb&pw='+encodeURIComponent(pw)+(fresh?'&fresh=1':'')+'&t='+Date.now(), ok, function(e){ fail&&fail('network'); });
+}
+
+// Đọc NHANH từ bảng công khai (gviz) — để lần đầu cũng tức thì
+var GVIZ="https://docs.google.com/spreadsheets/d/10PH2ARrJrJinbqoFvQBY6DN6yaOPUWt-0KJOOywmy5M/gviz/tq?tqx=out:csv&gid=0";
+function fetchFast(ok, fail){
+  fetch(GVIZ+'&t='+Date.now(),{cache:'no-store'})
+    .then(function(r){return r.text();})
+    .then(function(t){
+      var lines=t.split('\n'), d=null;
+      for(var i=lines.length-1;i>=0;i--){ var s=lines[i].trim(); if(!s) continue;
+        if(s.charAt(0)==='"') s=s.slice(1,-1).replace(/""/g,'"');
+        if(s.charAt(0)==='{'){ try{ d=JSON.parse(s); break; }catch(e){} } }
+      if(d && d.ok) ok(d); else (fail&&fail('empty'));
+    })
+    .catch(function(){ fail&&fail('net'); });
+}
+
+function vao(){
+  PW=document.getElementById('pw').value;
+  var e=document.getElementById('err'); e.style.display='none';
+  fetchData(PW, function(d){
+    if(!d||!d.ok){ e.style.display='block'; return; }
+    document.getElementById('gate').style.display='none';
+    document.getElementById('app').style.display='block';
+    render(d);
+  }, function(){ e.style.display='block'; });
+}
+function taiLai(){
+  document.getElementById('cap').textContent='Đang cập nhật…';
+  // Làm mới = lấy số liệu LIVE mới nhất (không qua bảng cache)
+  fetchData(PW, function(d){ if(d&&d.ok){ render(d); saveCache(d); } }, null, true);
+}
+// Lưu/đọc dữ liệu lần trước trong máy để mở tức thì
+var LS='luu_cache_v1';
+function saveCache(d){ try{ localStorage.setItem(LS, JSON.stringify(d)); }catch(e){} }
+function loadCache(){ try{ var s=localStorage.getItem(LS); return s?JSON.parse(s):null; }catch(e){ return null; } }
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+function card(n,l){return '<div class="card"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';}
+function sec(cls,icon,title,items,render){
+  var id='s'+Math.random().toString(36).slice(2,7);
+  var body = items.length ? items.map(render).join('') : '<div class="empty">Không có</div>';
+  return '<div class="sec '+cls+'"><h3 onclick="var e=document.getElementById(\''+id+'\');e.classList.toggle(\'open\')">'
+    +'<span>'+icon+' '+title+'</span><span class="cnt">'+items.length+'</span></h3>'
+    +'<div class="list'+(items.length?' open':'')+'" id="'+id+'">'+body+'</div></div>';
+}
+function rowHtml(x,tag){
+  return '<div class="row"><span class="ph">'+esc(x.phong)+'</span>'
+    +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small></span>'
+    +'<span class="tag">'+tag(x)+'</span></div>';
+}
+function enc(s){return encodeURIComponent(String(s==null?'':s));}
+function waNum(p){ var d=String(p||'').replace(/[^\d+]/g,'').replace(/^\+/,''); if(d.charAt(0)==='0') d='84'+d.slice(1); return d; }
+function zaloNum(p){ return String(p||'').replace(/[^\d+]/g,'').replace(/^\+/,''); }
+function cpZalo(el){ try{ var m=decodeURIComponent(el.getAttribute('data-msg')||''); if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(m); else fbCopy(m); }catch(e){} return true; }
+// WeChat không có liên kết mở chat sẵn từ web → copy tin rồi mở app WeChat để dán
+function moWechat(el){
+  try{ var m=decodeURIComponent(el.getAttribute('data-msg')||''); if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(m); else fbCopy(m); }catch(e){}
+  var o=el.textContent; el.textContent='✓ Đã copy'; setTimeout(function(){el.textContent=o;},1600);
+  try{ window.open('weixin://',' _blank'); }catch(e){}
+}
+// Nút nhắc: chỉ hiện 1 kênh theo cột "Liên hệ" (X). Trống SĐT hoặc trống kênh → cảnh báo.
+function rowNhac(x,tag,kind,urg){
+  var con = (x.con!=null?x.con:'');
+  var k = x.kenh||'';
+  var acts;
+  if(!x.sdt){
+    acts = '<span class="warn">⚠️ Chưa có số liên hệ</span>';
+  } else if(!k){
+    acts = '<span class="warn">⚠️ Chưa chọn kênh (cột Liên hệ)</span>';
+  } else {
+    var msg = mkMsg(kind, x.ten, x.phong, x.ngay, con);
+    var em = encodeURIComponent(msg);
+    if(k==='zalo'){
+      acts = '<a class="mini za" href="https://zalo.me/'+zaloNum(x.sdt)+'" target="_blank" rel="noopener" data-msg="'+em+'" onclick="cpZalo(this)">Zalo</a>';
+    } else if(k==='wa'){
+      acts = '<a class="mini wa" href="https://wa.me/'+waNum(x.sdt)+'?text='+em+'" target="_blank" rel="noopener">WhatsApp</a>';
+    } else if(k==='wechat'){
+      acts = '<button class="mini wc" data-msg="'+em+'" onclick="moWechat(this)">WeChat</button>';
+    } else {
+      acts = '<span class="warn">⚠️ Chưa chọn kênh</span>';
+    }
+  }
+  var ab = x.anh ? '<span class="anhb">📎 '+esc(x.anh)+'</span>' : '';
+  return '<div class="row"><span class="ph">'+esc(x.phong)+'</span>'
+    +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small></span>'
+    +'<span class="tag">'+ab+tag(x)+acts+'</span></div>';
+}
+function upLink(ph, ten){
+  return EXEC+'?up=1&ma='+encodeURIComponent(ph||'')+'&ten='+encodeURIComponent(ten||'');
+}
+// ===== Tin mẫu (song ngữ, tự điền) — nạp từ dữ liệu (d.tpl) =====
+var TPL = null;
+var TPL_LABEL = { tt:'Sắp hết hạn tạm trú', ttqua:'Đã quá hạn tạm trú', hd:'Sắp hết hợp đồng', hdqua:'Đã hết hợp đồng' };
+var TPL_FALLBACK = {
+  vi:{
+    tt:'Kính gửi {ten} — căn hộ {phong},\nLUXHOME xin nhắc: thời hạn TẠM TRÚ của Anh/Chị sẽ hết hạn ngày {ngay} (còn {con} ngày). Vui lòng liên hệ nhân viên quản lý để được hỗ trợ gia hạn/khai báo lưu trú. Trân trọng, LUXHOME.',
+    ttqua:'Kính gửi {ten} — căn hộ {phong},\nLUXHOME xin thông báo: thời hạn TẠM TRÚ của Anh/Chị ĐÃ HẾT HẠN từ ngày {ngay} (đã quá {con} ngày). Đề nghị Anh/Chị LIÊN HỆ NGAY nhân viên quản lý để gia hạn/khai báo lưu trú, tránh bị xử phạt theo quy định. Trân trọng, LUXHOME.',
+    hd:'Kính gửi {ten} — căn hộ {phong},\nLUXHOME xin nhắc: HỢP ĐỒNG thuê của Anh/Chị sắp hết hạn ngày {ngay} (còn {con} ngày). Nếu Anh/Chị có nhu cầu tiếp tục thuê, vui lòng liên hệ nhân viên để làm thủ tục gia hạn. Trân trọng, LUXHOME.',
+    hdqua:'Kính gửi {ten} — căn hộ {phong},\nLUXHOME xin thông báo: HỢP ĐỒNG thuê của Anh/Chị ĐÃ HẾT HẠN từ ngày {ngay} (đã quá {con} ngày). Nếu Anh/Chị tiếp tục thuê, vui lòng LIÊN HỆ NGAY nhân viên để làm thủ tục gia hạn hợp đồng. Trân trọng, LUXHOME.'
+  },
+  en:{
+    tt:'Dear {ten} — Apartment {phong},\nLUXHOME reminder: your TEMPORARY RESIDENCE registration will expire on {ngay} ({con} day(s) left). Please contact our management staff to renew your stay declaration. Best regards, LUXHOME.',
+    ttqua:'Dear {ten} — Apartment {phong},\nLUXHOME notice: your TEMPORARY RESIDENCE registration HAS EXPIRED since {ngay} ({con} day(s) overdue). Please CONTACT our management staff IMMEDIATELY to renew your stay declaration and avoid penalties. Best regards, LUXHOME.',
+    hd:'Dear {ten} — Apartment {phong},\nLUXHOME reminder: your LEASE will expire on {ngay} ({con} day(s) left). If you wish to continue renting, please contact our staff to renew. Best regards, LUXHOME.',
+    hdqua:'Dear {ten} — Apartment {phong},\nLUXHOME notice: your LEASE HAS EXPIRED since {ngay} ({con} day(s) overdue). If you wish to continue renting, please CONTACT our staff IMMEDIATELY to renew the lease. Best regards, LUXHOME.'
+  }
+};
+function fillTpl(t, ten, ph, ngay, con){
+  return String(t).replace(/\{ten\}/g,ten).replace(/\{phong\}/g,ph).replace(/\{ngay\}/g,ngay).replace(/\{con\}/g,con);
+}
+function mkMsg(kind, ten, ph, ngay, con){
+  var n = parseInt(con,10);
+  var qua = (!isNaN(n) && n<0);
+  var cd = isNaN(n) ? '' : Math.abs(n);           // số ngày hiển thị (luôn dương)
+  var key = kind + (qua?'qua':'');
+  var vi = (TPL&&TPL.vi&&TPL.vi[key]) || TPL_FALLBACK.vi[key];
+  var en = (TPL&&TPL.en&&TPL.en[key]) || TPL_FALLBACK.en[key];
+  var L = upLink(ph, ten);
+  var ask = '\n\n📎 Gửi ảnh hộ chiếu/visa/CCCD tại đây để khai báo lưu trú:\n'+L
+          + '\nUpload your passport/visa/ID photos here:\n'+L;
+  return fillTpl(vi, ten, ph, ngay, cd) + '\n\n' + fillTpl(en, ten, ph, ngay, cd) + ask;
+}
+function copyMsg(b){
+  var ten=decodeURIComponent(b.getAttribute('data-ten'));
+  var ph=decodeURIComponent(b.getAttribute('data-ph'));
+  var ngay=decodeURIComponent(b.getAttribute('data-ngay'));
+  var con=decodeURIComponent(b.getAttribute('data-con'));
+  var kind=b.getAttribute('data-k');
+  var msg=mkMsg(kind, ten, ph, ngay, con);
+  function done(){ var o=b.textContent; b.textContent='✓ Đã copy'; setTimeout(function(){b.textContent=o;},1600); }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(msg).then(done, function(){ fbCopy(msg); done(); });
+  } else { fbCopy(msg); done(); }
+}
+function fbCopy(msg){ var ta=document.createElement('textarea'); ta.value=msg; ta.style.position='fixed'; ta.style.opacity='0';
+  document.body.appendChild(ta); ta.focus(); ta.select(); try{document.execCommand('copy');}catch(e){} ta.remove(); }
+function render(d){
+  if(d.tpl) TPL=d.tpl;
+  document.getElementById('cap').textContent='Cập nhật '+d.capNhat;
+  document.getElementById('cards').innerHTML =
+    card(d.tong,'Tổng khách')+card(d.phongTrong,'Phòng trống')+
+    card(d.vn,'Khách VN')+card(d.nn,'Khách nước ngoài');
+  document.getElementById('secs').innerHTML =
+    sec('r-dark','⛔','ĐÃ QUÁ HẠN tạm trú — cần xử lý gấp',d.quaTT||[],function(x){return rowNhac(x,function(y){return 'quá '+(-y.con)+'n · '+y.ngay;},'tt',true);})
+   +sec('r-dark','⛔','ĐÃ HẾT hợp đồng — cần xử lý gấp',d.quaHD||[],function(x){return rowNhac(x,function(y){return 'quá '+(-y.con)+'n · '+y.ngay;},'hd',true);})
+   +sec('r-red','🔴','Sắp hết hạn tạm trú (≤5 ngày)',d.hetTT,function(x){return rowNhac(x,function(y){return 'còn '+y.con+'n · '+y.ngay;},'tt');})
+   +sec('r-amber','🟠','Sắp hết hợp đồng (≤15 ngày)',d.hetHD,function(x){return rowNhac(x,function(y){return 'còn '+y.con+'n · '+y.ngay;},'hd');})
+   +sec('r-blue','🆕','Khách mới cần khai báo',d.moi,function(x){return rowHtml(x,function(y){return y.ngay;});})
+   +sec('r-muted','⚠️','Khách thiếu dữ liệu',d.thieu,function(x){return rowHtml(x,function(y){return esc(y.miss);});});
+}
+
+// ===== Quản lý email nhận cảnh báo =====
+var E_ADMIN='', E_LIST=[];
+function moEmail(){ document.getElementById('emailWrap').style.display='block'; }
+function dongEmail(){ document.getElementById('emailWrap').style.display='none'; }
+function cfgCall(action, extra, ok, fail){
+  callExec(EXEC+'?cfg='+action+'&pw='+encodeURIComponent(E_ADMIN)+(extra||'')+'&callback=cb&t='+Date.now(), ok, fail);
+}
+function eLogin(){
+  E_ADMIN=document.getElementById('eAdminPw').value;
+  document.getElementById('eErr').style.display='none';
+  cfgCall('get','', function(d){
+    if(d&&d.ok){ document.getElementById('eGate').style.display='none'; document.getElementById('eMain').style.display='block'; E_LIST=d.emails||[]; eRender(); }
+    else { document.getElementById('eErr').textContent='Sai mật khẩu'; document.getElementById('eErr').style.display='block'; }
+  }, function(){ document.getElementById('eErr').textContent='Không kết nối được'; document.getElementById('eErr').style.display='block'; });
+}
+function eRender(){
+  var h = E_LIST.length ? E_LIST.map(function(e,i){
+    return '<div style="display:flex;justify-content:space-between;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:10px;margin-bottom:6px">'
+      +'<span style="font-size:.9rem;word-break:break-all">'+esc(e)+'</span>'
+      +'<button onclick="eDel('+i+')" style="background:none;border:0;color:var(--red);font-weight:700;cursor:pointer">Xoá</button></div>';
+  }).join('') : '<p class="muted">Chưa có email nào. Thêm bên dưới.</p>';
+  document.getElementById('eList').innerHTML=h;
+}
+function eSave(){
+  document.getElementById('eMsg').textContent='Đang lưu…';
+  cfgCall('set','&emails='+encodeURIComponent(E_LIST.join(',')), function(d){
+    if(d&&d.ok){ E_LIST=d.emails||[]; eRender(); document.getElementById('eMsg').textContent='✓ Đã lưu'; setTimeout(function(){document.getElementById('eMsg').textContent='';},1500); }
+    else document.getElementById('eMsg').textContent='Lưu thất bại (sai mật khẩu?)';
+  }, function(){ document.getElementById('eMsg').textContent='Không kết nối được'; });
+}
+function eAdd(){ var v=document.getElementById('eNew').value.trim();
+  if(v.indexOf('@')<1){ document.getElementById('eMsg').textContent='Email không hợp lệ'; return; }
+  if(E_LIST.indexOf(v)<0) E_LIST.push(v);
+  document.getElementById('eNew').value=''; eSave(); }
+function eDel(i){ E_LIST.splice(i,1); eSave(); }
+
+// ===== Chỉnh sửa tin mẫu =====
+var T_ADMIN='';
+function tKeys(){ return ['tt','ttqua','hd','hdqua']; }
+function moTpl(){
+  document.getElementById('tplWrap').style.display='block';
+  document.getElementById('tGate').style.display='block';
+  document.getElementById('tMain').style.display='none';
+  document.getElementById('tAdminPw').value='';
+  document.getElementById('tErr').style.display='none';
+  document.getElementById('tMsg').textContent='';
+}
+function dongTpl(){ document.getElementById('tplWrap').style.display='none'; }
+function tRender(){
+  var vi=(TPL&&TPL.vi)||TPL_FALLBACK.vi;
+  var h=tKeys().map(function(k){
+    return '<div style="margin-bottom:12px"><div style="font-weight:700;font-size:.85rem;margin-bottom:4px;color:var(--cyan)">'+TPL_LABEL[k]+'</div>'
+      +'<textarea id="t_'+k+'" style="width:100%;min-height:100px;padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--fg)">'+esc(vi[k]||'')+'</textarea></div>';
+  }).join('');
+  document.getElementById('tFields').innerHTML=h;
+}
+function tLogin(){
+  T_ADMIN=document.getElementById('tAdminPw').value;
+  document.getElementById('tErr').style.display='none';
+  callExec(EXEC+'?cfg=get&pw='+encodeURIComponent(T_ADMIN)+'&callback=cb&t='+Date.now(), function(d){
+    if(d&&d.ok){ document.getElementById('tGate').style.display='none'; document.getElementById('tMain').style.display='block'; tRender(); }
+    else { document.getElementById('tErr').textContent='Sai mật khẩu'; document.getElementById('tErr').style.display='block'; }
+  }, function(){ document.getElementById('tErr').textContent='Không kết nối được'; document.getElementById('tErr').style.display='block'; });
+}
+function tReset(){
+  var vi=TPL_FALLBACK.vi;
+  tKeys().forEach(function(k){ var el=document.getElementById('t_'+k); if(el) el.value=vi[k]; });
+  document.getElementById('tMsg').textContent='Đã nạp mẫu mặc định — bấm Lưu để áp dụng.';
+}
+function tSave(){
+  var vi={}; tKeys().forEach(function(k){ var el=document.getElementById('t_'+k); vi[k]= el? el.value : ''; });
+  document.getElementById('tMsg').textContent='Đang lưu & tự dịch… (vài giây)';
+  callExec(EXEC+'?cfg=tpl&pw='+encodeURIComponent(T_ADMIN)+'&tpl='+encodeURIComponent(JSON.stringify(vi))+'&callback=cb&t='+Date.now(),
+    function(d){
+      if(d&&d.ok&&d.tpl){ TPL=d.tpl; document.getElementById('tMsg').textContent='✓ Đã lưu & tự dịch sang tiếng Anh'; setTimeout(function(){document.getElementById('tMsg').textContent='';},2500); }
+      else document.getElementById('tMsg').textContent='Lưu thất bại (sai mật khẩu?)';
+    },
+    function(){ document.getElementById('tMsg').textContent='Không kết nối được'; });
+}
+
+// Mở thẳng, không hỏi mật khẩu
+window.addEventListener('DOMContentLoaded', function(){
+  document.getElementById('gate').style.display='none';
+  document.getElementById('app').style.display='block';
+  var cached=loadCache();
+  if(cached && cached.ok){ render(cached); document.getElementById('cap').textContent='Đang cập nhật…'; }
+  else { document.getElementById('cap').textContent='Đang tải…'; }
+  // 1) đọc nhanh từ bảng công khai; 2) nếu lỗi thì dùng JSONP
+  fetchFast(
+    function(d){ render(d); saveCache(d); },
+    function(){
+      fetchData(PW,
+        function(d){ if(d&&d.ok){ render(d); saveCache(d); } else if(!cached){ document.getElementById('cap').textContent='Không tải được — bấm Làm mới'; } },
+        function(){ if(!cached) document.getElementById('cap').textContent='Không kết nối được — bấm Làm mới'; });
+    });
+});
+</script>
+</body>
+</html>
