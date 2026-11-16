@@ -172,31 +172,33 @@ function findByRoom(room){
 }
 
 /* ===== OCR đọc mã phòng ngay trong trình duyệt (Tesseract.js) ===== */
-var _workerReady=null;
-function getWorker(){
-  if(_workerReady) return _workerReady;
-  _workerReady=(async function(){
+var OCR_WL='ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-T ';
+// Nhóm nhiều bộ đọc chạy SONG SONG (đọc được nhiều ảnh cùng lúc cho nhanh)
+var _schedReady=null;
+function getWorker(){   // giữ tên cũ: nạp sẵn nhóm đọc khi mở trang
+  if(_schedReady) return _schedReady;
+  _schedReady=(async function(){
     try{
-      var w=await Tesseract.createWorker('eng');
-      try{ await w.setParameters({ tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-T ', tessedit_pageseg_mode:'6' }); }catch(e){}
-      return w;
+      var sched=Tesseract.createScheduler();
+      var n=Math.max(1, Math.min(3, (navigator.hardwareConcurrency||2)-1 || 2));  // 2–3 bộ, nhẹ cho điện thoại
+      for(var i=0;i<n;i++){
+        try{
+          var w=await Tesseract.createWorker('eng');
+          try{ await w.setParameters({ tessedit_char_whitelist:OCR_WL, tessedit_pageseg_mode:'6' }); }catch(e){}
+          sched.addWorker(w);
+        }catch(e){}
+      }
+      return sched;
     }catch(e){ return null; }
   })();
-  return _workerReady;
+  return _schedReady;
 }
 function roomFromText(txt){
   var m=String(txt||'').match(/([A-Za-z0-9]{1,4})\s*[-–]\s*T\s*(\d{1,3})/i);
   return m ? (m[1]+'-T'+m[2]).toUpperCase().replace(/\s+/g,'') : '';
 }
-// Xếp hàng OCR: 1 worker chỉ đọc 1 ảnh/lần (đọc song song trên cùng worker sẽ chậm/lỗi)
-var _ocrQueue=Promise.resolve();
-function ocrImage(dataUrl){
-  var p=_ocrQueue.then(function(){ return _ocrRun(dataUrl); });
-  _ocrQueue=p.catch(function(){});
-  return p;
-}
-async function _ocrRun(dataUrl){
-  try{ var w=await getWorker(); if(!w) return ''; var res=await w.recognize(dataUrl); return roomFromText(res&&res.data?res.data.text:''); }catch(e){ return ''; }
+async function ocrImage(dataUrl){
+  try{ var s=await getWorker(); if(!s) return ''; var res=await s.addJob('recognize', dataUrl); return roomFromText(res&&res.data?res.data.text:''); }catch(e){ return ''; }
 }
 
 /* ===== Gửi kèm ảnh JPG thật (Web Share) ===== */
