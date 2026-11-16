@@ -6,7 +6,7 @@
 <title>LUXHOME · Gửi hóa đơn</title>
 <meta name="theme-color" content="#0e7ba8">
 <style>
-  :root{--bg:#eef3f4;--surface:#fff;--fg:#13242a;--muted:#5f727a;--line:#e2eaec;--cyan:#0e7ba8;--cyan2:#28c3dd;--red:#c0392b;--amber:#b7791f;}
+  :root{--bg:#eef3f4;--surface:#fff;--fg:#13242a;--muted:#5f727a;--line:#e2eaec;--cyan:#0e7ba8;--cyan2:#28c3dd;--red:#c0392b;--amber:#b7791f;--green:#12a150;}
   @media (prefers-color-scheme:dark){:root{--bg:#0c1518;--surface:#13222a;--fg:#e8f1f3;--muted:#90a4ac;--line:#20333c;}}
   *{box-sizing:border-box}
   body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",sans-serif;line-height:1.45}
@@ -18,23 +18,30 @@
   .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin-top:12px}
   .lb{font-weight:700;font-size:.88rem;margin:10px 0 4px}
   .hint{color:var(--muted);font-size:.82rem}
-  input{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--fg)}
+  input,textarea{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--bg);color:var(--fg)}
+  textarea{min-height:92px;resize:vertical}
   .btn{width:100%;padding:13px;border:0;border-radius:12px;background:var(--cyan);color:#fff;font-weight:800;font-size:1rem;cursor:pointer;margin-top:12px}
   .drop{border:2px dashed var(--cyan2);border-radius:14px;padding:22px 14px;text-align:center;background:rgba(40,195,221,.08);cursor:pointer;margin-top:6px;display:block}
   .drop b{color:var(--cyan)}
-  .row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-top:10px}
+  .seg{flex:1;padding:9px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:10px;font-weight:700;cursor:pointer}
+  .seg.on{background:var(--cyan);color:#fff;border-color:var(--cyan)}
+  .row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-top:10px;flex-wrap:wrap}
   .row>img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:0 0 auto}
-  .info{flex:1;min-width:0}
+  .info{flex:1;min-width:120px}
   .ph{font-weight:800}
   .nm{color:var(--muted);font-size:.85rem;font-weight:400}
-  .act a,.act button{display:inline-block;padding:8px 13px;border-radius:9px;font-weight:800;font-size:.84rem;text-decoration:none;cursor:pointer;border:1px solid}
+  .qt{font-size:.68rem;font-weight:800;padding:1px 6px;border-radius:6px;background:rgba(14,123,168,.12);color:var(--cyan)}
+  .act{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+  .act a,.act button{display:inline-block;padding:8px 12px;border-radius:9px;font-weight:800;font-size:.82rem;text-decoration:none;cursor:pointer;border:1px solid}
+  .share{background:var(--green);color:#fff;border-color:var(--green)}
   .za{color:#0068ff;border-color:#0068ff;background:transparent}
   .wa{color:#12a150;border-color:#12a150;background:transparent}
   .wc{color:#07a84e;border-color:#07a84e;background:transparent}
   .warn{color:var(--amber);background:rgba(183,121,31,.12);border-radius:8px;padding:6px 10px;font-size:.78rem;font-weight:700;white-space:nowrap}
-  .vlink{font-size:.78rem}
+  .vlink{font-size:.76rem}
   .err{color:var(--red);font-size:.85rem;margin-top:8px}
   .load{color:var(--muted);font-size:.8rem}
+  .msg{color:var(--green);font-size:.8rem}
 </style>
 </head>
 <body>
@@ -52,6 +59,23 @@
   <div class="card" id="main" style="display:none">
     <div class="lb">Tháng hóa đơn</div>
     <input id="thang" placeholder="11-2026">
+
+    <div class="lb">Nội dung tin nhắn</div>
+    <div style="display:flex;gap:8px">
+      <button class="seg" id="segDef">Mặc định</button>
+      <button class="seg" id="segCus">Tùy chỉnh</button>
+    </div>
+    <div id="tEdit" style="display:none;margin-top:8px">
+      <div class="hint">Dùng chỗ tự điền: <b>{ten}</b> {phong} {thang}. Khách VN chỉ gửi tiếng Việt; khách nước ngoài gửi song ngữ (Việt + Anh).</div>
+      <div class="lb">Tiếng Việt</div>
+      <textarea id="tVI"></textarea>
+      <div class="lb">Tiếng Anh (cho khách nước ngoài)</div>
+      <textarea id="tEN"></textarea>
+      <button class="btn" id="tSave">💾 Lưu mẫu tùy chỉnh</button>
+      <button class="btn" id="tReset" style="background:#5d6b66">↩️ Về mẫu mặc định</button>
+      <p class="msg" id="tMsg"></p>
+    </div>
+
     <div class="lb">Nạp ảnh hóa đơn</div>
     <label class="drop" for="file"><b>+ Chọn ảnh hóa đơn</b><div class="hint">Chọn nhiều ảnh cùng lúc · app tự đọc mã phòng in trên hóa đơn</div></label>
     <input id="file" type="file" accept="image/*" multiple style="display:none">
@@ -64,6 +88,8 @@
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 var PW='', CONTACTS=[];
+var DEF_VI='Kính gửi {ten}, LUXHOME xin gửi hóa đơn tiền thuê căn hộ {phong} - tháng {thang}. Vui lòng kiểm tra và thanh toán giúp ạ. Trân trọng, LUXHOME.';
+var DEF_EN='Dear {ten}, LUXHOME sends you the rental invoice for apartment {phong} - {thang}. Please check and make the payment. Best regards, LUXHOME.';
 
 function callExec(url, ok, fail){
   fetch(url,{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){
@@ -78,13 +104,35 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return
 function waNum(p){var d=String(p||'').replace(/[^0-9+]/g,'').replace(/^\+/,'');if(d.charAt(0)==='0')d='84'+d.slice(1);return d;}
 function zaloNum(p){return String(p||'').replace(/[^0-9+]/g,'').replace(/^\+/,'');}
 function cpy(t){ try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t); else { var a=document.createElement('textarea');a.value=t;document.body.appendChild(a);a.select();document.execCommand('copy');a.remove(); } }catch(e){} }
+function LS(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localStorage.setItem(k,v); }catch(e){ return null; } }
+
+/* ===== Mẫu tin: mặc định / tùy chỉnh (lưu trên máy) ===== */
+function tplVI(){ return (LS('bill_choice')==='cus' && LS('bill_vi')) ? LS('bill_vi') : DEF_VI; }
+function tplEN(){ return (LS('bill_choice')==='cus' && LS('bill_en')) ? LS('bill_en') : DEF_EN; }
+function fillTpl(t,c,thang){ return String(t).replace(/\{ten\}/g,c.ten).replace(/\{phong\}/g,c.phong).replace(/\{thang\}/g,thang); }
+// Tạo nội dung theo quốc tịch: VN -> chỉ tiếng Việt; NN -> song ngữ. link (nếu có) để khách bấm xem.
+function buildMsg(c,thang,link){
+  var vi=fillTpl(tplVI(),c,thang), en=fillTpl(tplEN(),c,thang);
+  var isVN=String(c.qt||'').toUpperCase()==='VN';
+  var m=isVN ? vi : (vi+'\n\n'+en);
+  if(link) m += '\n\n' + (isVN ? ('Xem hóa đơn: '+link) : ('Xem hóa đơn / View invoice: '+link));
+  return m;
+}
+function setChoice(ch){
+  LS('bill_choice', ch);
+  document.getElementById('segDef').classList.toggle('on', ch!=='cus');
+  document.getElementById('segCus').classList.toggle('on', ch==='cus');
+  document.getElementById('tEdit').style.display = (ch==='cus')?'block':'none';
+  if(ch==='cus'){ document.getElementById('tVI').value=LS('bill_vi')||DEF_VI; document.getElementById('tEN').value=LS('bill_en')||DEF_EN; }
+}
 
 function vao(){
   PW=document.getElementById('pw').value;
   document.getElementById('gerr').style.display='none';
   callExec(EXEC+'?dsbill=1&pw='+enc(PW)+'&callback=cb&t='+Date.now(), function(d){
     if(d&&d.ok){ CONTACTS=d.list||[]; document.getElementById('gate').style.display='none'; document.getElementById('main').style.display='block';
-      var dt=new Date(); document.getElementById('thang').value=('0'+(dt.getMonth()+1)).slice(-2)+'-'+dt.getFullYear(); }
+      var dt=new Date(); document.getElementById('thang').value=('0'+(dt.getMonth()+1)).slice(-2)+'-'+dt.getFullYear();
+      setChoice(LS('bill_choice')||'def'); }
     else { document.getElementById('gerr').style.display='block'; }
   }, function(){ document.getElementById('gerr').style.display='block'; });
 }
@@ -95,28 +143,16 @@ function findContact(fname){
 }
 function findByRoom(room){
   if(!room) return null;
-  var r=String(room).toUpperCase().replace(/\s+/g,'');
-  var best=null;
+  var r=String(room).toUpperCase().replace(/\s+/g,''), best=null;
   CONTACTS.forEach(function(c){ var p=String(c.phong||'').toUpperCase().replace(/\s+/g,''); if(p && (p===r || r.indexOf(p)>-1 || p.indexOf(r)>-1)){ if(!best||p.length>String(best.phong).length) best=c; } });
   return best;
 }
-function mkMsg(c,thang,link){
-  var vi='Kính gửi '+c.ten+', LUXHOME xin gửi hóa đơn tiền thuê căn hộ '+c.phong+' - tháng '+thang+'. Vui lòng xem hóa đơn và thanh toán giúp ạ: '+link+'. Trân trọng, LUXHOME.';
-  var en='Dear '+c.ten+', LUXHOME sends you the rental invoice for apartment '+c.phong+' - '+thang+'. Please view your invoice and make the payment: '+link+'. Best regards, LUXHOME.';
-  return vi+'\n\n'+en;
-}
 
 /* ===== OCR đọc mã phòng ngay trong trình duyệt (Tesseract.js) ===== */
-var _worker=null, _workerReady=null;
+var _workerReady=null;
 function getWorker(){
   if(_workerReady) return _workerReady;
-  _workerReady=(async function(){
-    try{
-      var w=await Tesseract.createWorker('eng');
-      try{ await w.setParameters({ tessedit_char_whitelist:'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-:/ ' }); }catch(e){}
-      _worker=w; return w;
-    }catch(e){ return null; }
-  })();
+  _workerReady=(async function(){ try{ return await Tesseract.createWorker('eng'); }catch(e){ return null; } })();
   return _workerReady;
 }
 function roomFromText(txt){
@@ -124,11 +160,26 @@ function roomFromText(txt){
   return m ? (m[1]+'-T'+m[2]).toUpperCase().replace(/\s+/g,'') : '';
 }
 async function ocrImage(dataUrl){
+  try{ var w=await getWorker(); if(!w) return ''; var res=await w.recognize(dataUrl); return roomFromText(res&&res.data?res.data.text:''); }catch(e){ return ''; }
+}
+
+/* ===== Gửi kèm ảnh JPG thật (Web Share) ===== */
+function canShareFiles(){
+  try{ return !!(navigator.canShare && navigator.share && navigator.canShare({files:[new File([new Blob([''],{type:'image/jpeg'})],'t.jpg',{type:'image/jpeg'})]})); }catch(e){ return false; }
+}
+async function shareImg(c, thang, dataUrl, btn){
+  var msg=buildMsg(c,thang,'');
   try{
-    var w=await getWorker(); if(!w) return '';
-    var res=await w.recognize(dataUrl);
-    return roomFromText(res && res.data ? res.data.text : '');
-  }catch(e){ return ''; }
+    var blob=await (await fetch(dataUrl)).blob();
+    var file=new File([blob], (c.phong||'bill')+'_'+thang+'.jpg', {type:'image/jpeg'});
+    if(navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({ files:[file], text: msg });
+      return;
+    }
+  }catch(e){ if(e && e.name==='AbortError') return; }
+  cpy(msg);
+  if(btn){ var o=btn.textContent; btn.textContent='✓ Đã copy nội dung'; setTimeout(function(){btn.textContent=o;},1800); }
+  alert('Thiết bị không gửi kèm ảnh trực tiếp được. Đã copy nội dung — bạn mở ảnh (nút "xem bill") và gửi kèm thủ công.');
 }
 
 document.getElementById('file').addEventListener('change',function(e){
@@ -145,7 +196,6 @@ function handle(file,thang){
       var fw=Math.round(w*sc),fh=Math.round(h*sc);
       var cv=document.createElement('canvas');cv.width=fw;cv.height=fh;cv.getContext('2d').drawImage(im,0,0,fw,fh);
       var fullData=cv.toDataURL('image/jpeg',0.85);
-      // cắt ~45% phía trên (nơi in mã phòng) để OCR nhanh & chính xác hơn
       var ch=Math.max(1,Math.round(h*0.45));
       var oc=document.createElement('canvas');oc.width=w;oc.height=ch;oc.getContext('2d').drawImage(im,0,0,w,ch,0,0,w,ch);
       var ocrData=oc.toDataURL('image/jpeg',0.92);
@@ -157,59 +207,83 @@ function handle(file,thang){
   r.readAsDataURL(file);
 }
 async function up(fname, fullData, ocrData, thang){
-  var cFile=findContact(fname);                 // thử theo tên file trước (nếu có mã phòng trong tên)
-  var box=addRow(fullData, cFile?cFile.phong:'đang đọc mã phòng…', cFile, null, null, thang, true);
+  var cFile=findContact(fname);
+  var box=addRow(fullData, cFile, cFile?cFile.phong:'đang đọc mã phòng…', null, null, thang, true);
   var c=cFile, room='';
-  if(!c){
-    room=await ocrImage(ocrData);               // đọc mã phòng từ ảnh
-    c=findByRoom(room);
-  }
+  if(!c){ room=await ocrImage(ocrData); c=findByRoom(room); }
+  box._c=c; box._room=room; box._thang=thang; box._full=fullData;
+  renderCard(box);                         // hiện ngay nút gửi kèm ảnh (dùng ảnh trên máy)
   var key=(c?c.phong:(room||('x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6))));
-  // đọc link cũ để biết khi nào link mới xuất hiện
+  // tải ảnh lên Drive để có link "xem bill" (nền)
   callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d0){
-    doUpload(box, c, key, room, thang, fullData, (d0&&d0.ok)?(d0.link||''):'');
-  }, function(){ doUpload(box, c, key, room, thang, fullData, ''); });
+    doUpload(box, key, thang, fullData, (d0&&d0.ok)?(d0.link||''):'');
+  }, function(){ doUpload(box, key, thang, fullData, ''); });
 }
-function doUpload(box, c, key, room, thang, fullData, oldLink){
+function doUpload(box, key, thang, fullData, oldLink){
   try{
     fetch(EXEC,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
       body:'bill=upload&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&img='+enc(fullData)});
   }catch(e){}
-  poll(box, c, key, room, thang, oldLink, 0);
+  pollLink(box, key, thang, oldLink, 0);
 }
-function poll(box, c, key, room, thang, oldLink, n){
-  if(n>15){ fillRow(box, (c?c.phong:(room||'?')), c, null, 'Tải lên quá lâu, thử lại', thang); return; }
+function pollLink(box, key, thang, oldLink, n){
+  if(n>15) return;
   callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d){
     var link=(d&&d.ok)?(d.link||''):'';
-    if(link && link!==oldLink){ fillRow(box, (c?c.phong:(room||'Không rõ')), c, link, null, thang); }
-    else { setTimeout(function(){ poll(box, c, key, room, thang, oldLink, n+1); }, 1800); }
-  }, function(){ setTimeout(function(){ poll(box, c, key, room, thang, oldLink, n+1); }, 1800); });
+    if(link && link!==oldLink){ box._link=link; renderCard(box); }
+    else { setTimeout(function(){ pollLink(box, key, thang, oldLink, n+1); }, 1800); }
+  }, function(){ setTimeout(function(){ pollLink(box, key, thang, oldLink, n+1); }, 1800); });
 }
-function addRow(img, room, c, link, err, thang, loading){
+
+function addRow(img, c, room, link, err, thang, loading){
   var box=document.createElement('div'); box.className='row';
   var im=document.createElement('img'); im.src=img; box.appendChild(im);
   var info=document.createElement('div'); info.className='info'; box.appendChild(info);
   var act=document.createElement('div'); act.className='act'; box.appendChild(act);
   document.getElementById('list').appendChild(box);
-  box._info=info; box._act=act;
-  renderInto(box, room, c, link, err, thang, loading);
+  box._info=info; box._act=act; box._c=c; box._room=room; box._thang=thang; box._loading=loading;
+  renderCard(box);
   return box;
 }
-function fillRow(box, room, c, link, err, thang){ renderInto(box, room, c, link, err, thang, false); }
-function renderInto(box, room, c, link, err, thang, loading){
-  var info=box._info, act=box._act;
-  info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+' ('+esc(c.qt)+')</span>':'')+'</div>'+(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'');
+function renderCard(box){
+  var c=box._c, info=box._info, act=box._act, thang=box._thang, link=box._link||'';
+  var room=c?c.phong:(box._room||'Không rõ');
+  info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+esc((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':'')+'</div>'
+    +(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'');
   act.innerHTML='';
-  if(loading){ act.innerHTML='<span class="load">⏳ đang xử lý…</span>'; return; }
-  if(err){ act.innerHTML='<span class="warn">⚠️ '+esc(err)+'</span>'; return; }
+  if(box._loading){ act.innerHTML='<span class="load">⏳ đang đọc mã phòng…</span>'; return; }
   if(!c){ act.innerHTML='<span class="warn">⚠️ Không đọc được mã phòng</span>'; return; }
   if(!c.sdt){ act.innerHTML='<span class="warn">⚠️ Chưa có SĐT</span>'; return; }
-  if(!c.kenh){ act.innerHTML='<span class="warn">⚠️ Chưa chọn kênh</span>'; return; }
-  var msg=mkMsg(c,thang||'',link||'');
-  if(c.kenh==='wa'){ var a=document.createElement('a'); a.className='wa'; a.href='https://wa.me/'+waNum(c.sdt)+'?text='+encodeURIComponent(msg); a.target='_blank'; a.rel='noopener'; a.textContent='Gửi WhatsApp'; act.appendChild(a); }
-  else if(c.kenh==='zalo'){ var a2=document.createElement('a'); a2.className='za'; a2.href='https://zalo.me/'+zaloNum(c.sdt); a2.target='_blank'; a2.rel='noopener'; a2.textContent='Gửi Zalo'; a2.onclick=function(){ cpy(msg); }; act.appendChild(a2); }
-  else if(c.kenh==='wechat'){ var b=document.createElement('button'); b.className='wc'; b.textContent='WeChat (copy)'; b.onclick=function(){ cpy(msg); b.textContent='✓ Đã copy'; }; act.appendChild(b); }
+  // Nút chính: gửi KÈM ẢNH (Web Share)
+  if(canShareFiles()){
+    var sb=document.createElement('button'); sb.className='share'; sb.textContent='📎 Gửi kèm ảnh';
+    sb.onclick=function(){ shareImg(c, thang, box._full, sb); }; act.appendChild(sb);
+  }
+  // Nút phụ: mở thẳng chat đúng khách (kèm link xem bill)
+  if(c.kenh){
+    var msg=buildMsg(c, thang, link);
+    if(c.kenh==='wa'){ var a=document.createElement('a'); a.className='wa'; a.href='https://wa.me/'+waNum(c.sdt)+'?text='+encodeURIComponent(msg); a.target='_blank'; a.rel='noopener'; a.textContent='WhatsApp'; act.appendChild(a); }
+    else if(c.kenh==='zalo'){ var a2=document.createElement('a'); a2.className='za'; a2.href='https://zalo.me/'+zaloNum(c.sdt); a2.target='_blank'; a2.rel='noopener'; a2.textContent='Zalo'; a2.onclick=function(){ cpy(msg); }; act.appendChild(a2); }
+    else if(c.kenh==='wechat'){ var b=document.createElement('button'); b.className='wc'; b.textContent='WeChat'; b.onclick=function(){ cpy(msg); b.textContent='✓ Đã copy'; }; act.appendChild(b); }
+  } else {
+    var wn=document.createElement('span'); wn.className='warn'; wn.textContent='⚠️ Chưa chọn kênh'; act.appendChild(wn);
+  }
 }
+
+// nút chọn mẫu
+document.getElementById('segDef').onclick=function(){ setChoice('def'); };
+document.getElementById('segCus').onclick=function(){ setChoice('cus'); };
+document.getElementById('tSave').onclick=function(){
+  LS('bill_vi', document.getElementById('tVI').value||DEF_VI);
+  LS('bill_en', document.getElementById('tEN').value||DEF_EN);
+  LS('bill_choice','cus');
+  var m=document.getElementById('tMsg'); m.textContent='✓ Đã lưu mẫu tùy chỉnh'; setTimeout(function(){m.textContent='';},1800);
+};
+document.getElementById('tReset').onclick=function(){
+  document.getElementById('tVI').value=DEF_VI; document.getElementById('tEN').value=DEF_EN;
+  LS('bill_vi',DEF_VI); LS('bill_en',DEF_EN); setChoice('def');
+  var m=document.getElementById('tMsg'); m.textContent='Đã về mẫu mặc định'; setTimeout(function(){m.textContent='';},1800);
+};
 document.getElementById('btnvao').onclick=vao;
 document.getElementById('pw').addEventListener('keydown',function(e){ if(e.key==='Enter') vao(); });
 </script>
