@@ -51,7 +51,7 @@
         padding:3px 9px;font-size:.72rem;font-weight:700;cursor:pointer;white-space:nowrap}
   .nhac:active{background:var(--cyan);color:#fff}
   .empty{padding:12px 14px;color:var(--muted);font-size:.82rem}
-  .bar{display:flex;gap:8px;margin-bottom:12px}
+  .bar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
   button{font:inherit;border:0;border-radius:10px;padding:9px 14px;font-weight:700;cursor:pointer}
   .btn{background:var(--cyan);color:#fff;flex:1}
   .gate{max-width:360px;margin:16vh auto;background:var(--card);border:1px solid var(--line);
@@ -82,6 +82,7 @@
       <button class="btn" onclick="taiLai()">↻ Làm mới</button>
       <button class="btn" style="flex:0 0 auto;background:#8a6d1f" onclick="moTpl()">✏️ Tin mẫu</button>
       <button class="btn" style="flex:0 0 auto;background:#5d6b66" onclick="moEmail()">⚙️ Email</button>
+      <button class="btn" style="flex:0 0 auto;background:#0f766e" onclick="window.open(EXEC+'?bill=1','_blank')">🧾 Gửi Bill</button>
     </div>
     <div class="cards" id="cards"></div>
     <div id="secs"></div>
