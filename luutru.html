@@ -82,6 +82,7 @@
       <button class="btn" onclick="taiLai()">↻ Làm mới</button>
       <button class="btn" style="flex:0 0 auto;background:#8a6d1f" onclick="moTpl()">✏️ Tin mẫu</button>
       <button class="btn" style="flex:0 0 auto;background:#5d6b66" onclick="moEmail()">⚙️ Email</button>
+      <button class="btn" style="flex:0 0 auto;background:#0f766e" onclick="moNhatKy()">📋 Nhật ký nhắc</button>
     </div>
     <div class="cards" id="cards"></div>
     <div id="secs"></div>
@@ -127,6 +128,19 @@
       </div>
       <p id="sMsg" class="muted" style="margin-top:8px"></p>
     </div>
+  </div>
+</div>
+
+<!-- Nhật ký đã nhắc hết hạn -->
+<div id="nhatkyWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;padding:16px;overflow:auto">
+  <div style="max-width:520px;margin:6vh auto;background:var(--card);border-radius:16px;padding:20px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <b style="font-size:1.05rem;color:#0f766e">📋 Nhật ký nhắc hết hạn</b>
+      <button onclick="dongNhatKy()" style="background:none;border:0;font-size:1.3rem;color:var(--muted);cursor:pointer">✕</button>
+    </div>
+    <p class="muted" style="margin:6px 0 10px">Ghi lại những lần bạn đã bấm gửi nhắc (trên máy này).</p>
+    <div id="nkList"></div>
+    <button class="btn" style="width:100%;margin-top:12px;background:#b02020" onclick="xoaNhatKy()">🗑️ Xóa toàn bộ nhật ký</button>
   </div>
 </div>
 
@@ -214,6 +228,27 @@ var LS='luu_cache_v1';
 function saveCache(d){ try{ localStorage.setItem(LS, JSON.stringify(d)); }catch(e){} }
 function loadCache(){ try{ var s=localStorage.getItem(LS); return s?JSON.parse(s):null; }catch(e){ return null; } }
 function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+
+/* ===== Theo dõi "đã nhắc" + nhật ký (lưu trên máy) ===== */
+function LSg(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function LSs(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function nkey(ph,k){ return 'rn_'+String(ph).toUpperCase().replace(/[^0-9A-Za-z-]/g,'')+'_'+k; }
+function isNhac(ph,k){ return !!LSg(nkey(ph,k)); }
+var NHACB='<span style="color:#0f9d58;font-weight:800;font-size:.7rem;white-space:nowrap">✓ đã nhắc</span>';
+function markNhacEl(el){
+  try{
+    var ph=decodeURIComponent(el.getAttribute('data-ph')||'');
+    var ten=decodeURIComponent(el.getAttribute('data-ten')||'');
+    var k=el.getAttribute('data-k')||'';
+    if(!ph) return;
+    LSs(nkey(ph,k), String(Date.now()));
+    var log=[]; try{ log=JSON.parse(LSg('nhac_log')||'[]'); }catch(e){}
+    log.unshift({ph:ph,ten:ten,k:k,t:Date.now()});
+    if(log.length>800) log=log.slice(0,800);
+    LSs('nhac_log', JSON.stringify(log));
+    var b=document.querySelector('[data-nhac="'+nkey(ph,k)+'"]'); if(b) b.innerHTML=NHACB;
+  }catch(e){}
+}
 function card(n,l){return '<div class="card"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';}
 function sec(cls,icon,title,items,render){
   var id='s'+Math.random().toString(36).slice(2,7);
@@ -249,20 +284,22 @@ function rowNhac(x,tag,kind,urg){
   } else {
     var msg = mkMsg(kind, x.ten, x.phong, x.ngay, con);
     var em = encodeURIComponent(msg);
+    var da = 'data-ph="'+encodeURIComponent(x.phong||'')+'" data-ten="'+encodeURIComponent(x.ten||'')+'" data-k="'+kind+'"';
     if(k==='zalo'){
-      acts = '<a class="mini za" href="https://zalo.me/'+zaloNum(x.sdt)+'" target="_blank" rel="noopener" data-msg="'+em+'" onclick="cpZalo(this)">Zalo</a>';
+      acts = '<a class="mini za" href="https://zalo.me/'+zaloNum(x.sdt)+'" target="_blank" rel="noopener" data-msg="'+em+'" '+da+' onclick="cpZalo(this);markNhacEl(this)">Zalo</a>';
     } else if(k==='wa'){
-      acts = '<a class="mini wa" href="https://wa.me/'+waNum(x.sdt)+'?text='+em+'" target="_blank" rel="noopener">WhatsApp</a>';
+      acts = '<a class="mini wa" href="https://wa.me/'+waNum(x.sdt)+'?text='+em+'" target="_blank" rel="noopener" '+da+' onclick="markNhacEl(this)">WhatsApp</a>';
     } else if(k==='wechat'){
-      acts = '<button class="mini wc" data-msg="'+em+'" onclick="moWechat(this)">WeChat</button>';
+      acts = '<button class="mini wc" data-msg="'+em+'" '+da+' onclick="moWechat(this);markNhacEl(this)">WeChat</button>';
     } else {
       acts = '<span class="warn">⚠️ Chưa chọn kênh</span>';
     }
   }
   var ab = x.anh ? '<span class="anhb">📎 '+esc(x.anh)+'</span>' : '';
+  var nb = '<span class="nhacb" data-nhac="'+nkey(x.phong,kind)+'">'+(isNhac(x.phong,kind)?NHACB:'')+'</span>';
   return '<div class="row"><span class="ph">'+esc(x.phong)+'</span>'
     +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small></span>'
-    +'<span class="tag">'+ab+tag(x)+acts+'</span></div>';
+    +'<span class="tag">'+ab+nb+tag(x)+acts+'</span></div>';
 }
 function upLink(ph, ten){
   return EXEC+'?up=1&ma='+encodeURIComponent(ph||'')+'&ten='+encodeURIComponent(ten||'');
@@ -338,6 +375,25 @@ function moEmail(){
   cfgCall('get','', function(d){ if(d&&d.ok){ E_LIST=d.emails||[]; eRender(); loadSched(); } });
 }
 function dongEmail(){ document.getElementById('emailWrap').style.display='none'; }
+
+// ===== Nhật ký nhắc hết hạn =====
+var NK_LABEL={tt:'Tạm trú', hd:'Hợp đồng'};
+function moNhatKy(){ document.getElementById('nhatkyWrap').style.display='block'; renderNhatKy(); }
+function dongNhatKy(){ document.getElementById('nhatkyWrap').style.display='none'; }
+function renderNhatKy(){
+  var log=[]; try{ log=JSON.parse(LSg('nhac_log')||'[]'); }catch(e){}
+  var el=document.getElementById('nkList');
+  if(!log.length){ el.innerHTML='<p class="muted">Chưa có lần nhắc nào.</p>'; return; }
+  el.innerHTML=log.map(function(r){
+    var d=new Date(r.t); var dd=('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
+    return '<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:.86rem"><span><b>'+esc(r.ph)+'</b> '+esc(r.ten)+' <small style="color:var(--muted)">('+(NK_LABEL[r.k]||r.k)+')</small></span><span style="color:var(--muted);white-space:nowrap">'+dd+'</span></div>';
+  }).join('');
+}
+function xoaNhatKy(){
+  if(!confirm('Xóa toàn bộ nhật ký và dấu "đã nhắc" trên máy này?')) return;
+  try{ var ks=[]; for(var i=0;i<localStorage.length;i++){ var kk=localStorage.key(i); if(kk && (kk==='nhac_log'||kk.indexOf('rn_')===0)) ks.push(kk); } ks.forEach(function(kk){ localStorage.removeItem(kk); }); }catch(e){}
+  renderNhatKy(); try{ taiLai(); }catch(e){}
+}
 function cfgCall(action, extra, ok, fail){
   callExec(EXEC+'?cfg='+action+'&pw='+encodeURIComponent(E_ADMIN)+(extra||'')+'&callback=cb&t='+Date.now(), ok, fail);
 }
