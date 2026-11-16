@@ -330,7 +330,13 @@ function render(d){
 
 // ===== Quản lý email nhận cảnh báo =====
 var E_ADMIN='', E_LIST=[];
-function moEmail(){ document.getElementById('emailWrap').style.display='block'; }
+function moEmail(){
+  document.getElementById('emailWrap').style.display='block';
+  E_ADMIN='20252026';                                   // app tự mở, không hỏi mật khẩu (khóa app xử lý bên ngoài)
+  document.getElementById('eGate').style.display='none';
+  document.getElementById('eMain').style.display='block';
+  cfgCall('get','', function(d){ if(d&&d.ok){ E_LIST=d.emails||[]; eRender(); loadSched(); } });
+}
 function dongEmail(){ document.getElementById('emailWrap').style.display='none'; }
 function cfgCall(action, extra, ok, fail){
   callExec(EXEC+'?cfg='+action+'&pw='+encodeURIComponent(E_ADMIN)+(extra||'')+'&callback=cb&t='+Date.now(), ok, fail);
@@ -392,11 +398,11 @@ var T_ADMIN='';
 function tKeys(){ return ['tt','ttqua','hd','hdqua']; }
 function moTpl(){
   document.getElementById('tplWrap').style.display='block';
-  document.getElementById('tGate').style.display='block';
-  document.getElementById('tMain').style.display='none';
-  document.getElementById('tAdminPw').value='';
-  document.getElementById('tErr').style.display='none';
+  T_ADMIN='20252026';                                   // app tự mở, không hỏi mật khẩu
+  document.getElementById('tGate').style.display='none';
+  document.getElementById('tMain').style.display='block';
   document.getElementById('tMsg').textContent='';
+  tRender();
 }
 function dongTpl(){ document.getElementById('tplWrap').style.display='none'; }
 function tRender(){

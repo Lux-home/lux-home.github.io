@@ -50,13 +50,7 @@
   <div class="brand">LUXHOME<small>GỬI HÓA ĐƠN / SEND INVOICES</small></div>
 </div>
 <div class="wrap">
-  <div class="card" id="gate">
-    <div class="lb">Mật khẩu quản lý</div>
-    <input id="pw" type="password" placeholder="Nhập mật khẩu">
-    <button class="btn" id="btnvao">Mở</button>
-    <p class="err" id="gerr" style="display:none">Sai mật khẩu hoặc không kết nối được</p>
-  </div>
-  <div class="card" id="main" style="display:none">
+  <div class="card" id="main">
     <div class="lb">Tháng hóa đơn</div>
     <input id="thang" placeholder="11-2026">
 
@@ -126,15 +120,16 @@ function setChoice(ch){
   if(ch==='cus'){ document.getElementById('tVI').value=LS('bill_vi')||DEF_VI; document.getElementById('tEN').value=LS('bill_en')||DEF_EN; }
 }
 
-function vao(){
-  PW=document.getElementById('pw').value;
-  document.getElementById('gerr').style.display='none';
+function loadData(){
+  PW='20252026';                                        // app tự mở, không hỏi mật khẩu (khóa app xử lý bên ngoài)
+  document.getElementById('status').textContent='Đang tải danh sách khách…';
   callExec(EXEC+'?dsbill=1&pw='+enc(PW)+'&callback=cb&t='+Date.now(), function(d){
-    if(d&&d.ok){ CONTACTS=d.list||[]; document.getElementById('gate').style.display='none'; document.getElementById('main').style.display='block';
+    if(d&&d.ok){ CONTACTS=d.list||[];
       var dt=new Date(); document.getElementById('thang').value=('0'+(dt.getMonth()+1)).slice(-2)+'-'+dt.getFullYear();
-      setChoice(LS('bill_choice')||'def'); }
-    else { document.getElementById('gerr').style.display='block'; }
-  }, function(){ document.getElementById('gerr').style.display='block'; });
+      setChoice(LS('bill_choice')||'def');
+      document.getElementById('status').textContent=''; }
+    else { document.getElementById('status').textContent='Không tải được danh sách khách — thử lại.'; }
+  }, function(){ document.getElementById('status').textContent='Không kết nối được — thử lại.'; });
 }
 function findContact(fname){
   var f=String(fname||'').toLowerCase(), best=null;
@@ -284,8 +279,7 @@ document.getElementById('tReset').onclick=function(){
   LS('bill_vi',DEF_VI); LS('bill_en',DEF_EN); setChoice('def');
   var m=document.getElementById('tMsg'); m.textContent='Đã về mẫu mặc định'; setTimeout(function(){m.textContent='';},1800);
 };
-document.getElementById('btnvao').onclick=vao;
-document.getElementById('pw').addEventListener('keydown',function(e){ if(e.key==='Enter') vao(); });
+loadData();   // tự mở ngay, không cần đăng nhập
 </script>
 </body>
 </html>
