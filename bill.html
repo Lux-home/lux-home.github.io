@@ -120,7 +120,20 @@ function LS(k,v){ try{ if(v===undefined) return localStorage.getItem(k); localSt
 /* ===== Theo dõi đã gửi bill (lưu trên máy) ===== */
 function skey(thang,room){ return 'bs_'+String(thang).replace(/[^0-9A-Za-z-]/g,'')+'_'+String(room).toUpperCase().replace(/[^0-9A-Za-z-]/g,''); }
 function isSent(thang,room){ return !!LS(skey(thang,room)); }
-function markSent(thang,room){ if(!room) return; try{ LS(skey(thang,room), String(Date.now())); }catch(e){} if(reportOpen) renderReport(); }
+// Lưu mốc thời gian: t = lần gửi ĐẦU, n = số lần gửi, last = lần gửi gần nhất
+function sentInfo(thang,room){ var r=LS(skey(thang,room)); if(!r) return null; try{ var o=JSON.parse(r); if(o&&o.t) return o; }catch(e){} var n=parseInt(r,10); return {t:(n||0), n:1, last:(n||0)}; }
+function markSent(thang,room){
+  if(!room) return;
+  try{
+    var o=sentInfo(thang,room);
+    if(o && o.t){ o.n=(o.n||1)+1; o.last=Date.now(); }     // đã gửi trước → tăng số lần, giữ mốc lần 1
+    else { o={ t:Date.now(), n:1, last:Date.now() }; }       // lần đầu
+    LS(skey(thang,room), JSON.stringify(o));
+  }catch(e){}
+  if(reportOpen) renderReport();
+}
+function fmtDT(ts){ if(!ts) return ''; var d=new Date(ts); function p(x){return ('0'+x).slice(-2);} return p(d.getHours())+':'+p(d.getMinutes())+' '+p(d.getDate())+'/'+p(d.getMonth()+1); }
+function sentBadge(thang,room){ var si=sentInfo(thang,room); var tx='✓ Đã gửi'; if(si&&si.t) tx+=' · '+fmtDT(si.t); if(si&&si.n>1) tx+=' (lần '+si.n+')'; return tx; }
 var reportOpen=false;
 function toggleReport(){ reportOpen=!reportOpen; document.getElementById('btnReport').textContent=(reportOpen?'🔼 Ẩn báo cáo':'📊 Báo cáo đã gửi / chưa gửi (tháng này)'); renderReport(); }
 function renderReport(){
@@ -356,7 +369,7 @@ function logCard(e, thang){
   box.className='row '+(yellow?'flag':(sent?'sent':'unsent'));
   var info=document.createElement('div'); info.className='info'; info.style.flex='1';
   var badge = yellow ? ' <span class="unsentb" style="color:var(--amber)">⚠️ Nghi sai khách</span>'
-                     : (sent?' <span class="sentb">✓ Đã gửi</span>':' <span class="unsentb">● Chưa gửi</span>');
+                     : (sent?' <span class="sentb">'+sentBadge(thang,room)+'</span>':' <span class="unsentb">● Chưa gửi</span>');
   var nameLine = mismatch
     ? '<span class="flagb" style="color:var(--amber)">⚠️ Không thấy tên khách của phòng trên ảnh bill — mở "xem bill" đối chiếu</span>'
     : (mt ? '<span class="flagb" style="color:var(--muted)">📄 Bill khớp tên: '+esc(mt.ten)+'</span>' : '');
@@ -387,7 +400,7 @@ function renderCard(box){
   // Tô màu thẻ: xanh = đã gửi, đỏ = chưa gửi (chỉ khi đã nhận diện được khách)
   box.className = 'row' + (c && !box._loading ? (sent?' sent':' unsent') : '');
   var badge = (c && !box._loading)
-    ? (sent?' <span class="sentb">✓ Đã gửi</span>':' <span class="unsentb">● Chưa gửi</span>')
+    ? (sent?' <span class="sentb">'+sentBadge(thang,c.phong)+'</span>':' <span class="unsentb">● Chưa gửi</span>')
     : '';
   info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':'')+badge+'</div>'
     +(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'');
@@ -426,6 +439,12 @@ document.getElementById('btnTpl').onclick=toggleTpl;
 document.getElementById('logClear').onclick=function(){ clearLog(document.getElementById('thang').value.trim()); };
 document.getElementById('thang').addEventListener('change',function(){ var t=this.value.trim(); logLoad(t); renderList(t); if(reportOpen) renderReport(); });
 loadData();   // tự mở ngay, không cần đăng nhập
+// Service worker: tự tải lại khi có bản mới (tránh kẹt bản cũ trong bộ nhớ đệm)
+if("serviceWorker" in navigator){
+  var _had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").then(function(r){ try{r.update();}catch(e){} }).catch(function(){});
+  navigator.serviceWorker.addEventListener("controllerchange", function(){ if(!_had||window.__swR) return; window.__swR=1; location.reload(); });
+}
 </script>
 </body>
 </html>

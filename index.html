@@ -122,7 +122,11 @@ let deferred=null;
 const btn=document.getElementById("installBtn");
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();deferred=e;btn.style.display="block";});
 btn.onclick=async()=>{ if(!deferred)return; deferred.prompt(); await deferred.userChoice; deferred=null; btn.style.display="none"; };
-if("serviceWorker" in navigator){ navigator.serviceWorker.register("sw.js").catch(()=>{}); }
+if("serviceWorker" in navigator){
+  var _had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").then(function(r){ try{r.update();}catch(e){} }).catch(function(){});
+  navigator.serviceWorker.addEventListener("controllerchange", function(){ if(!_had||window.__swR) return; window.__swR=1; location.reload(); });
+}
 </script>
 </body>
 </html>

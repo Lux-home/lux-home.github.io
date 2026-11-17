@@ -532,6 +532,12 @@ window.addEventListener('DOMContentLoaded', function(){
         function(){ if(!cached) document.getElementById('cap').textContent='Không kết nối được — bấm Làm mới'; });
     });
 });
+// Service worker: tự tải lại khi có bản mới (tránh kẹt bản cũ trong bộ nhớ đệm)
+if("serviceWorker" in navigator){
+  var _had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").then(function(r){ try{r.update();}catch(e){} }).catch(function(){});
+  navigator.serviceWorker.addEventListener("controllerchange", function(){ if(!_had||window.__swR) return; window.__swR=1; location.reload(); });
+}
 </script>
 </body>
 </html>

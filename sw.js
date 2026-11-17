@@ -1,14 +1,17 @@
 // LUXHOME app tổng — service worker (shell cache cho cài đặt PWA)
-const CACHE = "luxhome-v18";
+const CACHE = "luxhome-v19";
 const SHELL = ["./index.html", "./luutru.html", "./bill.html", "./manifest.webmanifest", "./icon-192.png", "./icon-512.png"];
 
+// Cài đặt: chiếm quyền NGAY, nạp shell từng file (một file lỗi do mạng yếu không làm hỏng cập nhật)
 self.addEventListener("install", e => {
-  e.waitUntil(caches.open(CACHE).then(c => c.addAll(SHELL)).then(() => self.skipWaiting()));
+  self.skipWaiting();
+  e.waitUntil(caches.open(CACHE).then(c => Promise.all(SHELL.map(u => c.add(u).catch(() => {})))));
 });
 self.addEventListener("activate", e => {
-  e.waitUntil(caches.keys().then(ks => Promise.all(
-    ks.filter(k => k !== CACHE).map(k => caches.delete(k))
-  )).then(() => self.clients.claim()));
+  e.waitUntil(
+    caches.keys().then(ks => Promise.all(ks.filter(k => k !== CACHE).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
 });
 // Luôn lấy bản mới nhất từ mạng (bỏ qua cache HTTP), chỉ dùng cache khi offline
 self.addEventListener("fetch", e => {
