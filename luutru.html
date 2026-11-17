@@ -295,7 +295,11 @@ function rowNhac(x,tag,kind,urg){
       acts = '<span class="warn">⚠️ Chưa chọn kênh</span>';
     }
   }
-  var ab = x.anh ? '<span class="anhb">📎 '+esc(x.anh)+'</span>' : '';
+  var ab = x.anh
+    ? (x.anhUrl
+        ? '<a class="anhb" href="'+esc(x.anhUrl)+'" target="_blank" rel="noopener" style="text-decoration:none" title="Xem ảnh giấy tờ khách gửi">📎 '+esc(x.anh)+' ↗</a>'
+        : '<span class="anhb">📎 '+esc(x.anh)+'</span>')
+    : '';
   var nb = '<span class="nhacb" data-nhac="'+nkey(x.phong,kind)+'">'+(isNhac(x.phong,kind)?NHACB:'')+'</span>';
   return '<div class="row"><span class="ph">'+esc(x.phong)+'</span>'
     +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small></span>'
