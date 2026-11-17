@@ -100,6 +100,9 @@
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 var PW='', CONTACTS=[], VACANT={};
+// Token nhân viên (nếu mở từ app LUXHOME-NV: ?tok=... hoặc localStorage)
+var NVTOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ try{localStorage.setItem('nv_tok',u);}catch(e){} return u; } return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } })();
+function authQ(){ return NVTOK ? ('tok='+enc(NVTOK)) : ('pw='+enc(PW)); }
 var DEF_VI='Kính gửi {ten}, LUXHOME xin gửi hóa đơn tiền thuê căn hộ {phong} - tháng {thang}. Vui lòng kiểm tra và thanh toán giúp ạ. Trân trọng, LUXHOME.';
 var DEF_EN='Dear {ten}, LUXHOME sends you the rental invoice for apartment {phong} - {thang}. Please check and make the payment. Best regards, LUXHOME.';
 
@@ -178,13 +181,14 @@ function toggleTpl(){ tplOpen=!tplOpen; document.getElementById('tplWrap').style
 function loadData(){
   PW='20252026';                                        // app tự mở, không hỏi mật khẩu (khóa app xử lý bên ngoài)
   document.getElementById('status').textContent='Đang tải danh sách khách…';
-  callExec(EXEC+'?dsbill=1&pw='+enc(PW)+'&callback=cb&t='+Date.now(), function(d){
+  callExec(EXEC+'?dsbill=1&'+authQ()+'&callback=cb&t='+Date.now(), function(d){
     if(d&&d.ok){ CONTACTS=d.list||[];
       VACANT={}; (d.vacant||[]).forEach(function(rm){ VACANT[roomUp(rm)]=true; });
       var dt=new Date(); document.getElementById('thang').value=('0'+(dt.getMonth()+1)).slice(-2)+'-'+dt.getFullYear();
       setChoice(LS('bill_choice')||'def');
       var _t=document.getElementById('thang').value.trim(); logLoad(_t); renderList(_t);
       document.getElementById('status').textContent=''; }
+    else if(NVTOK){ document.getElementById('status').innerHTML='<div style="text-align:center;padding:24px 12px"><div style="font-size:2.2rem">🔒</div><b>Không có quyền Gửi hóa đơn</b><br><span style="color:#888">Tài khoản chưa được cấp quyền này hoặc đã bị khoá. Liên hệ quản lý.</span><br><a href="nv.html" style="color:#0e7ba8;font-weight:700;display:inline-block;margin-top:8px">← Về trang nhân viên</a></div>'; }
     else { document.getElementById('status').textContent='Không tải được danh sách khách — thử lại.'; }
   }, function(){ document.getElementById('status').textContent='Không kết nối được — thử lại.'; });
 }
@@ -284,13 +288,13 @@ function up(fname, fullData, thang){
 function doUpload(box, key, thang, fullData, ocrFlag){
   try{
     fetch(EXEC,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
-      body:'bill=upload&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&ocr='+(ocrFlag?'1':'0')+'&img='+enc(fullData)});
+      body:'bill=upload&'+authQ()+'&room='+enc(key)+'&thang='+enc(thang)+'&ocr='+(ocrFlag?'1':'0')+'&img='+enc(fullData)});
   }catch(e){}
   pollLink(box, key, thang, !!ocrFlag, 0);
 }
 function pollLink(box, key, thang, ocrFlag, n){
   if(n>30){ if(box._loading){ box._loading=false; renderCard(box); } tryFinalize(box); return; }
-  callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d){
+  callExec(EXEC+'?getbill=1&'+authQ()+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d){
     var link=(d&&d.ok)?(d.link||''):'';
     var room=(d&&d.ok)?(d.room||''):'';
     var btext=(d&&d.ok)?(d.text||''):'';

@@ -175,6 +175,8 @@
 // Màn hình Lưu trú chạy trên server app; chỉ LẤY DỮ LIỆU từ Google qua JSONP
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 var PW='20252026';   // mở thẳng, không hỏi mật khẩu
+// Token nhân viên (nếu mở từ app LUXHOME-NV: ?tok=... hoặc localStorage)
+var NVTOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ try{localStorage.setItem('nv_tok',u);}catch(e){} return u; } return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } })();
 
 // Gọi Apps Script bằng fetch (CORS) rồi bóc lớp bọc cb(...) — đáng tin cả trong app đã cài
 function callExec(url, ok, fail){
@@ -192,7 +194,8 @@ function callExec(url, ok, fail){
     .catch(function(e){ clearTimeout(tm); fail&&fail(e); });
 }
 function fetchData(pw, ok, fail, fresh){
-  callExec(EXEC+'?callback=cb&pw='+encodeURIComponent(pw)+(fresh?'&fresh=1':'')+'&t='+Date.now(), ok, function(e){ fail&&fail('network'); });
+  var q = NVTOK ? ('tok='+encodeURIComponent(NVTOK)) : ('pw='+encodeURIComponent(pw));
+  callExec(EXEC+'?callback=cb&'+q+(fresh?'&fresh=1':'')+'&t='+Date.now(), ok, function(e){ fail&&fail('network'); });
 }
 
 // Đọc NHANH từ bảng công khai (gviz) — để lần đầu cũng tức thì
@@ -523,14 +526,24 @@ window.addEventListener('DOMContentLoaded', function(){
   var cached=loadCache();
   if(cached && cached.ok){ render(cached); document.getElementById('cap').textContent='Đang cập nhật…'; }
   else { document.getElementById('cap').textContent='Đang tải…'; }
-  // 1) đọc nhanh từ bảng công khai; 2) nếu lỗi thì dùng JSONP
-  fetchFast(
-    function(d){ render(d); saveCache(d); },
-    function(){
-      fetchData(PW,
-        function(d){ if(d&&d.ok){ render(d); saveCache(d); } else if(!cached){ document.getElementById('cap').textContent='Không tải được — bấm Làm mới'; } },
-        function(){ if(!cached) document.getElementById('cap').textContent='Không kết nối được — bấm Làm mới'; });
-    });
+  if(NVTOK){
+    // Chế độ nhân viên: CHỈ dùng dữ liệu có kiểm tra quyền (không qua bảng công khai)
+    fetchData(PW,
+      function(d){
+        if(d&&d.ok){ render(d); saveCache(d); }
+        else { document.getElementById('app').style.display='none'; document.getElementById('gate').style.display='block'; document.getElementById('gate').innerHTML='<div style="text-align:center;padding:30px 16px"><div style="font-size:2.4rem">🔒</div><h3>Không có quyền xem Lưu trú</h3><p style="color:#888">Tài khoản của bạn chưa được cấp quyền này hoặc đã bị khoá. Liên hệ quản lý.</p><a href="nv.html" style="color:#0e7ba8;font-weight:700">← Về trang nhân viên</a></div>'; }
+      },
+      function(){ if(!cached) document.getElementById('cap').textContent='Không kết nối được — bấm Làm mới'; }, true);
+  } else {
+    // 1) đọc nhanh từ bảng công khai; 2) nếu lỗi thì dùng JSONP
+    fetchFast(
+      function(d){ render(d); saveCache(d); },
+      function(){
+        fetchData(PW,
+          function(d){ if(d&&d.ok){ render(d); saveCache(d); } else if(!cached){ document.getElementById('cap').textContent='Không tải được — bấm Làm mới'; } },
+          function(){ if(!cached) document.getElementById('cap').textContent='Không kết nối được — bấm Làm mới'; });
+      });
+  }
 });
 // Service worker: tự tải lại khi có bản mới (tránh kẹt bản cũ trong bộ nhớ đệm)
 if("serviceWorker" in navigator){

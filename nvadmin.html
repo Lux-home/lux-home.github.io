@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Quản lý nhân viên</title>
+<meta name="theme-color" content="#0e7ba8">
+<style>
+  :root{ --bg:#eef3f4; --surface:#fff; --fg:#13242a; --muted:#5f727a; --line:#e2eaec; --cyan:#0e7ba8; --cyan2:#28c3dd; --gold:#d79f38; --green:#12a150; --red:#c0392b; }
+  @media (prefers-color-scheme:dark){ :root{ --bg:#0c1518; --surface:#13222a; --fg:#e8f1f3; --muted:#90a4ac; --line:#20333c; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",system-ui,sans-serif;line-height:1.45}
+  .top{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 16px}
+  .top .b{font-size:1.2rem;font-weight:800;letter-spacing:1px;color:#ffd977}
+  .top .s{font-size:.8rem;opacity:.92}
+  .wrap{max-width:720px;margin:0 auto;padding:14px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+  .lb{font-size:.78rem;font-weight:700;color:var(--muted);margin:10px 0 4px;text-transform:uppercase;letter-spacing:.04em}
+  input[type=text],input[type=password]{width:100%;padding:10px 12px;border:1px solid var(--line);border-radius:10px;font-size:1rem;background:var(--surface);color:var(--fg)}
+  .btn{display:inline-block;padding:10px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;font-weight:700;font-size:.92rem;cursor:pointer}
+  .btn.g{background:var(--green)} .btn.r{background:var(--red)} .btn.d{background:#5d6b66}
+  .row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+  .nv{border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:10px}
+  .nv.locked{background:rgba(192,57,43,.08);border-color:var(--red)}
+  .nv .h{display:flex;justify-content:space-between;align-items:center;gap:8px}
+  .nv .ma{font-weight:800;font-size:1.05rem} .nv .ten{color:var(--muted);font-weight:500}
+  .pm{display:flex;gap:14px;flex-wrap:wrap;margin:8px 0}
+  .pm label{display:flex;align-items:center;gap:6px;font-size:.92rem;cursor:pointer}
+  .pm input{width:18px;height:18px}
+  .st{font-size:.75rem;font-weight:800;padding:2px 8px;border-radius:999px}
+  .st.on{background:rgba(18,161,80,.14);color:var(--green)} .st.off{background:rgba(192,57,43,.14);color:var(--red)}
+  .msg{font-size:.85rem;color:var(--muted);margin-top:8px}
+  .hint{font-size:.8rem;color:var(--muted)}
+  a.back{color:#fff;text-decoration:none;font-size:.85rem}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="index.html">← Trang chính</a>
+  <div class="b">LUXHOME</div><div class="s">QUẢN LÝ NHÂN VIÊN</div>
+</div>
+<div class="wrap">
+  <div id="gate" class="card">
+    <div class="lb">Mật khẩu quản lý</div>
+    <input type="password" id="apw" placeholder="Nhập mật khẩu quản lý" autocomplete="off">
+    <p class="msg" id="gmsg"></p>
+    <button class="btn" id="gbtn" style="margin-top:8px">Mở</button>
+  </div>
+
+  <div id="main" style="display:none">
+    <div class="card">
+      <div class="lb">➕ Thêm nhân viên mới</div>
+      <div class="row" style="margin-top:4px">
+        <input type="text" id="n_ma" placeholder="Mã NV (vd: NV01)" style="flex:1;min-width:120px">
+        <input type="text" id="n_ten" placeholder="Tên nhân viên" style="flex:2;min-width:140px">
+      </div>
+      <div class="row" style="margin-top:8px">
+        <input type="text" id="n_pw" placeholder="Mật khẩu đăng nhập" style="flex:1;min-width:140px">
+      </div>
+      <div class="pm">
+        <label><input type="checkbox" id="n_bill"> 🧾 Gửi hóa đơn</label>
+        <label><input type="checkbox" id="n_luutru"> 🛂 Lưu trú</label>
+      </div>
+      <button class="btn g" id="addbtn">Thêm nhân viên</button>
+      <p class="msg" id="amsg"></p>
+    </div>
+
+    <div class="card">
+      <div class="lb">Danh sách nhân viên</div>
+      <div id="list"><p class="hint">Đang tải…</p></div>
+    </div>
+    <p class="hint" style="margin-top:12px">Khoá/đổi quyền có hiệu lực <b>ngay lập tức</b>. Link app cho nhân viên: <b>lux-home.github.io/nv.html</b></p>
+  </div>
+</div>
+
+<script>
+var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
+var PW='';
+function enc(s){return encodeURIComponent(String(s));}
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
+function api(qs){ return fetch(EXEC+'?'+qs+'&callback=cb&t='+Date.now(),{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){ var i=t.indexOf('('),j=t.lastIndexOf(')'); return JSON.parse(t.slice(i+1,j)); }); }
+var MODS=[{k:'bill',n:'🧾 Gửi hóa đơn'},{k:'luutru',n:'🛂 Lưu trú'}];
+
+function gate(){
+  var pw=document.getElementById('apw').value.trim();
+  document.getElementById('gmsg').textContent='Đang kiểm tra…';
+  api('nvadmin=list&pw='+enc(pw)).then(function(d){
+    if(d&&d.ok){ PW=pw; document.getElementById('gate').style.display='none'; document.getElementById('main').style.display='block'; render(d.list); }
+    else { document.getElementById('gmsg').textContent='Sai mật khẩu quản lý.'; }
+  }).catch(function(){ document.getElementById('gmsg').textContent='Không kết nối được.'; });
+}
+function reload(){ api('nvadmin=list&pw='+enc(PW)).then(function(d){ if(d&&d.ok) render(d.list); }); }
+
+function render(list){
+  var el=document.getElementById('list');
+  if(!list||!list.length){ el.innerHTML='<p class="hint">Chưa có nhân viên nào.</p>'; return; }
+  el.innerHTML='';
+  list.forEach(function(nv){
+    var box=document.createElement('div'); box.className='nv'+(nv.locked?' locked':'');
+    var perms=nv.perms||[];
+    var checks=MODS.map(function(m){ var on=perms.indexOf(m.k)>-1; return '<label><input type="checkbox" data-k="'+m.k+'" '+(on?'checked':'')+'> '+m.n+'</label>'; }).join('');
+    box.innerHTML='<div class="h"><div><span class="ma">'+esc(nv.ma)+'</span> <span class="ten">'+esc(nv.ten)+'</span></div>'
+      +'<span class="st '+(nv.locked?'off':'on')+'">'+(nv.locked?'🔒 Đã khoá':'● Hoạt động')+'</span></div>'
+      +'<div class="pm">'+checks+'</div>'
+      +'<div class="row">'
+      +'<button class="btn g sv">💾 Lưu quyền</button>'
+      +'<button class="btn d lk">'+(nv.locked?'🔓 Mở khoá':'🔒 Khoá')+'</button>'
+      +'<input type="text" class="npw" placeholder="Đặt lại mật khẩu (nếu cần)" style="flex:1;min-width:140px">'
+      +'<button class="btn r del">🗑️ Xoá</button>'
+      +'</div><p class="msg m"></p>';
+    var ma=nv.ma, locked=nv.locked, msg=box.querySelector('.m');
+    box.querySelector('.sv').onclick=function(){
+      var ps=[].slice.call(box.querySelectorAll('.pm input:checked')).map(function(c){return c.getAttribute('data-k');});
+      var npw=box.querySelector('.npw').value.trim();
+      msg.textContent='Đang lưu…';
+      api('nvadmin=set&pw='+enc(PW)+'&ma='+enc(ma)+'&perms='+enc(ps.join(','))+(npw?'&nvpw='+enc(npw):'')+'&locked='+(locked?'1':'0')).then(function(d){ msg.textContent=d&&d.ok?'✓ Đã lưu':'Lỗi'; reload(); });
+    };
+    box.querySelector('.lk').onclick=function(){ api('nvadmin=lock&pw='+enc(PW)+'&ma='+enc(ma)+'&lock='+(locked?'0':'1')).then(function(){ reload(); }); };
+    box.querySelector('.del').onclick=function(){ if(!confirm('Xoá nhân viên '+ma+'?')) return; api('nvadmin=del&pw='+enc(PW)+'&ma='+enc(ma)).then(function(){ reload(); }); };
+    el.appendChild(box);
+  });
+}
+
+document.getElementById('addbtn').onclick=function(){
+  var ma=document.getElementById('n_ma').value.trim(), ten=document.getElementById('n_ten').value.trim(), pw=document.getElementById('n_pw').value.trim();
+  var ps=[]; if(document.getElementById('n_bill').checked) ps.push('bill'); if(document.getElementById('n_luutru').checked) ps.push('luutru');
+  var am=document.getElementById('amsg');
+  if(!ma||!pw){ am.textContent='Cần có Mã NV và mật khẩu.'; return; }
+  am.textContent='Đang thêm…';
+  api('nvadmin=set&pw='+enc(PW)+'&ma='+enc(ma)+'&ten='+enc(ten)+'&nvpw='+enc(pw)+'&perms='+enc(ps.join(','))+'&locked=0').then(function(d){
+    if(d&&d.ok){ am.textContent='✓ Đã thêm '+ma; document.getElementById('n_ma').value='';document.getElementById('n_ten').value='';document.getElementById('n_pw').value='';document.getElementById('n_bill').checked=false;document.getElementById('n_luutru').checked=false; reload(); }
+    else am.textContent='Lỗi khi thêm.';
+  });
+};
+document.getElementById('gbtn').onclick=gate;
+document.getElementById('apw').addEventListener('keydown',function(e){ if(e.key==='Enter') gate(); });
+</script>
+</body>
+</html>
