@@ -137,12 +137,12 @@
 <div id="nhatkyWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;padding:16px;overflow:auto">
   <div style="max-width:520px;margin:6vh auto;background:var(--card);border-radius:16px;padding:20px">
     <div style="display:flex;justify-content:space-between;align-items:center">
-      <b style="font-size:1.05rem;color:#0f766e">📋 Nhật ký nhắc hết hạn</b>
+      <b id="nkTitle" style="font-size:1.05rem;color:#0f766e">📋 Nhật ký nhắc hết hạn</b>
       <button onclick="dongNhatKy()" style="background:none;border:0;font-size:1.3rem;color:var(--muted);cursor:pointer">✕</button>
     </div>
     <p class="muted" style="margin:6px 0 10px">Ghi lại những lần bạn đã bấm gửi nhắc (trên máy này).</p>
     <div id="nkList"></div>
-    <button class="btn" style="width:100%;margin-top:12px;background:#b02020" onclick="xoaNhatKy()">🗑️ Xóa toàn bộ nhật ký</button>
+    <button id="nkClearBtn" class="btn" style="width:100%;margin-top:12px;background:#b02020" onclick="xoaNhatKy()">🗑️ Xóa toàn bộ nhật ký</button>
   </div>
 </div>
 
@@ -305,7 +305,7 @@ function rowNhac(x,tag,kind,urg){
     : '';
   var done = isNhac(x.phong,kind);
   var nb = '<span class="nhacb" data-nhac="'+nkey(x.phong,kind)+'">'+(done?NHACB:'')+'</span>';
-  return '<div class="row '+(done?'dnhac':'cnhac')+'"><span class="ph">'+esc(x.phong)+'</span>'
+  return '<div class="row '+(done?'dnhac':'cnhac')+'"><span class="ph" style="cursor:pointer" data-ph="'+esc(x.phong)+'" data-ten="'+esc(x.ten)+'" onclick="moNhatKyKhach(this.getAttribute(\'data-ph\'),this.getAttribute(\'data-ten\'))" title="Xem nhật ký nhắc của khách này">'+esc(x.phong)+' 🕑</span>'
     +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small></span>'
     +'<span class="tag">'+ab+nb+tag(x)+acts+'</span></div>';
 }
@@ -386,15 +386,30 @@ function dongEmail(){ document.getElementById('emailWrap').style.display='none';
 
 // ===== Nhật ký nhắc hết hạn =====
 var NK_LABEL={tt:'Tạm trú', hd:'Hợp đồng'};
-function moNhatKy(){ document.getElementById('nhatkyWrap').style.display='block'; renderNhatKy(); }
-function dongNhatKy(){ document.getElementById('nhatkyWrap').style.display='none'; }
+var _nkFilter=null;   // null = tất cả; {ph,ten} = lọc theo 1 khách
+function moNhatKy(){ _nkFilter=null; document.getElementById('nhatkyWrap').style.display='block'; renderNhatKy(); }
+function moNhatKyKhach(ph, ten){ _nkFilter={ph:String(ph||''), ten:String(ten||'')}; document.getElementById('nhatkyWrap').style.display='block'; renderNhatKy(); }
+function dongNhatKy(){ document.getElementById('nhatkyWrap').style.display='none'; _nkFilter=null; }
 function renderNhatKy(){
   var log=[]; try{ log=JSON.parse(LSg('nhac_log')||'[]'); }catch(e){}
   var el=document.getElementById('nkList');
-  if(!log.length){ el.innerHTML='<p class="muted">Chưa có lần nhắc nào.</p>'; return; }
+  var title=document.getElementById('nkTitle'), clearBtn=document.getElementById('nkClearBtn');
+  if(_nkFilter){
+    var pf=_nkFilter.ph.toLowerCase();
+    log=log.filter(function(r){ return String(r.ph||'').toLowerCase()===pf; });
+    if(title) title.innerHTML='🕑 Nhật ký nhắc · '+esc(_nkFilter.ph)+' <small style="color:var(--muted);font-weight:400">'+esc(_nkFilter.ten)+'</small>';
+    if(clearBtn) clearBtn.style.display='none';
+  } else {
+    if(title) title.textContent='📋 Nhật ký nhắc hết hạn';
+    if(clearBtn) clearBtn.style.display='';
+  }
+  if(!log.length){ el.innerHTML='<p class="muted">'+(_nkFilter?'Chưa nhắc lần nào cho khách này (trên máy này).':'Chưa có lần nhắc nào.')+'</p>'; return; }
   el.innerHTML=log.map(function(r){
     var d=new Date(r.t); var dd=('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+'/'+d.getFullYear()+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2);
-    return '<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:.86rem"><span><b>'+esc(r.ph)+'</b> '+esc(r.ten)+' <small style="color:var(--muted)">('+(NK_LABEL[r.k]||r.k)+')</small></span><span style="color:var(--muted);white-space:nowrap">'+dd+'</span></div>';
+    var left = _nkFilter
+      ? '<span><small style="color:var(--muted)">('+(NK_LABEL[r.k]||r.k)+')</small></span>'
+      : '<span><b>'+esc(r.ph)+'</b> '+esc(r.ten)+' <small style="color:var(--muted)">('+(NK_LABEL[r.k]||r.k)+')</small></span>';
+    return '<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line);font-size:.86rem">'+left+'<span style="color:var(--muted);white-space:nowrap">'+dd+'</span></div>';
   }).join('');
 }
 function xoaNhatKy(){
