@@ -28,8 +28,12 @@
   .row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-top:10px;flex-wrap:wrap}
   .row.sent{background:rgba(18,161,80,.30);border-color:var(--green)}
   .row.unsent{background:rgba(192,57,43,.26);border-color:var(--red)}
+  .row.flag{background:rgba(183,121,31,.30);border-color:var(--amber)}
   .sentb{font-weight:800;color:var(--green);font-size:.74rem}
   .unsentb{font-weight:800;color:var(--red);font-size:.74rem}
+  .flagb{font-weight:800;color:var(--amber);font-size:.72rem;display:block;margin-top:2px}
+  .fbtn{color:var(--amber);border-color:var(--amber);background:transparent}
+  .fbtn.on{background:var(--amber);color:#fff}
   .row>img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:0 0 auto}
   .info{flex:1;min-width:120px}
   .ph{font-weight:800}
@@ -82,8 +86,14 @@
     <label class="drop" for="file"><b>+ Chọn ảnh hóa đơn</b><div class="hint">Chọn nhiều ảnh cùng lúc · app tự đọc mã phòng in trên hóa đơn</div></label>
     <input id="file" type="file" accept="image/*" multiple style="display:none">
     <p class="hint" id="status" style="margin-top:10px"></p>
+    <div id="uploading"></div>
+    <div id="logHead" class="lb" style="display:none;margin-top:16px;justify-content:space-between;align-items:center">
+      <span>🧾 Nhật ký bill đã nạp (tháng này)</span>
+      <button id="logClear" style="font-size:.72rem;font-weight:700;color:var(--red);background:none;border:0;cursor:pointer">Xóa nhật ký</button>
+    </div>
     <div id="list"></div>
   </div>
+  <div id="toast" style="display:none;position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1f2d33;color:#fff;padding:10px 16px;border-radius:10px;font-size:.84rem;font-weight:700;z-index:60;max-width:92%;box-shadow:0 6px 24px rgba(0,0,0,.3)"></div>
 </div>
 
 <script>
@@ -158,6 +168,7 @@ function loadData(){
     if(d&&d.ok){ CONTACTS=d.list||[];
       var dt=new Date(); document.getElementById('thang').value=('0'+(dt.getMonth()+1)).slice(-2)+'-'+dt.getFullYear();
       setChoice(LS('bill_choice')||'def');
+      var _t=document.getElementById('thang').value.trim(); logLoad(_t); renderList(_t);
       document.getElementById('status').textContent=''; }
     else { document.getElementById('status').textContent='Không tải được danh sách khách — thử lại.'; }
   }, function(){ document.getElementById('status').textContent='Không kết nối được — thử lại.'; });
@@ -221,19 +232,12 @@ function handle(file,thang){
 }
 function up(fname, fullData, thang){
   var cFile=findContact(fname);
-  if(cFile){
-    // Mã phòng đã có trong tên file → dùng luôn, không cần máy chủ đọc
-    var box=addRow(fullData, cFile, cFile.phong, null, null, thang, false);
-    box._c=cFile; box._room=cFile.phong; box._thang=thang; box._full=fullData;
-    renderCard(box);
-    doUpload(box, cFile.phong, thang, fullData, false);
-    return;
-  }
-  // Không có mã trong tên file → gửi ảnh để MÁY CHỦ đọc mã phòng
-  var box2=addRow(fullData, null, 'đang đọc mã phòng…', null, null, thang, true);
-  box2._thang=thang; box2._full=fullData;
-  var uid='x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-  doUpload(box2, uid, thang, fullData, true);
+  var box=addRow(fullData, cFile, cFile?cFile.phong:'đang đọc mã phòng…', null, null, thang, !cFile);
+  box._thang=thang; box._full=fullData;
+  if(cFile){ box._c=cFile; box._room=cFile.phong; box._resolved=true; }
+  renderCard(box);
+  var uid = cFile ? cFile.phong : ('x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
+  doUpload(box, uid, thang, fullData, !cFile);
 }
 function doUpload(box, key, thang, fullData, ocrFlag){
   try{
@@ -243,7 +247,7 @@ function doUpload(box, key, thang, fullData, ocrFlag){
   pollLink(box, key, thang, !!ocrFlag, 0);
 }
 function pollLink(box, key, thang, ocrFlag, n){
-  if(n>30){ if(box._loading){ box._loading=false; renderCard(box); } return; }
+  if(n>30){ if(box._loading){ box._loading=false; renderCard(box); } tryFinalize(box); return; }
   callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d){
     var link=(d&&d.ok)?(d.link||''):'';
     var room=(d&&d.ok)?(d.room||''):'';
@@ -253,10 +257,25 @@ function pollLink(box, key, thang, ocrFlag, n){
       var c=findByRoom(room); if(c) box._c=c;
       box._loading=false; renderCard(box);
     }
-    var enough = box._link && (!ocrFlag || box._resolved);
-    if(enough) return;
+    tryFinalize(box);
+    if(box._done) return;
+    if(box._link && (!ocrFlag || box._resolved) && !box._c) return;  // xong nhưng không khớp khách → để lại thẻ cảnh báo
     setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1600);
   }, function(){ setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1600); });
+}
+/* Khi có đủ (khách + link) → lưu vào nhật ký, cảnh báo nếu trùng, bỏ thẻ tạm */
+function tryFinalize(box){
+  if(box._done) return;
+  if(!box._link) return;
+  if(box._loading) return;
+  if(box._c){
+    box._done=true;
+    var dup=addLog(box._thang, box._c.phong, box._link);
+    if(box.parentNode) box.parentNode.removeChild(box);
+    renderList(box._thang);
+    if(reportOpen) renderReport();
+    if(dup) toast('⚠️ Đã có bill phòng '+box._c.phong+' tháng '+box._thang+' — đã ghi đè bản mới');
+  }
 }
 
 function addRow(img, c, room, link, err, thang, loading){
@@ -264,9 +283,57 @@ function addRow(img, c, room, link, err, thang, loading){
   var im=document.createElement('img'); im.src=img; box.appendChild(im);
   var info=document.createElement('div'); info.className='info'; box.appendChild(info);
   var act=document.createElement('div'); act.className='act'; box.appendChild(act);
-  document.getElementById('list').appendChild(box);
+  document.getElementById('uploading').appendChild(box);
   box._info=info; box._act=act; box._c=c; box._room=room; box._thang=thang; box._loading=loading;
   renderCard(box);
+  return box;
+}
+
+/* ===== Nhật ký bill đã nạp (lưu trên máy — giữ lại khi thoát/mở lại app) ===== */
+function lkey(thang){ return 'bl_log_'+String(thang).replace(/[^0-9A-Za-z-]/g,''); }
+var BL={};   // { ROOM: {room, link, flag, t} } của tháng đang xem
+function logLoad(thang){ try{ BL=JSON.parse(LS(lkey(thang))||'{}')||{}; }catch(e){ BL={}; } }
+function logSave(thang){ try{ LS(lkey(thang), JSON.stringify(BL)); }catch(e){} }
+function roomUp(r){ return String(r||'').toUpperCase().replace(/\s+/g,''); }
+function addLog(thang, room, link){
+  var R=roomUp(room); if(!R) return false;
+  var dup=!!BL[R];
+  BL[R]={ room:room, link:link||((BL[R]&&BL[R].link)||''), flag:(BL[R]&&BL[R].flag)||false, t:Date.now() };
+  logSave(thang); return dup;
+}
+function toggleFlag(thang, room){ var R=roomUp(room); if(BL[R]){ BL[R].flag=!BL[R].flag; logSave(thang); renderList(thang); } }
+function clearLog(thang){ if(!confirm('Xóa nhật ký bill tháng '+thang+' trên máy này?')) return; BL={}; logSave(thang); renderList(thang); }
+function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(t._tm); t._tm=setTimeout(function(){ t.style.display='none'; }, 4000); }
+
+function renderList(thang){
+  var list=document.getElementById('list'); list.innerHTML='';
+  var items=Object.keys(BL).map(function(R){ return BL[R]; }).sort(function(a,b){ return (b.t||0)-(a.t||0); });
+  document.getElementById('logHead').style.display = items.length ? 'flex' : 'none';
+  items.forEach(function(e){ list.appendChild(logCard(e, thang)); });
+}
+function logCard(e, thang){
+  var room=e.room, c=findByRoom(room), link=e.link||'', sent=isSent(thang, room), flag=!!e.flag;
+  var box=document.createElement('div');
+  box.className='row '+(flag?'flag':(sent?'sent':'unsent'));
+  var info=document.createElement('div'); info.className='info'; info.style.flex='1';
+  var badge = flag ? ' <span class="unsentb" style="color:var(--amber)">⚠️ Nghi sai khách</span>'
+                   : (sent?' <span class="sentb">✓ Đã gửi</span>':' <span class="unsentb">● Chưa gửi</span>');
+  info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':' <span class="nm">(không khớp khách)</span>')+badge+'</div>'
+    +(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'')
+    +(flag?'<span class="flagb">Đã đánh dấu — mở "xem bill" đối chiếu ảnh với tên khách</span>':'');
+  box.appendChild(info);
+  var act=document.createElement('div'); act.className='act'; box.appendChild(act);
+  function mk(){ markSent(thang, room); setTimeout(function(){ renderList(thang); if(reportOpen) renderReport(); },250); }
+  if(c && c.sdt && c.kenh){
+    var msg=buildMsg(c, thang, link);
+    if(c.kenh==='wa'){ var a=document.createElement('a'); a.className='wa'; a.href='https://wa.me/'+waNum(c.sdt)+'?text='+encodeURIComponent(msg); a.target='_blank'; a.rel='noopener'; a.textContent='WhatsApp'; a.onclick=mk; act.appendChild(a); }
+    else if(c.kenh==='zalo'){ var a2=document.createElement('a'); a2.className='za'; a2.href='https://zalo.me/'+zaloNum(c.sdt); a2.target='_blank'; a2.rel='noopener'; a2.textContent='Zalo'; a2.onclick=function(){ cpy(msg); mk(); }; act.appendChild(a2); }
+    else if(c.kenh==='wechat'){ var b=document.createElement('button'); b.className='wc'; b.textContent='WeChat'; b.onclick=function(){ cpy(msg); mk(); }; act.appendChild(b); }
+  } else if(c && !c.sdt){ var w1=document.createElement('span'); w1.className='warn'; w1.textContent='⚠️ Chưa có SĐT'; act.appendChild(w1); }
+  else if(c && !c.kenh){ var w2=document.createElement('span'); w2.className='warn'; w2.textContent='⚠️ Chưa chọn kênh'; act.appendChild(w2); }
+  // Nút cảnh báo "sai khách so với ảnh bill"
+  var fb=document.createElement('button'); fb.className='fbtn'+(flag?' on':''); fb.textContent=flag?'✓ Bỏ cảnh báo':'⚠️ Sai khách?';
+  fb.onclick=function(){ toggleFlag(thang, room); }; act.appendChild(fb);
   return box;
 }
 function renderCard(box){
@@ -312,6 +379,8 @@ document.getElementById('tReset').onclick=function(){
 };
 document.getElementById('btnReport').onclick=toggleReport;
 document.getElementById('btnTpl').onclick=toggleTpl;
+document.getElementById('logClear').onclick=function(){ clearLog(document.getElementById('thang').value.trim()); };
+document.getElementById('thang').addEventListener('change',function(){ var t=this.value.trim(); logLoad(t); renderList(t); if(reportOpen) renderReport(); });
 loadData();   // tự mở ngay, không cần đăng nhập
 </script>
 </body>
