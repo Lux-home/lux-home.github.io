@@ -29,6 +29,7 @@
   .row.sent{background:rgba(18,161,80,.30);border-color:var(--green)}
   .row.unsent{background:rgba(192,57,43,.26);border-color:var(--red)}
   .row.flag{background:rgba(183,121,31,.30);border-color:var(--amber)}
+  .row.vacant{background:rgba(192,57,43,.34);border:2px solid var(--red)}
   .sentb{font-weight:800;color:var(--green);font-size:.74rem}
   .unsentb{font-weight:800;color:var(--red);font-size:.74rem}
   .flagb{font-weight:800;color:var(--amber);font-size:.72rem;display:block;margin-top:2px}
@@ -98,7 +99,7 @@
 
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
-var PW='', CONTACTS=[];
+var PW='', CONTACTS=[], VACANT={};
 var DEF_VI='Kính gửi {ten}, LUXHOME xin gửi hóa đơn tiền thuê căn hộ {phong} - tháng {thang}. Vui lòng kiểm tra và thanh toán giúp ạ. Trân trọng, LUXHOME.';
 var DEF_EN='Dear {ten}, LUXHOME sends you the rental invoice for apartment {phong} - {thang}. Please check and make the payment. Best regards, LUXHOME.';
 
@@ -179,6 +180,7 @@ function loadData(){
   document.getElementById('status').textContent='Đang tải danh sách khách…';
   callExec(EXEC+'?dsbill=1&pw='+enc(PW)+'&callback=cb&t='+Date.now(), function(d){
     if(d&&d.ok){ CONTACTS=d.list||[];
+      VACANT={}; (d.vacant||[]).forEach(function(rm){ VACANT[roomUp(rm)]=true; });
       var dt=new Date(); document.getElementById('thang').value=('0'+(dt.getMonth()+1)).slice(-2)+'-'+dt.getFullYear();
       setChoice(LS('bill_choice')||'def');
       var _t=document.getElementById('thang').value.trim(); logLoad(_t); renderList(_t);
@@ -189,6 +191,14 @@ function loadData(){
 function findContact(fname){
   var f=String(fname||'').toLowerCase(), best=null;
   CONTACTS.forEach(function(c){ var p=String(c.phong||'').toLowerCase(); if(p && f.indexOf(p)>-1){ if(!best||p.length>String(best.phong).length) best=c; } });
+  return best;
+}
+function isVacant(room){ return !!VACANT[roomUp(room)]; }
+// Tìm mã phòng ĐÃ BIẾT (có khách hoặc đang trống) trong tên file → đi đường nhanh, bỏ qua OCR
+function roomFromName(fname){
+  var f=String(fname||'').toLowerCase(), best='';
+  CONTACTS.forEach(function(c){ var p=String(c.phong||'').toLowerCase(); if(p && f.indexOf(p)>-1 && p.length>best.length) best=c.phong; });
+  Object.keys(VACANT).forEach(function(R){ var p=R.toLowerCase(); if(p && f.indexOf(p)>-1 && p.length>best.length) best=R; });
   return best;
 }
 function findByRoom(room){
@@ -254,13 +264,22 @@ function handle(file,thang){
   r.readAsDataURL(file);
 }
 function up(fname, fullData, thang){
-  var cFile=findContact(fname);
-  var box=addRow(fullData, cFile, cFile?cFile.phong:'đang đọc mã phòng…', null, null, thang, !cFile);
-  box._thang=thang; box._full=fullData;
-  if(cFile){ box._c=cFile; box._room=cFile.phong; box._resolved=true; }
-  renderCard(box);
-  var uid = cFile ? cFile.phong : ('x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6));
-  doUpload(box, uid, thang, fullData, !cFile);
+  var room = roomFromName(fname);          // mã phòng lấy từ TÊN FILE (nhanh, không OCR)
+  if(room){
+    var vac = isVacant(room);
+    var c = vac ? null : findByRoom(room);
+    var box=addRow(fullData, c, room, null, null, thang, false);
+    box._thang=thang; box._full=fullData; box._room=room; box._resolved=true; box._vacant=vac;
+    if(c) box._c=c;
+    renderCard(box);
+    doUpload(box, room, thang, fullData, false);   // tên file đã có mã → tắt OCR
+    return;
+  }
+  // Tên file không có mã phòng đã biết → nhờ MÁY CHỦ đọc (OCR)
+  var box2=addRow(fullData, null, 'đang đọc mã phòng…', null, null, thang, true);
+  box2._thang=thang; box2._full=fullData;
+  var uid='x'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+  doUpload(box2, uid, thang, fullData, true);
 }
 function doUpload(box, key, thang, fullData, ocrFlag){
   try{
@@ -279,12 +298,12 @@ function pollLink(box, key, thang, ocrFlag, n){
     if(link && !box._link){ box._link=link; renderCard(box); }
     if(ocrFlag && room && !box._resolved){
       box._resolved=true; box._room=room;
-      var c=findByRoom(room); if(c) box._c=c;
+      var c=findByRoom(room); if(c){ box._c=c; } else { box._vacant=isVacant(room); }
       box._loading=false; renderCard(box);
     }
     tryFinalize(box);
     if(box._done) return;
-    if(box._link && (!ocrFlag || box._resolved) && !box._c) return;  // xong nhưng không khớp khách → để lại thẻ cảnh báo
+    if(box._link && (!ocrFlag || box._resolved) && !box._c && !box._vacant) return;  // mã phòng lạ → để lại thẻ cảnh báo
     setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1200);
   }, function(){ setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1200); });
 }
@@ -293,13 +312,15 @@ function tryFinalize(box){
   if(box._done) return;
   if(!box._link) return;
   if(box._loading) return;
-  if(box._c){
+  if(box._c || box._vacant){
     box._done=true;
-    var dup=addLog(box._thang, box._c.phong, box._link, box._btext);
+    var rm = box._c ? box._c.phong : box._room;
+    var dup=addLog(box._thang, rm, box._link, box._btext, box._vacant);
     if(box.parentNode) box.parentNode.removeChild(box);
     renderList(box._thang);
     if(reportOpen) renderReport();
-    if(dup) toast('⚠️ Đã có bill phòng '+box._c.phong+' tháng '+box._thang+' — đã ghi đè bản mới');
+    if(box._vacant) toast('⚠️ Phòng '+rm+' đang TRỐNG — kiểm tra lại, có thể gửi nhầm');
+    else if(dup) toast('⚠️ Đã có bill phòng '+rm+' tháng '+box._thang+' — đã ghi đè bản mới');
   }
 }
 
@@ -320,11 +341,11 @@ var BL={};   // { ROOM: {room, link, flag, t} } của tháng đang xem
 function logLoad(thang){ try{ BL=JSON.parse(LS(lkey(thang))||'{}')||{}; }catch(e){ BL={}; } }
 function logSave(thang){ try{ LS(lkey(thang), JSON.stringify(BL)); }catch(e){} }
 function roomUp(r){ return String(r||'').toUpperCase().replace(/\s+/g,''); }
-function addLog(thang, room, link, btext){
+function addLog(thang, room, link, btext, vacant){
   var R=roomUp(room); if(!R) return false;
   var dup=!!BL[R];
-  // mỗi lần (nạp lại) là 1 bill mới → đánh giá lại từ đầu (bỏ cờ cũ)
-  BL[R]={ room:room, link:link||((BL[R]&&BL[R].link)||''), btext: btext||((BL[R]&&BL[R].btext)||''), flag:false, ok:false, t:Date.now() };
+  // mỗi lần (nạp lại) là 1 bill mới → đánh giá lại từ đầu (bỏ cờ cũ) → NẠP MỚI GHI ĐÈ BILL CŨ
+  BL[R]={ room:room, link:link||((BL[R]&&BL[R].link)||''), btext: btext||((BL[R]&&BL[R].btext)||''), vacant:!!vacant, flag:false, ok:false, t:Date.now() };
   logSave(thang); return dup;
 }
 function toggleFlag(thang, room){ var R=roomUp(room); if(BL[R]){ BL[R].flag=!BL[R].flag; logSave(thang); renderList(thang); } }
@@ -339,25 +360,30 @@ function renderList(thang){
 }
 function logCard(e, thang){
   var room=e.room, c=findByRoom(room), link=e.link||'', sent=isSent(thang, room);
+  var vacant=!!e.vacant;                                                // CĂN HỘ ĐANG TRỐNG
   var btext=e.btext||'';
   var hasTenants=allByRoom(room).length>0;
-  var mt = (btext && hasTenants) ? matchedTenant(btext, room) : null;   // khách của phòng tìm thấy trên bill
-  var mismatch = !!btext && hasTenants && !mt && !e.ok;                 // không thấy ai → nghi sai
-  var yellow = !!e.flag || mismatch;
+  var mt = (!vacant && btext && hasTenants) ? matchedTenant(btext, room) : null;   // khách của phòng tìm thấy trên bill
+  var mismatch = !vacant && !!btext && hasTenants && !mt && !e.ok;      // không thấy ai → nghi sai
+  var yellow = !vacant && (!!e.flag || mismatch);
   var box=document.createElement('div');
-  box.className='row '+(yellow?'flag':(sent?'sent':'unsent'));
+  box.className='row '+(vacant?'vacant':(yellow?'flag':(sent?'sent':'unsent')));
   var info=document.createElement('div'); info.className='info'; info.style.flex='1';
-  var badge = yellow ? ' <span class="unsentb" style="color:var(--amber)">⚠️ Nghi sai khách</span>'
-                     : (sent?' <span class="sentb">'+sentBadge(thang,room)+'</span>':' <span class="unsentb">● Chưa gửi</span>');
-  var nameLine = mismatch
-    ? '<span class="flagb" style="color:var(--amber)">⚠️ Không thấy tên khách của phòng trên ảnh bill — mở "xem bill" đối chiếu</span>'
-    : (mt ? '<span class="flagb" style="color:var(--muted)">📄 Bill khớp tên: '+esc(mt.ten)+'</span>' : '');
-  info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':' <span class="nm">(không khớp khách)</span>')+badge+'</div>'
+  var badge = vacant ? ' <span class="unsentb" style="color:var(--red)">🏚️ CĂN HỘ ĐANG TRỐNG</span>'
+            : yellow ? ' <span class="unsentb" style="color:var(--amber)">⚠️ Nghi sai khách</span>'
+            : (sent?' <span class="sentb">'+sentBadge(thang,room)+'</span>':' <span class="unsentb">● Chưa gửi</span>');
+  var nameLine = vacant
+    ? '<span class="flagb" style="color:var(--red)">Phòng này đang TRỐNG trong danh sách — không nên gửi bill. Nếu nhầm, nạp bill đúng để ghi đè.</span>'
+    : (mismatch
+        ? '<span class="flagb" style="color:var(--amber)">⚠️ Không thấy tên khách của phòng trên ảnh bill — mở "xem bill" đối chiếu</span>'
+        : (mt ? '<span class="flagb" style="color:var(--muted)">📄 Bill khớp tên: '+esc(mt.ten)+'</span>' : ''));
+  info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':' <span class="nm">'+(vacant?'(phòng trống)':'(không khớp khách)')+'</span>')+badge+'</div>'
     +(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'')
     +nameLine;
   box.appendChild(info);
   var act=document.createElement('div'); act.className='act'; box.appendChild(act);
   function mk(){ markSent(thang, room); setTimeout(function(){ renderList(thang); if(reportOpen) renderReport(); },250); }
+  if(vacant){ return box; }                                            // phòng trống: chỉ cảnh báo, không nút gửi
   if(c && c.sdt && c.kenh){
     var msg=buildMsg(c, thang, link);
     if(c.kenh==='wa'){ var a=document.createElement('a'); a.className='wa'; a.href='https://wa.me/'+waNum(c.sdt)+'?text='+encodeURIComponent(msg); a.target='_blank'; a.rel='noopener'; a.textContent='WhatsApp'; a.onclick=mk; act.appendChild(a); }
@@ -376,15 +402,18 @@ function renderCard(box){
   var c=box._c, info=box._info, act=box._act, thang=box._thang, link=box._link||'';
   var room=c?c.phong:(box._room||'Không rõ');
   var sent=c?isSent(thang,c.phong):false;
-  // Tô màu thẻ: xanh = đã gửi, đỏ = chưa gửi (chỉ khi đã nhận diện được khách)
-  box.className = 'row' + (c && !box._loading ? (sent?' sent':' unsent') : '');
-  var badge = (c && !box._loading)
-    ? (sent?' <span class="sentb">'+sentBadge(thang,c.phong)+'</span>':' <span class="unsentb">● Chưa gửi</span>')
-    : '';
-  info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':'')+badge+'</div>'
+  var vacant=!!box._vacant;
+  // Tô màu thẻ: đỏ đậm = phòng trống; xanh = đã gửi; đỏ = chưa gửi
+  box.className = 'row' + (vacant?' vacant':(c && !box._loading ? (sent?' sent':' unsent') : ''));
+  var badge = vacant ? ' <span class="unsentb" style="color:var(--red)">🏚️ CĂN HỘ ĐANG TRỐNG</span>'
+            : (c && !box._loading)
+              ? (sent?' <span class="sentb">'+sentBadge(thang,c.phong)+'</span>':' <span class="unsentb">● Chưa gửi</span>')
+              : '';
+  info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':(vacant?' <span class="nm">(phòng trống)</span>':''))+badge+'</div>'
     +(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'');
   act.innerHTML='';
   if(box._loading){ act.innerHTML='<span class="load">⏳ máy chủ đang đọc mã phòng…</span>'; return; }
+  if(vacant){ act.innerHTML='<span class="warn" style="color:var(--red)">Phòng đang trống — không nên gửi bill</span>'; return; }
   if(!c){ act.innerHTML='<span class="warn">'+(box._room?('⚠️ Đọc được "'+esc(box._room)+'" nhưng không khớp khách'):'⚠️ Không đọc được mã phòng')+'</span>'; return; }
   if(!c.sdt){ act.innerHTML='<span class="warn">⚠️ Chưa có SĐT</span>'; return; }
   function mk(){ markSent(thang, c.phong); setTimeout(function(){ renderCard(box); }, 300); }
