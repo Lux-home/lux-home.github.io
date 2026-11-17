@@ -232,27 +232,6 @@ function matchedTenant(text, room){
 /* ===== Đọc mã phòng chạy trên MÁY CHỦ (Google Drive OCR) =====
    Điện thoại chỉ gửi ảnh; máy chủ đọc mã phòng rồi trả về (nhanh, không ngốn máy). */
 
-/* ===== Gửi kèm ảnh JPG thật (Web Share) ===== */
-function canShareFiles(){
-  try{ return !!(navigator.canShare && navigator.share && navigator.canShare({files:[new File([new Blob([''],{type:'image/jpeg'})],'t.jpg',{type:'image/jpeg'})]})); }catch(e){ return false; }
-}
-async function shareImg(box, btn){
-  var c=box._c, thang=box._thang, dataUrl=box._full;
-  var msg=buildMsg(c,thang,'');
-  try{
-    var blob=await (await fetch(dataUrl)).blob();
-    var file=new File([blob], (c.phong||'bill')+'_'+thang+'.jpg', {type:'image/jpeg'});
-    if(navigator.canShare && navigator.canShare({files:[file]})){
-      await navigator.share({ files:[file], text: msg });
-      markSent(thang, c.phong); renderCard(box);   // đánh dấu đã gửi
-      return;
-    }
-  }catch(e){ if(e && e.name==='AbortError') return; }
-  cpy(msg);
-  if(btn){ var o=btn.textContent; btn.textContent='✓ Đã copy nội dung'; setTimeout(function(){btn.textContent=o;},1800); }
-  alert('Thiết bị không gửi kèm ảnh trực tiếp được. Đã copy nội dung — bạn mở ảnh (nút "xem bill") và gửi kèm thủ công.');
-}
-
 document.getElementById('file').addEventListener('change',function(e){
   var fs=Array.prototype.slice.call(e.target.files); e.target.value='';
   var thang=document.getElementById('thang').value.trim()||'';
