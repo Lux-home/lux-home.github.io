@@ -201,11 +201,19 @@ function nameMatch(bill, tenant){
   var common=0; A.forEach(function(x){ if(B.some(function(y){ return tokEq(x,y); })) common++; });
   return (Math.min(A.length,B.length)>=2) ? common>=2 : common>=1;
 }
-// true nếu tên trên bill khớp bất kỳ khách nào của phòng (hoặc không đủ dữ liệu để kết luận)
-function billMatchesRoom(billName, room){
-  if(!billName) return true;
-  var ts=allByRoom(room); if(!ts.length) return true;
-  return ts.some(function(t){ return nameMatch(billName, t.ten); });
+// Tìm TÊN 1 khách trong toàn văn chữ trên bill (không phụ thuộc thứ tự OCR đọc)
+function textHasName(text, tenant){
+  var T=ntoks(tenant); if(!T.length) return false;
+  var W=ntoks(text); if(!W.length) return false;
+  var common=0; T.forEach(function(x){ if(W.some(function(y){ return tokEq(x,y); })) common++; });
+  return (T.length>=2) ? common>=2 : common>=1;   // tên ≥2 chữ cần thấy ≥2 chữ trên bill
+}
+// Trả về khách của phòng có tên xuất hiện trên bill (nếu có)
+function matchedTenant(text, room){
+  if(!text) return null;
+  var ts=allByRoom(room);
+  for(var i=0;i<ts.length;i++){ if(textHasName(text, ts[i].ten)) return ts[i]; }
+  return null;
 }
 
 /* ===== Đọc mã phòng chạy trên MÁY CHỦ (Google Drive OCR) =====
@@ -274,8 +282,8 @@ function pollLink(box, key, thang, ocrFlag, n){
   callExec(EXEC+'?getbill=1&pw='+enc(PW)+'&room='+enc(key)+'&thang='+enc(thang)+'&callback=cb&t='+Date.now(), function(d){
     var link=(d&&d.ok)?(d.link||''):'';
     var room=(d&&d.ok)?(d.room||''):'';
-    var bname=(d&&d.ok)?(d.name||''):'';
-    if(bname && !box._billName){ box._billName=bname; }
+    var btext=(d&&d.ok)?(d.text||''):'';
+    if(btext && !box._btext){ box._btext=btext; }
     if(link && !box._link){ box._link=link; renderCard(box); }
     if(ocrFlag && room && !box._resolved){
       box._resolved=true; box._room=room;
@@ -295,7 +303,7 @@ function tryFinalize(box){
   if(box._loading) return;
   if(box._c){
     box._done=true;
-    var dup=addLog(box._thang, box._c.phong, box._link, box._billName);
+    var dup=addLog(box._thang, box._c.phong, box._link, box._btext);
     if(box.parentNode) box.parentNode.removeChild(box);
     renderList(box._thang);
     if(reportOpen) renderReport();
@@ -320,11 +328,11 @@ var BL={};   // { ROOM: {room, link, flag, t} } của tháng đang xem
 function logLoad(thang){ try{ BL=JSON.parse(LS(lkey(thang))||'{}')||{}; }catch(e){ BL={}; } }
 function logSave(thang){ try{ LS(lkey(thang), JSON.stringify(BL)); }catch(e){} }
 function roomUp(r){ return String(r||'').toUpperCase().replace(/\s+/g,''); }
-function addLog(thang, room, link, billName){
+function addLog(thang, room, link, btext){
   var R=roomUp(room); if(!R) return false;
   var dup=!!BL[R];
   // mỗi lần (nạp lại) là 1 bill mới → đánh giá lại từ đầu (bỏ cờ cũ)
-  BL[R]={ room:room, link:link||((BL[R]&&BL[R].link)||''), billName: billName||((BL[R]&&BL[R].billName)||''), flag:false, ok:false, t:Date.now() };
+  BL[R]={ room:room, link:link||((BL[R]&&BL[R].link)||''), btext: btext||((BL[R]&&BL[R].btext)||''), flag:false, ok:false, t:Date.now() };
   logSave(thang); return dup;
 }
 function toggleFlag(thang, room){ var R=roomUp(room); if(BL[R]){ BL[R].flag=!BL[R].flag; logSave(thang); renderList(thang); } }
@@ -339,17 +347,19 @@ function renderList(thang){
 }
 function logCard(e, thang){
   var room=e.room, c=findByRoom(room), link=e.link||'', sent=isSent(thang, room);
-  var billName=e.billName||'';
-  var mismatch = !!billName && !e.ok && !billMatchesRoom(billName, room);  // app tự thấy tên không khớp
+  var btext=e.btext||'';
+  var hasTenants=allByRoom(room).length>0;
+  var mt = (btext && hasTenants) ? matchedTenant(btext, room) : null;   // khách của phòng tìm thấy trên bill
+  var mismatch = !!btext && hasTenants && !mt && !e.ok;                 // không thấy ai → nghi sai
   var yellow = !!e.flag || mismatch;
   var box=document.createElement('div');
   box.className='row '+(yellow?'flag':(sent?'sent':'unsent'));
   var info=document.createElement('div'); info.className='info'; info.style.flex='1';
   var badge = yellow ? ' <span class="unsentb" style="color:var(--amber)">⚠️ Nghi sai khách</span>'
                      : (sent?' <span class="sentb">✓ Đã gửi</span>':' <span class="unsentb">● Chưa gửi</span>');
-  var nameLine = billName
-    ? '<span class="flagb" style="color:'+(mismatch?'var(--amber)':'var(--muted)')+'">📄 Tên trên bill: '+esc(billName)+(mismatch?' — không khớp khách phòng này':'')+'</span>'
-    : '';
+  var nameLine = mismatch
+    ? '<span class="flagb" style="color:var(--amber)">⚠️ Không thấy tên khách của phòng trên ảnh bill — mở "xem bill" đối chiếu</span>'
+    : (mt ? '<span class="flagb" style="color:var(--muted)">📄 Bill khớp tên: '+esc(mt.ten)+'</span>' : '');
   info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':' <span class="nm">(không khớp khách)</span>')+badge+'</div>'
     +(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'')
     +nameLine;
