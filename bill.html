@@ -26,6 +26,10 @@
   .seg{flex:1;padding:9px;border:1px solid var(--line);background:var(--bg);color:var(--fg);border-radius:10px;font-weight:700;cursor:pointer}
   .seg.on{background:var(--cyan);color:#fff;border-color:var(--cyan)}
   .row{display:flex;align-items:center;gap:10px;padding:10px;border:1px solid var(--line);border-radius:12px;margin-top:10px;flex-wrap:wrap}
+  .row.sent{background:rgba(18,161,80,.14);border-color:var(--green)}
+  .row.unsent{background:rgba(192,57,43,.10);border-color:var(--red)}
+  .sentb{font-weight:800;color:var(--green);font-size:.74rem}
+  .unsentb{font-weight:800;color:var(--red);font-size:.74rem}
   .row>img{width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--line);flex:0 0 auto}
   .info{flex:1;min-width:120px}
   .ph{font-weight:800}
@@ -269,7 +273,11 @@ function renderCard(box){
   var c=box._c, info=box._info, act=box._act, thang=box._thang, link=box._link||'';
   var room=c?c.phong:(box._room||'Không rõ');
   var sent=c?isSent(thang,c.phong):false;
-  var badge=sent?' <span style="font-weight:800;color:var(--green);font-size:.74rem">✓ Đã gửi</span>':'';
+  // Tô màu thẻ: xanh = đã gửi, đỏ = chưa gửi (chỉ khi đã nhận diện được khách)
+  box.className = 'row' + (c && !box._loading ? (sent?' sent':' unsent') : '');
+  var badge = (c && !box._loading)
+    ? (sent?' <span class="sentb">✓ Đã gửi</span>':' <span class="unsentb">● Chưa gửi</span>')
+    : '';
   info.innerHTML='<div class="ph">'+esc(room)+(c?' <span class="nm">'+esc(c.ten)+'</span> <span class="qt">'+((c.qt||'').toUpperCase()==='VN'?'VN':'NN')+'</span>':'')+badge+'</div>'
     +(link?'<div><a class="vlink" href="'+link+'" target="_blank" rel="noopener">xem bill ↗</a></div>':'');
   act.innerHTML='';
@@ -277,12 +285,7 @@ function renderCard(box){
   if(!c){ act.innerHTML='<span class="warn">'+(box._room?('⚠️ Đọc được "'+esc(box._room)+'" nhưng không khớp khách'):'⚠️ Không đọc được mã phòng')+'</span>'; return; }
   if(!c.sdt){ act.innerHTML='<span class="warn">⚠️ Chưa có SĐT</span>'; return; }
   function mk(){ markSent(thang, c.phong); setTimeout(function(){ renderCard(box); }, 300); }
-  // Nút chính: gửi KÈM ẢNH (Web Share)
-  if(canShareFiles()){
-    var sb=document.createElement('button'); sb.className='share'; sb.textContent=sent?'📎 Gửi lại':'📎 Gửi kèm ảnh';
-    sb.onclick=function(){ shareImg(box, sb); }; act.appendChild(sb);
-  }
-  // Nút phụ: mở thẳng chat đúng khách (kèm link xem bill)
+  // Nút gửi: mở thẳng chat đúng khách (kèm link xem bill)
   if(c.kenh){
     var msg=buildMsg(c, thang, link);
     if(c.kenh==='wa'){ var a=document.createElement('a'); a.className='wa'; a.href='https://wa.me/'+waNum(c.sdt)+'?text='+encodeURIComponent(msg); a.target='_blank'; a.rel='noopener'; a.textContent='WhatsApp'; a.onclick=mk; act.appendChild(a); }

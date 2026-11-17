@@ -36,6 +36,8 @@
   .list{border-top:1px solid var(--line);max-height:46vh;overflow:auto;display:none}
   .list.open{display:block}
   .row{display:flex;justify-content:space-between;gap:8px;padding:9px 14px;border-bottom:1px solid rgba(128,128,128,.12);font-size:.85rem}
+  .row.dnhac{background:rgba(18,161,80,.13)}
+  .row.cnhac{background:rgba(192,57,43,.09)}
   .row:last-child{border-bottom:0}
   .row .ph{font-weight:700;min-width:64px} .row .nm{flex:1;color:var(--muted)}
   .row .tag{font-size:.72rem;display:flex;align-items:center;gap:6px;flex-wrap:wrap;justify-content:flex-end}
@@ -246,7 +248,8 @@ function markNhacEl(el){
     log.unshift({ph:ph,ten:ten,k:k,t:Date.now()});
     if(log.length>800) log=log.slice(0,800);
     LSs('nhac_log', JSON.stringify(log));
-    var b=document.querySelector('[data-nhac="'+nkey(ph,k)+'"]'); if(b) b.innerHTML=NHACB;
+    var b=document.querySelector('[data-nhac="'+nkey(ph,k)+'"]');
+    if(b){ b.innerHTML=NHACB; var r=b.closest('.row'); if(r){ r.classList.remove('cnhac'); r.classList.add('dnhac'); } }
   }catch(e){}
 }
 function card(n,l){return '<div class="card"><div class="n">'+n+'</div><div class="l">'+l+'</div></div>';}
@@ -300,8 +303,9 @@ function rowNhac(x,tag,kind,urg){
         ? '<a class="anhb" href="'+esc(x.anhUrl)+'" target="_blank" rel="noopener" style="text-decoration:none" title="Xem ảnh giấy tờ khách gửi">📎 '+esc(x.anh)+' ↗</a>'
         : '<span class="anhb">📎 '+esc(x.anh)+'</span>')
     : '';
-  var nb = '<span class="nhacb" data-nhac="'+nkey(x.phong,kind)+'">'+(isNhac(x.phong,kind)?NHACB:'')+'</span>';
-  return '<div class="row"><span class="ph">'+esc(x.phong)+'</span>'
+  var done = isNhac(x.phong,kind);
+  var nb = '<span class="nhacb" data-nhac="'+nkey(x.phong,kind)+'">'+(done?NHACB:'')+'</span>';
+  return '<div class="row '+(done?'dnhac':'cnhac')+'"><span class="ph">'+esc(x.phong)+'</span>'
     +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small></span>'
     +'<span class="tag">'+ab+nb+tag(x)+acts+'</span></div>';
 }
