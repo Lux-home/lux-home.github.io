@@ -242,10 +242,10 @@ function handle(file,thang){
   r.onload=function(){
     var im=new Image();
     im.onload=function(){
-      var w=im.width,h=im.height,mx=1600,sc=(w>mx||h>mx)?mx/Math.max(w,h):1;
+      var w=im.width,h=im.height,mx=1200,sc=(w>mx||h>mx)?mx/Math.max(w,h):1;
       var fw=Math.round(w*sc),fh=Math.round(h*sc);
       var cv=document.createElement('canvas');cv.width=fw;cv.height=fh;cv.getContext('2d').drawImage(im,0,0,fw,fh);
-      var fullData=cv.toDataURL('image/jpeg',0.85);
+      var fullData=cv.toDataURL('image/jpeg',0.8);
       up(file.name, fullData, thang);
     };
     im.onerror=function(){ up(file.name, r.result, thang); };
@@ -285,8 +285,8 @@ function pollLink(box, key, thang, ocrFlag, n){
     tryFinalize(box);
     if(box._done) return;
     if(box._link && (!ocrFlag || box._resolved) && !box._c) return;  // xong nhưng không khớp khách → để lại thẻ cảnh báo
-    setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1600);
-  }, function(){ setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1600); });
+    setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1200);
+  }, function(){ setTimeout(function(){ pollLink(box, key, thang, ocrFlag, n+1); }, 1200); });
 }
 /* Khi có đủ (khách + link) → lưu vào nhật ký, cảnh báo nếu trùng, bỏ thẻ tạm */
 function tryFinalize(box){
