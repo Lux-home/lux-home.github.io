@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Danh mục căn hộ</title>
+<meta name="theme-color" content="#0e7ba8">
+<style>
+  :root{ --bg:#eef3f4; --surface:#fff; --fg:#13242a; --muted:#5f727a; --line:#e2eaec; --cyan:#0e7ba8; --cyan2:#28c3dd; --gold:#d79f38; --green:#12a150; }
+  @media (prefers-color-scheme:dark){ :root{ --bg:#0c1518; --surface:#13222a; --fg:#e8f1f3; --muted:#90a4ac; --line:#20333c; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",system-ui,sans-serif;line-height:1.45}
+  .top{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 18px;position:relative;overflow:hidden}
+  .top::after{content:"";position:absolute;right:-60px;top:-80px;width:240px;height:240px;border-radius:50%;background:rgba(255,255,255,.08)}
+  a.back{display:inline-flex;align-items:center;gap:6px;color:#fff;text-decoration:none;font-size:1.3rem;font-weight:800;padding:12px 20px;border-radius:999px;background:rgba(255,255,255,.2)}
+  a.back:active{background:rgba(255,255,255,.32)}
+  .brand{font-size:1.5rem;font-weight:800;letter-spacing:2px;color:#ffd977;margin:6px 0 0}
+  .brand small{display:block;font-size:.75rem;font-weight:600;letter-spacing:3px;color:#eafbff;opacity:.92;margin-top:3px}
+  .wrap{max-width:560px;margin:0 auto;padding:16px 14px 40px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:18px;margin-top:14px}
+  .lb{font-size:.78rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin-bottom:8px}
+  .btn{display:block;width:100%;padding:16px;border:none;border-radius:14px;background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;font-weight:800;font-size:1.1rem;cursor:pointer;text-align:center;text-decoration:none}
+  .btn.o{background:none;border:1px solid var(--line);color:var(--fg);font-size:.95rem;padding:11px}
+  .pw{font-size:2rem;font-weight:800;letter-spacing:3px;color:var(--cyan);text-align:center;background:rgba(14,123,168,.08);border:1px dashed var(--cyan);border-radius:12px;padding:14px;margin:4px 0 10px;user-select:all}
+  .note{font-size:.85rem;color:var(--muted);margin-top:8px}
+  .ok{color:var(--green);font-weight:700}
+  #toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#13242a;color:#fff;padding:12px 16px;border-radius:12px;font-size:.9rem;font-weight:600;z-index:999;max-width:90%;text-align:center;opacity:0;transition:opacity .2s;box-shadow:0 6px 24px rgba(0,0,0,.35)}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="index.html">← Trang chính</a>
+  <h1 class="brand">DANH MỤC CĂN HỘ<small>APARTMENT CATALOG</small></h1>
+</div>
+<div class="wrap">
+
+  <div class="card">
+    <div class="lb">① Bạn xem danh mục (admin)</div>
+    <p class="note" style="margin-top:0">Bấm nút dưới: mật khẩu admin được <b>copy sẵn</b> và trang danh mục mở ra — chỉ việc <b>bấm giữ ô mật khẩu → Dán → Xem</b>.</p>
+    <a class="btn" id="openAdmin" href="#">📖 Mở danh mục (đã copy mật khẩu)</a>
+    <p class="note" id="adminNote"></p>
+  </div>
+
+  <div class="card">
+    <div class="lb">② Mật khẩu tuần này — gửi khách</div>
+    <div class="pw" id="week">······</div>
+    <p class="note">Mã này <b>tự đổi mỗi tuần</b> (sang thứ Hai là mã mới). Gửi khách <b>link + mã</b> để khách tự xem.</p>
+    <button class="btn o" id="copyMsg">📋 Copy "link + mật khẩu" gửi khách</button>
+    <button class="btn o" id="copyWeek" style="margin-top:8px">Copy riêng mã tuần</button>
+  </div>
+
+</div>
+<div id="toast"></div>
+<script>
+var CATALOG="https://luxhome-apartment.netlify.app";
+var ADMIN_PW="LUXADMIN2026";
+
+function weekCode(){
+  var WEEK_SECRET="Lux#2026$rotate";
+  var DAY=86400000;
+  var vnDay=Math.floor((Date.now()+7*3600*1000)/DAY);
+  var weekIndex=Math.floor((vnDay-4)/7);
+  var h=2166136261>>>0, s=WEEK_SECRET+":"+weekIndex;
+  for(var i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); }
+  h=h>>>0;
+  var AL="ABCDEFGHJKLMNPQRSTUVWXYZ23456789", code="", x=h;
+  for(var j=0;j<6;j++){ code+=AL[x%AL.length]; x=Math.floor(x/AL.length); }
+  return code;
+}
+var WK=weekCode();
+document.getElementById('week').textContent=WK;
+
+function cpy(t){ try{ var a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.focus();a.select();try{document.execCommand('copy');}catch(e){}a.remove(); }catch(e){} try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t); }catch(e){} }
+function toast(m){ var t=document.getElementById('toast'); t.textContent=m; t.style.opacity='1'; clearTimeout(window._t); window._t=setTimeout(function(){t.style.opacity='0';},3200); }
+
+document.getElementById('openAdmin').onclick=function(e){
+  e.preventDefault();
+  cpy(ADMIN_PW);
+  document.getElementById('adminNote').innerHTML='<span class="ok">✓ Đã copy mật khẩu admin.</span> Vào trang danh mục, bấm giữ ô mật khẩu → Dán → Xem.';
+  toast('✓ Đã copy mật khẩu admin — Dán vào ô mật khẩu rồi bấm Xem');
+  window.open(CATALOG,'_blank');
+};
+document.getElementById('copyWeek').onclick=function(){ cpy(WK); toast('✓ Đã copy mã tuần: '+WK); };
+document.getElementById('copyMsg').onclick=function(){
+  var msg='Danh mục căn hộ LUXHOME:\n'+CATALOG+'\nMật khẩu xem (tuần này): '+WK;
+  cpy(msg); toast('✓ Đã copy nội dung gửi khách');
+};
+
+if("serviceWorker" in navigator){ var _had=!!navigator.serviceWorker.controller; navigator.serviceWorker.register("sw.js").then(function(r){ try{r.update();}catch(e){} }).catch(function(){}); navigator.serviceWorker.addEventListener("controllerchange", function(){ if(!_had||window.__swR) return; window.__swR=1; location.reload(); }); }
+</script>
+</body>
+</html>
