@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Thông báo cư dân</title>
+<meta name="theme-color" content="#0e7ba8">
+<style>
+  :root{ --bg:#eef3f4; --surface:#fff; --fg:#13242a; --muted:#5f727a; --line:#e2eaec; --cyan:#0e7ba8; --cyan2:#28c3dd; --gold:#d79f38; --green:#12a150; --red:#c0392b; }
+  @media (prefers-color-scheme:dark){ :root{ --bg:#0c1518; --surface:#13222a; --fg:#e8f1f3; --muted:#90a4ac; --line:#20333c; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",system-ui,sans-serif;line-height:1.45}
+  .top{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 14px}
+  .top .b{font-size:1.2rem;font-weight:800;letter-spacing:1px;color:#ffd977}
+  .top .s{font-size:.8rem;opacity:.92}
+  a.back{color:#fff;text-decoration:none;font-size:.85rem}
+  .wrap{max-width:720px;margin:0 auto;padding:12px}
+  .card{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:14px;margin-top:12px}
+  .lb{font-size:.82rem;font-weight:800;color:var(--muted);margin:0 0 8px;text-transform:uppercase;letter-spacing:.04em}
+  .chips{display:flex;flex-wrap:wrap;gap:8px}
+  .chip{border:1px solid var(--line);background:var(--surface);color:var(--fg);border-radius:999px;padding:8px 12px;font-size:.9rem;font-weight:600;cursor:pointer}
+  .chip.on{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;border-color:transparent}
+  .chip .ct{opacity:.8;font-weight:700;font-size:.78rem}
+  textarea{width:100%;min-height:190px;padding:12px;border:1px solid var(--line);border-radius:12px;font-size:1rem;background:var(--surface);color:var(--fg);font-family:inherit;line-height:1.5;resize:vertical}
+  .btn{display:inline-block;padding:10px 14px;border:none;border-radius:10px;background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;font-weight:700;font-size:.92rem;cursor:pointer}
+  .btn.o{background:none;border:1px solid var(--line);color:var(--muted)}
+  .btn.g{background:var(--green)} .btn.big{display:block;width:100%;padding:14px;font-size:1.05rem}
+  .row2{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .hint{font-size:.8rem;color:var(--muted);margin-top:8px}
+  .cnt{font-weight:800;color:var(--cyan)}
+  .rc{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:8px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+  .rc.sent{background:rgba(18,161,80,.12);border-color:var(--green)}
+  .rc .nm{font-weight:700} .rc .mt{font-size:.78rem;color:var(--muted)}
+  .rc .warn{font-size:.78rem;color:var(--red);font-weight:700}
+  .act{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+  .wa{background:#25D366;color:#fff} .za{background:#0068FF;color:#fff} .wc{background:#09B83E;color:#fff}
+  .act a,.act button{padding:8px 11px;border:none;border-radius:9px;font-weight:700;font-size:.85rem;text-decoration:none;cursor:pointer}
+  .toabar{position:sticky;top:0;z-index:5;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+  .grp{font-weight:800;margin:14px 2px 2px;color:var(--cyan)}
+  #status{font-size:.9rem;color:var(--muted);padding:8px 2px}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="index.html">← Trang chính</a>
+  <div class="b">LUXHOME</div><div class="s">THÔNG BÁO CƯ DÂN THEO TOÀ</div>
+</div>
+<div class="wrap">
+  <div id="status">Đang tải danh sách cư dân…</div>
+
+  <div id="app" style="display:none">
+    <!-- 1. Loại thông báo -->
+    <div class="card">
+      <div class="lb">1 · Loại thông báo</div>
+      <div class="chips" id="tpls"></div>
+    </div>
+
+    <!-- 2. Nội dung -->
+    <div class="card">
+      <div class="lb">2 · Nội dung (có thể chỉnh sửa)</div>
+      <textarea id="noidung" placeholder="Soạn nội dung thông báo…"></textarea>
+      <div class="row2">
+        <button class="btn o" id="saveTpl">💾 Lưu làm mẫu</button>
+        <button class="btn o" id="resetTpl">↺ Mẫu gốc</button>
+      </div>
+      <p class="hint">Mẹo: viết <b>{toa}</b> trong nội dung, hệ thống tự thay bằng mã toà của từng cư dân khi gửi.</p>
+    </div>
+
+    <!-- 3. Chọn toà -->
+    <div class="card">
+      <div class="lb">3 · Chọn toà nhà</div>
+      <div class="chips" id="toas"></div>
+      <div class="row2">
+        <button class="btn o" id="allToa">Chọn tất cả</button>
+        <button class="btn o" id="noToa">Bỏ chọn</button>
+      </div>
+      <p class="hint">Đã chọn: <span class="cnt" id="selCnt">0</span> cư dân thuộc <span class="cnt" id="selToa">0</span> toà.</p>
+    </div>
+
+    <!-- 4. Gửi -->
+    <div class="card">
+      <div class="lb">4 · Gửi cho cư dân</div>
+      <button class="btn big" id="makeList">📋 Tạo danh sách gửi</button>
+      <div id="sendArea"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
+var PW='20252026', CONTACTS=[], CURTPL='power';
+var NVTOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ try{localStorage.setItem('nv_tok',u);}catch(e){} return u; } return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } })();
+function authQ(){ return NVTOK ? ('tok='+enc(NVTOK)) : ('pw='+enc(PW)); }
+function enc(s){return encodeURIComponent(String(s==null?'':s));}
+function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
+function waNum(p){var d=String(p||'').replace(/[^0-9+]/g,'').replace(/^\+/,'');if(d.charAt(0)==='0')d='84'+d.slice(1);return d;}
+function zaloNum(p){return String(p||'').replace(/[^0-9+]/g,'').replace(/^\+/,'');}
+function cpy(t){ try{ var a=document.createElement('textarea');a.value=t;a.style.position='fixed';a.style.opacity='0';document.body.appendChild(a);a.focus();a.select();try{document.execCommand('copy');}catch(e){}a.remove(); }catch(e){} try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(t); }catch(e){} }
+function toast(msg){ try{ var t=document.getElementById('luxToast'); if(!t){ t=document.createElement('div'); t.id='luxToast'; t.style.cssText='position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#13242a;color:#fff;padding:12px 16px;border-radius:12px;font-size:.9rem;font-weight:600;z-index:9999;max-width:90%;box-shadow:0 6px 24px rgba(0,0,0,.35);text-align:center;opacity:0;transition:opacity .2s'; document.body.appendChild(t); } t.textContent=msg; t.style.opacity='1'; clearTimeout(window._toastT); window._toastT=setTimeout(function(){ t.style.opacity='0'; },3600); }catch(e){} }
+function LSg(k){ try{ return localStorage.getItem(k); }catch(e){ return null; } }
+function LSs(k,v){ try{ localStorage.setItem(k,v); }catch(e){} }
+function callExec(url, ok, fail){ fetch(url,{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){ var i=t.indexOf('('),j=t.lastIndexOf(')'); if(i<0||j<=i){fail&&fail();return;} var d; try{d=JSON.parse(t.slice(i+1,j));}catch(e){fail&&fail();return;} ok&&ok(d); }).catch(function(){ fail&&fail(); }); }
+
+/* Mã toà từ mã phòng: lấy phần trước "-T" (vd A1-T2 → A1) */
+function toaCode(phong){ var s=String(phong||'').trim(); var m=s.match(/^\s*([A-Za-z0-9]+)\s*[-\u2013]\s*T/i); if(m) return m[1].toUpperCase(); var m2=s.match(/^\s*([A-Za-z0-9]+)/); return m2?m2[1].toUpperCase():''; }
+
+/* ===== Mẫu thông báo (có thể sửa, lưu trên máy) ===== */
+var FOOT='\n\u2014 Ban Qu\u1ea3n L\u00fd LUXHOME';
+var TPL=[
+  {id:'power', ten:'\u26a1 M\u1ea5t \u0111i\u1ec7n', def:'\ud83d\udd14 TH\u00d4NG B\u00c1O T\u1ea0M NG\u01afNG C\u1ea4P \u0110I\u1ec6N \u2014 To\u00e0 {toa}\n\nK\u00ednh g\u1eedi Qu\u00fd c\u01b0 d\u00e2n,\nDo [l\u00fd do / s\u1eeda ch\u1eefa \u0111i\u1ec7n], to\u00e0 nh\u00e0 s\u1ebd t\u1ea1m ng\u01b0ng c\u1ea5p \u0111i\u1ec7n:\n\ud83d\udd52 T\u1eeb ... gi\u1edd \u0111\u1ebfn ... gi\u1edd, ng\u00e0y .../.../...\n\nK\u00ednh mong Qu\u00fd c\u01b0 d\u00e2n ch\u1ee7 \u0111\u1ed9ng chu\u1ea9n b\u1ecb. R\u1ea5t xin l\u1ed7i v\u00ec s\u1ef1 b\u1ea5t ti\u1ec7n.'+FOOT},
+  {id:'water', ten:'\ud83d\udca7 M\u1ea5t n\u01b0\u1edbc', def:'\ud83d\udd14 TH\u00d4NG B\u00c1O T\u1ea0M NG\u01afNG C\u1ea4P N\u01af\u1edaC \u2014 To\u00e0 {toa}\n\nK\u00ednh g\u1eedi Qu\u00fd c\u01b0 d\u00e2n,\nDo [l\u00fd do / s\u00fac r\u1eeda b\u1ec3 n\u01b0\u1edbc], to\u00e0 nh\u00e0 s\u1ebd t\u1ea1m ng\u01b0ng c\u1ea5p n\u01b0\u1edbc:\n\ud83d\udd52 T\u1eeb ... gi\u1edd \u0111\u1ebfn ... gi\u1edd, ng\u00e0y .../.../...\n\nK\u00ednh mong Qu\u00fd c\u01b0 d\u00e2n t\u00edch tr\u1eef n\u01b0\u1edbc d\u00f9ng. R\u1ea5t xin l\u1ed7i v\u00ec s\u1ef1 b\u1ea5t ti\u1ec7n.'+FOOT},
+  {id:'lift', ten:'\ud83d\udec5 Thang m\u00e1y', def:'\ud83d\udd14 TH\u00d4NG B\u00c1O B\u1ea2O TR\u00cc THANG M\u00c1Y \u2014 To\u00e0 {toa}\n\nK\u00ednh g\u1eedi Qu\u00fd c\u01b0 d\u00e2n,\nThang m\u00e1y s\u1ebd t\u1ea1m ng\u01b0ng ho\u1ea1t \u0111\u1ed9ng \u0111\u1ec3 b\u1ea3o tr\u00ec \u0111\u1ecbnh k\u1ef3:\n\ud83d\udd52 T\u1eeb ... gi\u1edd \u0111\u1ebfn ... gi\u1edd, ng\u00e0y .../.../...\n\nTrong th\u1eddi gian n\u00e0y vui l\u00f2ng s\u1eed d\u1ee5ng thang b\u1ed9. R\u1ea5t xin l\u1ed7i v\u00ec s\u1ef1 b\u1ea5t ti\u1ec7n.'+FOOT},
+  {id:'spray', ten:'\ud83e\uddf4 Kh\u1eed tr\u00f9ng', def:'\ud83d\udd14 TH\u00d4NG B\u00c1O PHUN KH\u1eed TR\u00d9NG \u2014 To\u00e0 {toa}\n\nK\u00ednh g\u1eedi Qu\u00fd c\u01b0 d\u00e2n,\nTo\u00e0 nh\u00e0 s\u1ebd ti\u1ebfn h\u00e0nh phun kh\u1eed tr\u00f9ng khu v\u1ef1c chung:\n\ud83d\udd52 L\u00fac ... gi\u1edd, ng\u00e0y .../.../...\n\nQu\u00fd c\u01b0 d\u00e2n vui l\u00f2ng \u0111\u00f3ng c\u1eeda s\u1ed5 v\u00e0 h\u1ea1n ch\u1ebf ra v\u00e0o trong th\u1eddi gian n\u00e0y. Tr\u00e2n tr\u1ecdng.'+FOOT},
+  {id:'clean', ten:'\ud83e\uddf9 V\u1ec7 sinh', def:'\ud83d\udd14 TH\u00d4NG B\u00c1O T\u1ed4NG V\u1ec6 SINH \u2014 To\u00e0 {toa}\n\nK\u00ednh g\u1eedi Qu\u00fd c\u01b0 d\u00e2n,\nTo\u00e0 nh\u00e0 s\u1ebd t\u1ed5ng v\u1ec7 sinh khu v\u1ef1c chung:\n\ud83d\udd52 L\u00fac ... gi\u1edd, ng\u00e0y .../.../...\n\nR\u1ea5t mong Qu\u00fd c\u01b0 d\u00e2n h\u1ed7 tr\u1ee3 gi\u1eef g\u00ecn v\u1ec7 sinh chung. Tr\u00e2n tr\u1ecdng.'+FOOT},
+  {id:'fire', ten:'\ud83e\uddef PCCC', def:'\ud83d\udd14 TH\u00d4NG B\u00c1O DI\u1ec4N T\u1eacP PCCC \u2014 To\u00e0 {toa}\n\nK\u00ednh g\u1eedi Qu\u00fd c\u01b0 d\u00e2n,\nTo\u00e0 nh\u00e0 t\u1ed5 ch\u1ee9c di\u1ec5n t\u1eadp ph\u00f2ng ch\u00e1y ch\u1eefa ch\u00e1y:\n\ud83d\udd52 L\u00fac ... gi\u1edd, ng\u00e0y .../.../...\n\nCh\u00e1y l\u00e0 gi\u1ea3 \u0111\u1ecbnh, mong Qu\u00fd c\u01b0 d\u00e2n an t\u00e2m v\u00e0 ph\u1ed1i h\u1ee3p. Tr\u00e2n tr\u1ecdng.'+FOOT},
+  {id:'other', ten:'\ud83d\udcdd Kh\u00e1c', def:'\ud83d\udd14 TH\u00d4NG B\u00c1O \u2014 To\u00e0 {toa}\n\nK\u00ednh g\u1eedi Qu\u00fd c\u01b0 d\u00e2n,\n\n\n'+FOOT}
+];
+function tplGet(id){ var t=TPL.filter(function(x){return x.id===id;})[0]; if(!t) return ''; var sv=LSg('tb_tpl_'+id); return sv!=null?sv:t.def; }
+function tplDef(id){ var t=TPL.filter(function(x){return x.id===id;})[0]; return t?t.def:''; }
+
+function renderTpls(){
+  var el=document.getElementById('tpls'); el.innerHTML='';
+  TPL.forEach(function(t){ var c=document.createElement('button'); c.className='chip'+(t.id===CURTPL?' on':''); c.textContent=t.ten; c.onclick=function(){ CURTPL=t.id; document.getElementById('noidung').value=tplGet(t.id); renderTpls(); }; el.appendChild(c); });
+}
+
+/* ===== Toà nhà ===== */
+var SEL={};  // mã toà đã chọn
+function byToa(){ var g={}; CONTACTS.forEach(function(c){ var t=toaCode(c.phong); if(!t) return; (g[t]=g[t]||[]).push(c); }); return g; }
+function renderToas(){
+  var g=byToa(), el=document.getElementById('toas'); el.innerHTML='';
+  Object.keys(g).sort().forEach(function(t){
+    var c=document.createElement('button'); c.className='chip'+(SEL[t]?' on':'');
+    c.innerHTML=esc(t)+' <span class="ct">'+g[t].length+'</span>';
+    c.onclick=function(){ if(SEL[t]) delete SEL[t]; else SEL[t]=true; renderToas(); updSel(); };
+    el.appendChild(c);
+  });
+  updSel();
+}
+function updSel(){ var g=byToa(), n=0, nt=0; Object.keys(SEL).forEach(function(t){ if(g[t]){ n+=g[t].length; nt++; } }); document.getElementById('selCnt').textContent=n; document.getElementById('selToa').textContent=nt; }
+
+/* ===== Gửi ===== */
+function sentKey(){ var d=new Date(); var ds=d.getFullYear()+('0'+(d.getMonth()+1)).slice(-2)+('0'+d.getDate()).slice(-2); return 'tb_sent_'+ds+'_'+CURTPL; }
+function sentSet(){ try{ return JSON.parse(LSg(sentKey())||'{}'); }catch(e){ return {}; } }
+function markSent(id){ var s=sentSet(); s[id]=Date.now(); LSs(sentKey(), JSON.stringify(s)); }
+function cid(c){ return toaCode(c.phong)+'|'+(c.sdt||c.ten); }
+
+function makeList(){
+  var g=byToa(), area=document.getElementById('sendArea'); area.innerHTML='';
+  var toas=Object.keys(SEL).filter(function(t){return g[t];}).sort();
+  if(!toas.length){ area.innerHTML='<p class="hint">Hãy chọn ít nhất 1 toà ở mục 3.</p>'; return; }
+  var tpl=document.getElementById('noidung').value;
+  var total=0, done=0; var sset=sentSet();
+  toas.forEach(function(t){ total+=g[t].length; });
+
+  var bar=document.createElement('div'); bar.className='toabar';
+  bar.innerHTML='<span>Tiến độ gửi</span><span><span class="cnt" id="pg">0</span>/'+total+'</span>';
+  area.appendChild(bar);
+  function upd(){ var n=Object.keys(sentSet()).length; /* đếm theo danh sách hiện tại */ var c=0; area.querySelectorAll('.rc').forEach(function(x){ if(x.classList.contains('sent')) c++; }); document.getElementById('pg').textContent=c; }
+
+  toas.forEach(function(t){
+    var h=document.createElement('div'); h.className='grp'; h.textContent='🏢 Toà '+t+' · '+g[t].length+' cư dân'; area.appendChild(h);
+    g[t].forEach(function(c){
+      var msg=tpl.replace(/\{toa\}/g, t);
+      var box=document.createElement('div'); box.className='rc'+(sset[cid(c)]?' sent':'');
+      var left=document.createElement('div'); left.innerHTML='<div class="nm">'+esc(c.ten)+(sset[cid(c)]?' ✓':'')+'</div><div class="mt">'+esc(c.phong)+(c.qt?' · '+esc(c.qt):'')+'</div>';
+      var act=document.createElement('div'); act.className='act';
+      function mk(){ box.classList.add('sent'); markSent(cid(c)); left.querySelector('.nm').innerHTML=esc(c.ten)+' ✓'; upd(); }
+      if(c.sdt && c.kenh){
+        if(c.kenh==='wa'){ var a=document.createElement('a'); a.className='wa'; a.href='https://wa.me/'+waNum(c.sdt)+'?text='+encodeURIComponent(msg); a.target='_blank'; a.rel='noopener'; a.textContent='WhatsApp'; a.onclick=mk; act.appendChild(a); }
+        else if(c.kenh==='zalo'){ var z=document.createElement('button'); z.className='za'; z.textContent='Zalo'; z.onclick=function(){ cpy(msg); toast('✅ Đã copy nội dung — mở Zalo rồi bấm giữ ô chat → Dán để gửi'); window.open('https://zalo.me/'+zaloNum(c.sdt),'_blank'); mk(); }; act.appendChild(z); }
+        else if(c.kenh==='wechat'){ var w=document.createElement('button'); w.className='wc'; w.textContent='WeChat'; w.onclick=function(){ cpy(msg); mk(); }; act.appendChild(w); }
+      } else if(c.sdt && !c.kenh){ var wn=document.createElement('span'); wn.className='warn'; wn.textContent='⚠️ Chưa chọn kênh'; act.appendChild(wn); }
+      else { var ws=document.createElement('span'); ws.className='warn'; ws.textContent='⚠️ Chưa có SĐT'; act.appendChild(ws); }
+      var cp=document.createElement('button'); cp.className='btn o'; cp.style.fontSize='.8rem'; cp.textContent='Copy'; cp.onclick=function(){ cpy(msg); cp.textContent='✓'; setTimeout(function(){cp.textContent='Copy';},1200); }; act.appendChild(cp);
+      box.appendChild(left); box.appendChild(act); area.appendChild(box);
+    });
+  });
+  upd();
+}
+
+/* ===== Nạp dữ liệu ===== */
+function load(){
+  callExec(EXEC+'?dsbao=1&'+authQ()+'&callback=cb&t='+Date.now(), function(d){
+    if(d&&d.ok){ CONTACTS=d.list||[]; document.getElementById('status').style.display='none'; document.getElementById('app').style.display='block'; document.getElementById('noidung').value=tplGet(CURTPL); renderTpls(); renderToas(); }
+    else if(NVTOK){ document.getElementById('status').innerHTML='<div style="text-align:center;padding:24px"><div style="font-size:2.2rem">🔒</div><b>Không có quyền Thông báo</b><br><span style="color:#888">Liên hệ quản lý để được cấp quyền.</span><br><a href="nv.html" style="color:#0e7ba8;font-weight:700;display:inline-block;margin-top:8px">← Về trang nhân viên</a></div>'; }
+    else { document.getElementById('status').textContent='Không tải được danh sách — thử lại.'; }
+  }, function(){ document.getElementById('status').textContent='Không kết nối được — thử lại.'; });
+}
+
+document.getElementById('saveTpl').onclick=function(){ LSs('tb_tpl_'+CURTPL, document.getElementById('noidung').value); var b=document.getElementById('saveTpl'); b.textContent='✓ Đã lưu'; setTimeout(function(){b.textContent='💾 Lưu làm mẫu';},1400); };
+document.getElementById('resetTpl').onclick=function(){ try{ localStorage.removeItem('tb_tpl_'+CURTPL); }catch(e){} document.getElementById('noidung').value=tplDef(CURTPL); };
+document.getElementById('allToa').onclick=function(){ var g=byToa(); Object.keys(g).forEach(function(t){ SEL[t]=true; }); renderToas(); };
+document.getElementById('noToa').onclick=function(){ SEL={}; renderToas(); };
+document.getElementById('makeList').onclick=makeList;
+
+load();
+
+if("serviceWorker" in navigator){ var _had=!!navigator.serviceWorker.controller; navigator.serviceWorker.register("sw.js").then(function(r){ try{r.update();}catch(e){} }).catch(function(){}); navigator.serviceWorker.addEventListener("controllerchange", function(){ if(!_had||window.__swR) return; window.__swR=1; location.reload(); }); }
+</script>
+</body>
+</html>

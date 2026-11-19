@@ -60,6 +60,7 @@
       <div class="pm">
         <label><input type="checkbox" id="n_bill"> 🧾 Gửi hóa đơn</label>
         <label><input type="checkbox" id="n_luutru"> 🛂 Lưu trú</label>
+        <label><input type="checkbox" id="n_thongbao"> 📢 Thông báo</label>
       </div>
       <button class="btn g" id="addbtn">Thêm nhân viên</button>
       <p class="msg" id="amsg"></p>
@@ -79,7 +80,7 @@ var PW='';
 function enc(s){return encodeURIComponent(String(s));}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function api(qs){ return fetch(EXEC+'?'+qs+'&callback=cb&t='+Date.now(),{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){ var i=t.indexOf('('),j=t.lastIndexOf(')'); return JSON.parse(t.slice(i+1,j)); }); }
-var MODS=[{k:'bill',n:'🧾 Gửi hóa đơn'},{k:'luutru',n:'🛂 Lưu trú'}];
+var MODS=[{k:'bill',n:'🧾 Gửi hóa đơn'},{k:'luutru',n:'🛂 Lưu trú'},{k:'thongbao',n:'📢 Thông báo'}];
 
 function gate(){
   var pw=document.getElementById('apw').value.trim();
@@ -123,12 +124,12 @@ function render(list){
 
 document.getElementById('addbtn').onclick=function(){
   var ma=document.getElementById('n_ma').value.trim(), ten=document.getElementById('n_ten').value.trim(), pw=document.getElementById('n_pw').value.trim();
-  var ps=[]; if(document.getElementById('n_bill').checked) ps.push('bill'); if(document.getElementById('n_luutru').checked) ps.push('luutru');
+  var ps=[]; if(document.getElementById('n_bill').checked) ps.push('bill'); if(document.getElementById('n_luutru').checked) ps.push('luutru'); if(document.getElementById('n_thongbao').checked) ps.push('thongbao');
   var am=document.getElementById('amsg');
   if(!ma||!pw){ am.textContent='Cần có Mã NV và mật khẩu.'; return; }
   am.textContent='Đang thêm…';
   api('nvadmin=set&pw='+enc(PW)+'&ma='+enc(ma)+'&ten='+enc(ten)+'&nvpw='+enc(pw)+'&perms='+enc(ps.join(','))+'&locked=0').then(function(d){
-    if(d&&d.ok){ am.textContent='✓ Đã thêm '+ma; document.getElementById('n_ma').value='';document.getElementById('n_ten').value='';document.getElementById('n_pw').value='';document.getElementById('n_bill').checked=false;document.getElementById('n_luutru').checked=false; reload(); }
+    if(d&&d.ok){ am.textContent='✓ Đã thêm '+ma; document.getElementById('n_ma').value='';document.getElementById('n_ten').value='';document.getElementById('n_pw').value='';document.getElementById('n_bill').checked=false;document.getElementById('n_luutru').checked=false;document.getElementById('n_thongbao').checked=false; reload(); }
     else am.textContent='Lỗi khi thêm.';
   });
 };
