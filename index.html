@@ -67,9 +67,6 @@
   <div class="sec-t">✅ Đang hoạt động / Active <span class="ln"></span></div>
   <div class="grid" id="gLive"></div>
 
-  <div class="sec-t">🏢 Quản lý nội bộ / Internal <span class="ln"></span></div>
-  <div class="grid" id="gNoibo"></div>
-
   <div class="sec-t">🛠️ Đang phát triển / Coming soon <span class="ln"></span></div>
   <div class="grid" id="gSoon"></div>
 
@@ -95,15 +92,9 @@ const LIVE = [
   {ic:"📢", nm:"Thông báo cư dân", en:"Resident notices", url:LINKS.thongbao},
   {ic:"🧑‍💼", nm:"Quản lý nhân viên", en:"Staff & permissions", url:"nvadmin.html"},
 ];
-// Quản lý nội bộ (gom các mục vận hành nội bộ)
-const NOIBO = [
-  {ic:"🧯", nm:"Diễn tập PCCC", en:"Fire drill schedule"},
-  {ic:"🧹", nm:"Lịch vệ sinh / khử trùng", en:"Cleaning & disinfection"},
-  {ic:"📦", nm:"Tồn kho", en:"Inventory in/out"},
-  {ic:"🧑‍💼", nm:"Chấm công NV", en:"Staff attendance"},
-];
 const SOON = [
   {ic:"💰", nm:"Theo dõi công nợ", en:"Debt & payments"},
+  {ic:"🏢", nm:"Quản lý nội bộ", en:"PCCC, vệ sinh, tồn kho, chấm công"},
   {ic:"🏠", nm:"Phòng trống", en:"Vacant units & stats"},
   {ic:"📄", nm:"Hợp đồng PDF", en:"Auto-filed contracts"},
   {ic:"🚪", nm:"Cảnh báo cổng", en:"Gate / stranger alert"},
@@ -120,9 +111,8 @@ function tile(m, live){
   if(live && !m.url){ a.onclick=()=>alert("Module này sắp được nối link."); }
   return a;
 }
-const gLive=document.getElementById("gLive"), gNoibo=document.getElementById("gNoibo"), gSoon=document.getElementById("gSoon");
+const gLive=document.getElementById("gLive"), gSoon=document.getElementById("gSoon");
 LIVE.forEach(m=>gLive.appendChild(tile(m,true)));
-NOIBO.forEach(m=>gNoibo.appendChild(tile(m,false)));
 SOON.forEach(m=>gSoon.appendChild(tile(m,false)));
 
 // PWA install
