@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Hợp đồng PDF</title>
+<meta name="theme-color" content="#0e7ba8">
+<style>
+  :root{ --bg:#eef3f4; --surface:#fff; --fg:#13242a; --muted:#5f727a; --line:#e2eaec; --cyan:#0e7ba8; --cyan2:#28c3dd; --gold:#d79f38; --soon:#8795a0; }
+  @media (prefers-color-scheme:dark){ :root{ --bg:#0c1518; --surface:#13222a; --fg:#e8f1f3; --muted:#90a4ac; --line:#20333c; --soon:#7d8d96; } }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",system-ui,sans-serif;line-height:1.4}
+  .top{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 16px) 18px 18px;position:relative;overflow:hidden}
+  .top::after{content:"";position:absolute;right:-60px;top:-80px;width:240px;height:240px;border-radius:50%;background:rgba(255,255,255,.08)}
+  a.back{display:inline-flex;align-items:center;gap:6px;color:#fff;text-decoration:none;font-size:1.3rem;font-weight:800;padding:12px 20px;border-radius:999px;background:rgba(255,255,255,.2)}
+  a.back:active{background:rgba(255,255,255,.32)}
+  .brand{font-size:1.5rem;font-weight:800;letter-spacing:2px;color:#ffd977;margin:6px 0 0}
+  .brand small{display:block;font-size:.75rem;font-weight:600;letter-spacing:3px;color:#eafbff;opacity:.92;margin-top:3px}
+  .wrap{max-width:720px;margin:0 auto;padding:16px 14px 40px}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+  .tile{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px 13px;text-decoration:none;color:inherit;display:flex;flex-direction:column;gap:7px;position:relative;min-height:120px}
+  .tile:active{transform:scale(.98)}
+  .ic{width:46px;height:46px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:1.6rem;background:linear-gradient(135deg,#aeb9bf,#8795a0)}
+  .nm{font-weight:700;font-size:1rem;line-height:1.2}
+  .en{font-size:.74rem;color:var(--muted);font-weight:500}
+  .pill{position:absolute;right:10px;top:10px;font-size:.62rem;font-weight:800;padding:2px 8px;border-radius:999px;background:rgba(135,149,160,.16);color:var(--soon)}
+  .foot{text-align:center;color:var(--muted);font-size:.74rem;margin-top:24px;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="index.html">← Trang chính</a>
+  <h1 class="brand">HỢP ĐỒNG PDF<small>CONTRACTS</small></h1>
+</div>
+<div class="wrap">
+  <div class="grid" id="grid"></div>
+  <div class="foot">Các chức năng đang được xây dựng · Nội dung sẽ bàn sau</div>
+</div>
+<script>
+var MUC=[
+  {ic:"📝", nm:"Tạo HĐ mới", en:"New contract", url:""},
+  {ic:"➕", nm:"Tạo PLHĐ mới", en:"New contract annex", url:""},
+  {ic:"💾", nm:"Lưu HĐ + PL", en:"Save contract + annex", url:""}
+];
+var g=document.getElementById('grid');
+MUC.forEach(function(m){
+  var a=document.createElement(m.url?'a':'div'); a.className='tile';
+  if(m.url){ a.href=m.url; }
+  a.innerHTML='<span class="pill">Sắp có</span><div class="ic">'+m.ic+'</div><div><div class="nm">'+m.nm+'</div><div class="en">'+m.en+'</div></div>';
+  if(!m.url){ a.onclick=function(){ alert('Chức năng "'+m.nm+'" đang được xây dựng.'); }; }
+  g.appendChild(a);
+});
+if("serviceWorker" in navigator){ var _had=!!navigator.serviceWorker.controller; navigator.serviceWorker.register("sw.js").then(function(r){ try{r.update();}catch(e){} }).catch(function(){}); navigator.serviceWorker.addEventListener("controllerchange", function(){ if(!_had||window.__swR) return; window.__swR=1; location.reload(); }); }
+</script>
+</body>
+</html>
