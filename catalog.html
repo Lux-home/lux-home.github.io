@@ -392,6 +392,7 @@ function rowsToData(rows){
 }
 
 const fmt=n=>{const v=parseInt(n,10);return isNaN(v)?"":v.toLocaleString("vi-VN");};
+const fmtC=n=>{const v=parseInt(n,10);return isNaN(v)?"":v.toLocaleString("en-US");};
 
 // Tinh trang: nhan ra bang tu khoa (hoat dong du gia tri song ngu) — "sap" phai check truoc "trong"
 // 3 trang thai: available (xanh) / soon (vang) / sample (xanh duong). "dukien/soon" check truoc.
@@ -540,7 +541,7 @@ function render(){
       <div class="body">
         <div class="meta">${esc([typeEN(a.loai),areaEN(a.khuvuc)].filter(Boolean).join(" / "))}${a.dt?" · "+esc(a.dt)+" m²":""}</div>
         ${a.ngayDuKien?`<div class="availd">🗓️ Available: ${esc(a.ngayDuKien)}</div>`:""}
-        <div class="price">${a.gia?fmt(a.gia):"Liên hệ / Contact"}${a.gia?' <small>đ/tháng · /month</small>':""}</div>
+        <div class="price">${a.gia?fmtC(a.gia):"Liên hệ / Contact"}${a.gia?' <small>vnđ/month</small>':""}</div>
         ${statusLineHtml(a)}
         ${fees(a)}
         ${(()=>{const vi=a.noiThat||"";const en=(a.noiThatEn&&a.noiThatEn.trim())?a.noiThatEn.trim():trDesc(vi);return (vi?`<div class="desc vi">${esc(vi)}</div>`:"")+((en&&en!==vi)?`<div class="desc desc-en">${esc(en)}</div>`:"");})()}
