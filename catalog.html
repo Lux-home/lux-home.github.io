@@ -530,11 +530,10 @@ function render(){
       <div class="tile" style="background:${tileBg(a.trangThai)}">
         ${imgTag(a.facade||toaFacade[String(a.toa||"").trim()]||a.anhdd)}
         <span class="code">${esc(a.ma)}</span>
-        <span class="toa">${esc([typeEN(a.loai),areaEN(a.khuvuc)].filter(Boolean).join(" / "))}</span>
         ${photos}
       </div>
       <div class="body">
-        ${a.dt?`<div class="meta">${esc(a.dt)} m²</div>`:""}
+        <div class="meta">${esc([typeEN(a.loai),areaEN(a.khuvuc)].filter(Boolean).join(" / "))}${a.dt?" · "+esc(a.dt)+" m²":""}</div>
         <div class="price">${a.gia?fmt(a.gia):"Liên hệ / Contact"}${a.gia?' <small>đ/tháng · /month</small>':""}</div>
         ${statusLineHtml(a)}
         ${fees(a)}
