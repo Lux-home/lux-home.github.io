@@ -83,9 +83,14 @@
   <div class="wrap">
     <div class="bar">
       <button class="btn" onclick="taiLai()">↻ Làm mới</button>
-      <button class="btn" id="btnTpl" style="flex:0 0 auto;background:#8a6d1f" onclick="moTpl()">✏️ Tin mẫu</button>
-      <button class="btn" style="flex:0 0 auto;background:#5d6b66" onclick="moEmail()">⚙️ Email</button>
-      <button class="btn" style="flex:0 0 auto;background:#0f766e" onclick="moNhatKy()">📋 Nhật ký nhắc</button>
+      <div class="setwrap" style="position:relative;flex:0 0 auto">
+        <button class="btn" style="background:#5d6b66" onclick="toggleCaiDat(event)">⚙️ Cài đặt ▾</button>
+        <div id="caidatMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:40;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.2);padding:6px;min-width:200px">
+          <button class="btn" id="btnTpl" style="width:100%;text-align:left;background:#8a6d1f;margin:0 0 6px" onclick="caiDatChon(moTpl)">✏️ Tin mẫu</button>
+          <button class="btn" style="width:100%;text-align:left;background:#5d6b66;margin:0 0 6px" onclick="caiDatChon(moEmail)">📧 Email cảnh báo</button>
+          <button class="btn" style="width:100%;text-align:left;background:#0f766e;margin:0" onclick="caiDatChon(moNhatKy)">📋 Nhật ký nhắc</button>
+        </div>
+      </div>
       <button class="btn" style="flex:0 0 auto;background:#7c3aed" onclick="moNhatKyAnh()">📷 Nhật ký ảnh</button>
     </div>
     <div class="cards" id="cards"></div>
@@ -194,6 +199,10 @@ var NVTOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'
 function devId(){ try{ var k=localStorage.getItem('nv_devid'); if(!k){ k=((window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random())).replace(/-/g,''); localStorage.setItem('nv_devid',k); } return k; }catch(e){ return 'nodev'; } }
 function devName(){ try{ var ua=navigator.userAgent||'', p=navigator.platform||''; var dev=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Android/.test(ua)?'Android':(p||'Máy'); var br=/CriOS/.test(ua)?'Chrome':/FxiOS|Firefox/.test(ua)?'Firefox':/EdgiOS|Edg/.test(ua)?'Edge':/Chrome/.test(ua)?'Chrome':/Safari/.test(ua)?'Safari':''; return (dev+(br?' · '+br:'')).slice(0,60); }catch(e){ return 'Máy'; } }
 function devQS(){ return '&dev='+encodeURIComponent(devId())+'&devname='+encodeURIComponent(devName()); }
+// ===== Menu "Cài đặt" (gộp Tin mẫu / Email / Nhật ký nhắc) =====
+function toggleCaiDat(e){ if(e){ e.stopPropagation(); } var m=document.getElementById('caidatMenu'); if(m) m.style.display = (m.style.display==='none'||!m.style.display) ? 'block' : 'none'; }
+function caiDatChon(fn){ var m=document.getElementById('caidatMenu'); if(m) m.style.display='none'; try{ fn(); }catch(e){} }
+document.addEventListener('click', function(e){ var w=document.querySelector('.setwrap'), m=document.getElementById('caidatMenu'); if(m && w && !w.contains(e.target)) m.style.display='none'; });
 
 // Gọi Apps Script bằng fetch (CORS) rồi bóc lớp bọc cb(...) — đáng tin cả trong app đã cài
 function callExec(url, ok, fail){
