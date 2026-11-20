@@ -474,6 +474,13 @@ function loaiVN_EN(loai){
   if(m){ var n=m[1]; return s+" / "+n+(n==="1"?" bedroom":" bedrooms"); }
   return s;
 }
+// Khu vực song ngữ: "Phía Bắc" -> "Phía Bắc / North"
+var KHU_EN={ "phía bắc":"North","phía nam":"South","phía tây":"West","phía đông":"East","trung tâm":"Central" };
+function khuVN_EN(khu){
+  var s=String(khu||"").trim(); if(!s) return "";
+  var en=KHU_EN[s.toLowerCase()];
+  return en?(s+" / "+en):s;
+}
 function render(){
   const list=filtered();
   grid.innerHTML="";
@@ -502,7 +509,7 @@ function render(){
       </div>
       <div class="body">
         <div class="meta">${esc(loaiVN_EN(a.loai))}${a.loai&&a.dt?" · ":""}${a.dt?esc(a.dt)+" m²":""}</div>
-        ${a.khuvuc?`<div class="loc">📍 ${esc(a.khuvuc)}</div>`:""}
+        ${a.khuvuc?`<div class="loc">📍 ${esc(khuVN_EN(a.khuvuc))}</div>`:""}
         <div class="price">${a.gia?fmt(a.gia):"Liên hệ / Contact"}${a.gia?' <small>đ/tháng · /month</small>':""}</div>
         ${statusLineHtml(a)}
         ${fees(a)}
@@ -540,11 +547,11 @@ function rebuild(){
   selT.value=curT;
   const khus=[...new Set(VIS.map(a=>(a.khuvuc||"").trim()).filter(Boolean))].sort();
   const selK=document.getElementById("fKhu");const curK=selK.value;
-  selK.innerHTML='<option value="">Mọi khu vực / All areas</option>'+khus.map(k=>`<option value="${esc(k)}">${esc(k)}</option>`).join("");
+  selK.innerHTML='<option value="">Mọi khu vực / All areas</option>'+khus.map(k=>`<option value="${esc(k)}">${esc(khuVN_EN(k))}</option>`).join("");
   selK.value=curK;
   const loais=[...new Set(VIS.map(a=>(a.loai||"").trim()).filter(Boolean))].sort();
   const selL=document.getElementById("fLoai");const curL=selL.value;
-  selL.innerHTML='<option value="">Mọi loại căn / All types</option>'+loais.map(l=>`<option value="${esc(l)}">${esc(l)}</option>`).join("");
+  selL.innerHTML='<option value="">Mọi loại căn / All types</option>'+loais.map(l=>`<option value="${esc(l)}">${esc(loaiVN_EN(l))}</option>`).join("");
   selL.value=curL;
   const trong=VIS.filter(a=>statusKey(a.trangThai)==="available").length;
   document.getElementById("count").textContent=VIS.length+" căn / units"+(trong?` · ${trong} có sẵn / avail.`:"");
