@@ -98,7 +98,10 @@
   .body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
   .meta{font-size:.82rem;color:var(--muted);font-weight:600}
   .price{font-size:1.18rem;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
-  .availd{font-size:.82rem;font-weight:800;color:#c47a12;background:rgba(240,170,40,.16);border-radius:8px;padding:3px 9px;display:inline-block;margin:1px 0 3px;white-space:nowrap}
+  .availd{font-size:.82rem;font-weight:800;border-radius:8px;padding:3px 9px;display:inline-block;margin:1px 0 3px;white-space:nowrap}
+  .availd.av-soon{color:#c47a12;background:rgba(240,170,40,.18)}
+  .availd.av-available{color:#0f9d58;background:rgba(15,157,88,.16)}
+  .availd.av-sample,.availd.av-locked{color:#c0392b;background:rgba(216,60,50,.16)}
   .card.s-soon .price{font-size:1.45rem}
   .price small{font-size:.72rem;font-weight:600;color:var(--muted)}
   .statusline{margin:8px 0 2px;padding:7px 10px;border-radius:9px;font-size:.82rem;font-weight:700;
@@ -514,6 +517,15 @@ function badgeCombined(a){
   }
   return sv[1]?(sv[0]+" / "+sv[1]):sv[0];
 }
+// Nhãn trạng thái tiếng Anh, bố trí giống thẻ vàng
+function availLabel(a){
+  var k=statusKey(a.trangThai);
+  var t = k==='available' ? '✅ Available'
+        : k==='soon' ? (a.ngayDuKien ? '🗓️ Available: '+esc(a.ngayDuKien) : '🗓️ Available soon')
+        : (k==='sample'||k==='locked') ? '⛔ Not available'
+        : '';
+  return t ? `<div class="availd av-${k}">${t}</div>` : '';
+}
 function render(){
   const list=filtered();
   grid.innerHTML="";
@@ -540,7 +552,7 @@ function render(){
       </div>
       <div class="body">
         <div class="meta">${esc([typeEN(a.loai),areaEN(a.khuvuc)].filter(Boolean).join(" / "))}${a.dt?" · "+esc(a.dt)+" m²":""}</div>
-        ${a.ngayDuKien?`<div class="availd">🗓️ Available: ${esc(a.ngayDuKien)}</div>`:""}
+        ${availLabel(a)}
         <div class="price">${a.gia?fmtC(a.gia):"Liên hệ / Contact"}${a.gia?' <small>vnđ/month</small>':""}</div>
         ${statusLineHtml(a)}
         ${fees(a)}
