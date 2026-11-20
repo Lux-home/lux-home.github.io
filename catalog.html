@@ -84,9 +84,10 @@
     background:linear-gradient(180deg,rgba(0,0,0,.22),rgba(0,0,0,.5))}
   .tile .code{position:relative;z-index:2;font-size:1.5rem;font-weight:800;letter-spacing:.01em;text-shadow:0 1px 10px rgba(0,0,0,.45)}
   .tile .toa{position:relative;z-index:2;font-size:.78rem;font-weight:600;opacity:.95;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 8px rgba(0,0,0,.45)}
-  .tile .photos{position:absolute;left:10px;bottom:10px;z-index:2;font-size:.72rem;font-weight:600;
-    background:rgba(0,0,0,.42);padding:3px 9px;border-radius:999px;display:flex;align-items:center;gap:5px;
-    backdrop-filter:blur(2px)}
+  .tile .photos{display:none}
+  .tile .area{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:2;font-size:.7rem;font-weight:600;color:#fff;
+    background:rgba(0,0,0,.45);padding:3px 12px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;
+    backdrop-filter:blur(2px);max-width:calc(100% - 20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .badge{position:absolute;right:10px;top:10px;z-index:2;font-size:.68rem;font-weight:700;padding:3px 9px;
     border-radius:999px;max-width:72%;text-align:right}
   .b-ok{background:var(--ok-bg);color:var(--ok-fg)} .b-busy{background:var(--busy-bg);color:var(--busy-fg)}
@@ -505,6 +506,7 @@ function render(){
         <span class="badge ${badgeClass(a.trangThai)}">${esc(statusLabel(a.trangThai))}</span>
         <span class="code">${esc(a.ma)}</span>
         ${a.toa?`<span class="toa">Tòa / Bldg ${esc(a.toa)}</span>`:""}
+        ${a.khuvuc?`<span class="area">📍 ${esc(khuVN_EN(a.khuvuc))}</span>`:""}
         ${photos}
       </div>
       <div class="body">
