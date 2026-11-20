@@ -156,7 +156,7 @@
     .staffbar b{font-size:.95rem;padding:2px 8px}
     .staffbar .sbnote{display:none}
     .grid{grid-template-columns:repeat(2,1fr);gap:10px}
-    .tile{aspect-ratio:4/3}
+    .tile{aspect-ratio:5/4}
     .tile .code{font-size:1.05rem}
     .tile .toa{font-size:.62rem}
     .badge{font-size:.56rem;padding:1px 6px}
@@ -467,6 +467,13 @@ function imgTag(anhdd){const id=driveId(anhdd);if(!id)return"";
   const u="https://lh3.googleusercontent.com/d/"+id+"=w800";
   const alt="https://drive.google.com/thumbnail?id="+id+"&sz=w800";
   return `<img class="cover" src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="if(this.src.indexOf('lh3')>-1){this.src='${alt}';}else{this.remove();}"><span class="scrim"></span>`;}
+// Loại căn song ngữ: "2 phòng ngủ" -> "2 phòng ngủ / 2 bedrooms"; Studio giữ nguyên
+function loaiVN_EN(loai){
+  var s=String(loai||"").trim(); if(!s) return "";
+  var m=s.match(/^(\d+)\s*phòng\s*ngủ/i);
+  if(m){ var n=m[1]; return s+" / "+n+(n==="1"?" bedroom":" bedrooms"); }
+  return s;
+}
 function render(){
   const list=filtered();
   grid.innerHTML="";
@@ -494,7 +501,7 @@ function render(){
         ${photos}
       </div>
       <div class="body">
-        <div class="meta">${esc(a.loai||"")}${a.loai&&a.dt?" · ":""}${a.dt?esc(a.dt)+" m²":""}</div>
+        <div class="meta">${esc(loaiVN_EN(a.loai))}${a.loai&&a.dt?" · ":""}${a.dt?esc(a.dt)+" m²":""}</div>
         ${a.khuvuc?`<div class="loc">📍 ${esc(a.khuvuc)}</div>`:""}
         <div class="price">${a.gia?fmt(a.gia):"Liên hệ / Contact"}${a.gia?' <small>đ/tháng · /month</small>':""}</div>
         ${statusLineHtml(a)}
