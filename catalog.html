@@ -413,8 +413,8 @@ function tileBg(t){const k=statusKey(t);
 
 function fees(a){const c=[];
   if(a.dien)c.push(`<span class="fee">⚡ ${fmt(a.dien)}/kWh</span>`);
-  if(a.nuoc)c.push(`<span class="fee">💧 ${fmt(a.nuoc)}/người·th · /person·mo</span>`);
-  if(a.dichvu)c.push(`<span class="fee">🛎️ ${fmt(a.dichvu)}/người·th · /person·mo</span>`);
+  if(a.nuoc)c.push(`<span class="fee">💧 ${fmt(a.nuoc)}/người·tháng · /person·month</span>`);
+  if(a.dichvu)c.push(`<span class="fee">🛎️ ${fmt(a.dichvu)}/người·tháng · /person·month</span>`);
   return c.length?`<div class="fees">${c.join("")}</div>`:"";}
 function esc(s){return (s||"").replace(/[&<>"]/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));}
 
