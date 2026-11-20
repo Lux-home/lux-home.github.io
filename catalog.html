@@ -98,7 +98,7 @@
   .body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
   .meta{font-size:.82rem;color:var(--muted);font-weight:600}
   .price{font-size:1.18rem;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
-  .availd{font-size:.82rem;font-weight:800;color:#c47a12;background:rgba(240,170,40,.16);border-radius:8px;padding:3px 9px;display:inline-block;margin:1px 0 3px}
+  .availd{font-size:.82rem;font-weight:800;color:#c47a12;background:rgba(240,170,40,.16);border-radius:8px;padding:3px 9px;display:inline-block;margin:1px 0 3px;white-space:nowrap}
   .card.s-soon .price{font-size:1.45rem}
   .price small{font-size:.72rem;font-weight:600;color:var(--muted)}
   .statusline{margin:8px 0 2px;padding:7px 10px;border-radius:9px;font-size:.82rem;font-weight:700;
@@ -168,8 +168,9 @@
     .meta{font-size:.64rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
     .loc{display:none}
     .price{font-size:.72rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-    .availd{font-size:.64rem;padding:2px 7px;margin:1px 0 2px}
-    .card.s-soon .price{font-size:.95rem}
+    .availd{font-size:.62rem;padding:2px 7px;margin:1px 0 2px;white-space:nowrap}
+    .card.s-soon .price{font-size:.95rem;white-space:normal;overflow:visible;text-overflow:clip}
+    .card.s-soon .price small{font-size:.5rem}
     .price small{display:inline;font-size:.52rem}
     .statusline{display:none}
     .fees{flex-direction:column;align-items:flex-start;gap:3px;margin-top:2px}
