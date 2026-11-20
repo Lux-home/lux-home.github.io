@@ -103,7 +103,9 @@ var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VC
 var PW='', CONTACTS=[], VACANT={};
 // Token nhân viên (nếu mở từ app LUXHOME-NV: ?tok=... hoặc localStorage)
 var NVTOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ try{localStorage.setItem('nv_tok',u);}catch(e){} return u; } return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } })();
-function authQ(){ return NVTOK ? ('tok='+enc(NVTOK)) : ('pw='+enc(PW)); }
+function devId(){ try{ var k=localStorage.getItem('nv_devid'); if(!k){ k=((window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random())).replace(/-/g,''); localStorage.setItem('nv_devid',k); } return k; }catch(e){ return 'nodev'; } }
+function devName(){ try{ var ua=navigator.userAgent||'', p=navigator.platform||''; var dev=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Android/.test(ua)?'Android':(p||'Máy'); var br=/CriOS/.test(ua)?'Chrome':/FxiOS|Firefox/.test(ua)?'Firefox':/EdgiOS|Edg/.test(ua)?'Edge':/Chrome/.test(ua)?'Chrome':/Safari/.test(ua)?'Safari':''; return (dev+(br?' · '+br:'')).slice(0,60); }catch(e){ return 'Máy'; } }
+function authQ(){ return NVTOK ? ('tok='+enc(NVTOK)+'&dev='+enc(devId())+'&devname='+enc(devName())) : ('pw='+enc(PW)); }
 var DEF_VI='Kính gửi {ten}, LUXHOME xin gửi hóa đơn tiền thuê căn hộ {phong} - tháng {thang}. Vui lòng kiểm tra và thanh toán giúp ạ. Trân trọng, LUXHOME.';
 var DEF_EN='Dear {ten}, LUXHOME sends you the rental invoice for apartment {phong} - {thang}. Please check and make the payment. Best regards, LUXHOME.';
 

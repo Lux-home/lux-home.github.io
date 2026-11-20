@@ -191,6 +191,9 @@ var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VC
 var PW='20252026';   // mở thẳng, không hỏi mật khẩu
 // Token nhân viên (nếu mở từ app LUXHOME-NV: ?tok=... hoặc localStorage)
 var NVTOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ try{localStorage.setItem('nv_tok',u);}catch(e){} return u; } return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } })();
+function devId(){ try{ var k=localStorage.getItem('nv_devid'); if(!k){ k=((window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random())).replace(/-/g,''); localStorage.setItem('nv_devid',k); } return k; }catch(e){ return 'nodev'; } }
+function devName(){ try{ var ua=navigator.userAgent||'', p=navigator.platform||''; var dev=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Android/.test(ua)?'Android':(p||'Máy'); var br=/CriOS/.test(ua)?'Chrome':/FxiOS|Firefox/.test(ua)?'Firefox':/EdgiOS|Edg/.test(ua)?'Edge':/Chrome/.test(ua)?'Chrome':/Safari/.test(ua)?'Safari':''; return (dev+(br?' · '+br:'')).slice(0,60); }catch(e){ return 'Máy'; } }
+function devQS(){ return '&dev='+encodeURIComponent(devId())+'&devname='+encodeURIComponent(devName()); }
 
 // Gọi Apps Script bằng fetch (CORS) rồi bóc lớp bọc cb(...) — đáng tin cả trong app đã cài
 function callExec(url, ok, fail){
@@ -208,7 +211,7 @@ function callExec(url, ok, fail){
     .catch(function(e){ clearTimeout(tm); fail&&fail(e); });
 }
 function fetchData(pw, ok, fail, fresh){
-  var q = NVTOK ? ('tok='+encodeURIComponent(NVTOK)) : ('pw='+encodeURIComponent(pw));
+  var q = NVTOK ? ('tok='+encodeURIComponent(NVTOK)+devQS()) : ('pw='+encodeURIComponent(pw));
   callExec(EXEC+'?callback=cb&'+q+(fresh?'&fresh=1':'')+'&t='+Date.now(), ok, function(e){ fail&&fail('network'); });
 }
 
@@ -570,7 +573,7 @@ function _dmyA(iso){ var p=(iso||'').split('-'); return p.length>=3?(p[2]+'/'+p[
 function moNhatKyAnh(){
   document.getElementById('anhWrap').style.display='block';
   var el=document.getElementById('anhList'); el.innerHTML='<p class="muted">Đang tải…</p>';
-  var q = NVTOK ? ('tok='+encodeURIComponent(NVTOK)) : ('pw='+encodeURIComponent(PW));
+  var q = NVTOK ? ('tok='+encodeURIComponent(NVTOK)+devQS()) : ('pw='+encodeURIComponent(PW));
   callExec(EXEC+'?nhatkyanh=1&'+q+'&callback=cb&t='+Date.now(), function(d){
     if(!d||!d.ok){ el.innerHTML='<p class="muted">Không tải được nhật ký (hoặc chưa có quyền).</p>'; return; }
     var list=d.list||[];

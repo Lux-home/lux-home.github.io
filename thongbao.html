@@ -91,7 +91,9 @@
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 var PW='20252026', CONTACTS=[], CURTPL='power';
 var NVTOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ try{localStorage.setItem('nv_tok',u);}catch(e){} return u; } return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } })();
-function authQ(){ return NVTOK ? ('tok='+enc(NVTOK)) : ('pw='+enc(PW)); }
+function devId(){ try{ var k=localStorage.getItem('nv_devid'); if(!k){ k=((window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random())).replace(/-/g,''); localStorage.setItem('nv_devid',k); } return k; }catch(e){ return 'nodev'; } }
+function devName(){ try{ var ua=navigator.userAgent||'', p=navigator.platform||''; var dev=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Android/.test(ua)?'Android':(p||'Máy'); var br=/CriOS/.test(ua)?'Chrome':/FxiOS|Firefox/.test(ua)?'Firefox':/EdgiOS|Edg/.test(ua)?'Edge':/Chrome/.test(ua)?'Chrome':/Safari/.test(ua)?'Safari':''; return (dev+(br?' · '+br:'')).slice(0,60); }catch(e){ return 'Máy'; } }
+function authQ(){ return NVTOK ? ('tok='+enc(NVTOK)+'&dev='+enc(devId())+'&devname='+enc(devName())) : ('pw='+enc(PW)); }
 function enc(s){return encodeURIComponent(String(s==null?'':s));}
 function esc(s){return String(s==null?'':s).replace(/[&<>]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;'}[c];});}
 function waNum(p){var d=String(p||'').replace(/[^0-9+]/g,'').replace(/^\+/,'');if(d.charAt(0)==='0')d='84'+d.slice(1);return d;}

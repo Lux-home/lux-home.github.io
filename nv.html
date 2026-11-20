@@ -71,6 +71,10 @@ var MODS={ bill:{ic:'🧾',tt:'Gửi hóa đơn',ds:'Gửi bill cho khách',href
 function show(id){ ['login','home','blocked'].forEach(function(x){ document.getElementById(x).style.display = x===id?(x==='home'?'block':'block'):'none'; }); }
 function tok(){ try{ return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } }
 function setTok(t){ try{ if(t) localStorage.setItem('nv_tok',t); else localStorage.removeItem('nv_tok'); }catch(e){} }
+// ===== Mã máy (device) — mỗi máy một mã cố định để admin duyệt/thu hồi =====
+function devId(){ try{ var k=localStorage.getItem('nv_devid'); if(!k){ k=((window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random())).replace(/-/g,''); localStorage.setItem('nv_devid',k); } return k; }catch(e){ return 'nodev'; } }
+function devName(){ try{ var ua=navigator.userAgent||'', p=navigator.platform||''; var dev=/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Android/.test(ua)?'Android':(p||'Máy'); var br=/CriOS/.test(ua)?'Chrome':/FxiOS|Firefox/.test(ua)?'Firefox':/EdgiOS|Edg/.test(ua)?'Edge':/Chrome/.test(ua)?'Chrome':/Safari/.test(ua)?'Safari':''; return (dev+(br?' · '+br:'')).slice(0,60); }catch(e){ return 'Máy'; } }
+function devQS(){ return '&dev='+enc(devId())+'&devname='+enc(devName()); }
 
 function renderHome(me){
   document.getElementById('w_name').textContent = me.ten||me.ma;
@@ -89,11 +93,20 @@ function renderHome(me){
 
 function checkMe(){
   var t=tok(); if(!t){ show('login'); return; }
-  api('nvme=1&tok='+enc(t)).then(function(d){
+  api('nvme=1&tok='+enc(t)+devQS()).then(function(d){
     if(d&&d.ok){ renderHome(d); }
-    else if(d&&d.locked){ document.getElementById('b_title').textContent='Tài khoản đã bị khoá'; document.getElementById('b_msg').textContent='Quản lý đã tạm khoá quyền truy cập.'; setTok(''); show('blocked'); }
+    else if(d&&d.locked){ document.getElementById('b_title').textContent='Tài khoản đã bị khoá'; document.getElementById('b_msg').textContent='Quản lý đã tạm khoá quyền truy cập.'; document.querySelector('#blocked .ic').textContent='🔒'; var _b=document.getElementById('b_btn'); _b.style.display=''; _b.textContent='Đăng nhập lại'; _b.onclick=function(){ setTok(''); show('login'); }; setTok(''); show('blocked'); }
+    else if(d&&d.pending){ showPending(d); }
     else { setTok(''); show('login'); }
   }).catch(function(){ show('login'); });
+}
+// Máy chưa được duyệt — giữ token, chờ admin duyệt, cho bấm "Thử lại"
+function showPending(d){
+  document.getElementById('b_title').textContent='⏳ Máy này đang chờ duyệt';
+  document.getElementById('b_msg').innerHTML='Máy "<b>'+ (d && d.devname ? d.devname : devName()) +'</b>" chưa được quản lý cho phép.<br>Báo quản lý duyệt máy trong mục <b>Quản lý quyền app phụ</b>, rồi bấm Thử lại.';
+  var b=document.getElementById('b_btn'); b.style.display=''; b.textContent='↻ Thử lại'; b.onclick=function(){ b.textContent='Đang kiểm tra…'; checkMe(); };
+  document.querySelector('#blocked .ic').textContent='⏳';
+  show('blocked');
 }
 
 document.getElementById('l_btn').onclick=function(){
@@ -101,8 +114,8 @@ document.getElementById('l_btn').onclick=function(){
   var m=document.getElementById('l_msg'); m.className='msg';
   if(!ma||!pw){ m.className='msg err'; m.textContent='Nhập đủ mã NV và mật khẩu.'; return; }
   m.textContent='Đang đăng nhập…';
-  api('nvlogin=1&ma='+enc(ma)+'&nvpw='+enc(pw)).then(function(d){
-    if(d&&d.ok){ setTok(d.tok); m.className='msg ok'; m.textContent='✓ Xin chào '+(d.ten||d.ma); renderHome(d); }
+  api('nvlogin=1&ma='+enc(ma)+'&nvpw='+enc(pw)+devQS()).then(function(d){
+    if(d&&d.ok){ setTok(d.tok); m.className='msg ok'; m.textContent='✓ Xin chào '+(d.ten||d.ma); checkMe(); }
     else if(d&&d.locked){ m.className='msg err'; m.textContent='Tài khoản đã bị khoá. Liên hệ quản lý.'; }
     else { m.className='msg err'; m.textContent='Sai mã NV hoặc mật khẩu.'; }
   }).catch(function(){ m.className='msg err'; m.textContent='Không kết nối được.'; });

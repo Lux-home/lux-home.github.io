@@ -101,6 +101,17 @@ function render(list){
     var box=document.createElement('div'); box.className='nv'+(nv.locked?' locked':'');
     var perms=nv.perms||[];
     var checks=MODS.map(function(m){ var on=perms.indexOf(m.k)>-1; return '<label><input type="checkbox" data-k="'+m.k+'" '+(on?'checked':'')+'> '+m.n+'</label>'; }).join('');
+    var devs=nv.devices||[], nd=nv.ndev||0, mx=nv.max||1;
+    var devRows = !devs.length
+      ? '<p class="hint" style="margin:4px 0 0">Chưa có máy nào đăng nhập.</p>'
+      : devs.map(function(d){ var ok=d.status==='ok';
+          return '<div class="devrow" data-id="'+esc(d.id)+'" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:7px 0;border-top:1px dashed var(--line)">'
+            +'<span style="flex:1;min-width:150px"><b>'+(ok?'✅':'⏳')+' '+esc(d.name||'(không tên)')+'</b>'
+            +'<br><small style="color:var(--muted)">'+(ok?'đã duyệt':'chờ duyệt')+' · lần cuối '+esc(d.last||'')+'</small></span>'
+            +(ok?'<button class="btn r drm">🚫 Thu hồi</button>'
+                :'<button class="btn g dok">✓ Duyệt</button><button class="btn d drm">Bỏ</button>')
+            +'</div>';
+        }).join('');
     box.innerHTML='<div class="h"><div><span class="ma">'+esc(nv.ma)+'</span> <span class="ten">'+esc(nv.ten)+'</span></div>'
       +'<span class="st '+(nv.locked?'off':'on')+'">'+(nv.locked?'🔒 Đã khoá':'● Hoạt động')+'</span></div>'
       +'<div class="pm">'+checks+'</div>'
@@ -109,6 +120,14 @@ function render(list){
       +'<button class="btn d lk">'+(nv.locked?'🔓 Mở khoá':'🔒 Khoá')+'</button>'
       +'<input type="text" class="npw" placeholder="Đặt lại mật khẩu (nếu cần)" style="flex:1;min-width:140px">'
       +'<button class="btn r del">🗑️ Xoá</button>'
+      +'</div>'
+      +'<div class="devs" style="margin-top:10px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--bg)">'
+      +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;font-weight:700">📱 Máy được phép dùng app '
+      +'<span style="color:var(--cyan)">'+nd+'/'+mx+'</span>'
+      +'<span style="flex:1"></span>Số máy tối đa: '
+      +'<input type="number" class="maxin" min="1" max="20" value="'+mx+'" style="width:58px;padding:6px">'
+      +'<button class="btn d setmax">Đặt</button></div>'
+      +devRows
       +'</div><p class="msg m"></p>';
     var ma=nv.ma, locked=nv.locked, msg=box.querySelector('.m');
     box.querySelector('.sv').onclick=function(){
@@ -119,6 +138,9 @@ function render(list){
     };
     box.querySelector('.lk').onclick=function(){ api('nvadmin=lock&pw='+enc(PW)+'&ma='+enc(ma)+'&lock='+(locked?'0':'1')).then(function(){ reload(); }); };
     box.querySelector('.del').onclick=function(){ if(!confirm('Xoá nhân viên '+ma+'?')) return; api('nvadmin=del&pw='+enc(PW)+'&ma='+enc(ma)).then(function(){ reload(); }); };
+    box.querySelector('.setmax').onclick=function(){ var v=box.querySelector('.maxin').value; msg.textContent='Đang lưu số máy…'; api('nvadmin=setmax&pw='+enc(PW)+'&ma='+enc(ma)+'&max='+enc(v)).then(function(d){ msg.textContent=d&&d.ok?'✓ Đã đặt tối đa '+d.max+' máy':'Lỗi'; reload(); }); };
+    [].slice.call(box.querySelectorAll('.dok')).forEach(function(b){ b.onclick=function(){ var id=b.closest('.devrow').getAttribute('data-id'); msg.textContent='Đang duyệt máy…'; api('nvadmin=devok&pw='+enc(PW)+'&ma='+enc(ma)+'&dev='+enc(id)).then(function(d){ if(d&&d.ok){ msg.textContent='✓ Đã duyệt máy'; } else if(d&&d.full){ msg.textContent='⚠️ Đã đủ '+d.max+' máy — tăng "Số máy tối đa" hoặc thu hồi máy cũ trước.'; } else { msg.textContent='Lỗi duyệt máy'; } reload(); }); }; });
+    [].slice.call(box.querySelectorAll('.drm')).forEach(function(b){ b.onclick=function(){ var id=b.closest('.devrow').getAttribute('data-id'); if(!confirm('Thu hồi/xoá máy này? App trên máy đó sẽ ngừng dùng được ngay.')) return; msg.textContent='Đang thu hồi…'; api('nvadmin=devrm&pw='+enc(PW)+'&ma='+enc(ma)+'&dev='+enc(id)).then(function(){ msg.textContent='✓ Đã thu hồi máy'; reload(); }); }; });
     el.appendChild(box);
   });
 }
