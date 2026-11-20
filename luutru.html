@@ -83,7 +83,7 @@
   <div class="wrap">
     <div class="bar">
       <button class="btn" onclick="taiLai()">↻ Làm mới</button>
-      <button class="btn" style="flex:0 0 auto;background:#8a6d1f" onclick="moTpl()">✏️ Tin mẫu</button>
+      <button class="btn" id="btnTpl" style="flex:0 0 auto;background:#8a6d1f" onclick="moTpl()">✏️ Tin mẫu</button>
       <button class="btn" style="flex:0 0 auto;background:#5d6b66" onclick="moEmail()">⚙️ Email</button>
       <button class="btn" style="flex:0 0 auto;background:#0f766e" onclick="moNhatKy()">📋 Nhật ký nhắc</button>
       <button class="btn" style="flex:0 0 auto;background:#7c3aed" onclick="moNhatKyAnh()">📷 Nhật ký ảnh</button>
@@ -495,6 +495,7 @@ function sDel(i){ S_TIMES.splice(i,1); sSave(); }
 var T_ADMIN='';
 function tKeys(){ return ['tt','ttqua','hd','hdqua']; }
 function moTpl(){
+  if(NVTOK){ alert('Chế độ nhân viên chỉ được xem và gửi — không chỉnh sửa tin mẫu. Liên hệ quản lý.'); return; }
   document.getElementById('tplWrap').style.display='block';
   T_ADMIN='20252026';                                   // app tự mở, không hỏi mật khẩu
   document.getElementById('tGate').style.display='none';
@@ -543,6 +544,8 @@ window.addEventListener('DOMContentLoaded', function(){
   if(cached && cached.ok){ render(cached); document.getElementById('cap').textContent='Đang cập nhật…'; }
   else { document.getElementById('cap').textContent='Đang tải…'; }
   if(NVTOK){
+    // Chế độ nhân viên: chỉ xem & gửi — ẩn nút chỉnh sửa tin mẫu
+    var _bt=document.getElementById('btnTpl'); if(_bt) _bt.style.display='none';
     // Chế độ nhân viên: CHỈ dùng dữ liệu có kiểm tra quyền (không qua bảng công khai)
     fetchData(PW,
       function(d){

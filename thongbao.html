@@ -58,9 +58,9 @@
 
     <!-- 2. Nội dung -->
     <div class="card">
-      <div class="lb">2 · Nội dung (có thể chỉnh sửa)</div>
+      <div class="lb" id="lbNoidung">2 · Nội dung (có thể chỉnh sửa)</div>
       <textarea id="noidung" placeholder="Soạn nội dung thông báo…"></textarea>
-      <div class="row2">
+      <div class="row2" id="tplBtns">
         <button class="btn o" id="saveTpl">💾 Lưu làm mẫu</button>
         <button class="btn o" id="resetTpl">↺ Mẫu gốc</button>
       </div>
@@ -182,13 +182,15 @@ function makeList(){
 /* ===== Nạp dữ liệu ===== */
 function load(){
   callExec(EXEC+'?dsbao=1&'+authQ()+'&callback=cb&t='+Date.now(), function(d){
-    if(d&&d.ok){ CONTACTS=d.list||[]; document.getElementById('status').style.display='none'; document.getElementById('app').style.display='block'; document.getElementById('noidung').value=tplGet(CURTPL); renderTpls(); renderToas(); }
+    if(d&&d.ok){ CONTACTS=d.list||[]; document.getElementById('status').style.display='none'; document.getElementById('app').style.display='block'; document.getElementById('noidung').value=tplGet(CURTPL); renderTpls(); renderToas();
+      if(NVTOK){ var _n=document.getElementById('noidung'); if(_n) _n.readOnly=true; var _b=document.getElementById('tplBtns'); if(_b) _b.style.display='none'; var _l=document.getElementById('lbNoidung'); if(_l) _l.textContent='2 · Nội dung (chỉ xem)'; }
+    }
     else if(NVTOK){ document.getElementById('status').innerHTML='<div style="text-align:center;padding:24px"><div style="font-size:2.2rem">🔒</div><b>Không có quyền Thông báo</b><br><span style="color:#888">Liên hệ quản lý để được cấp quyền.</span><br><a href="nv.html" style="color:#0e7ba8;font-weight:700;display:inline-block;margin-top:8px">← Về trang nhân viên</a></div>'; }
     else { document.getElementById('status').textContent='Không tải được danh sách — thử lại.'; }
   }, function(){ document.getElementById('status').textContent='Không kết nối được — thử lại.'; });
 }
 
-document.getElementById('saveTpl').onclick=function(){ LSs('tb_tpl_'+CURTPL, document.getElementById('noidung').value); var b=document.getElementById('saveTpl'); b.textContent='✓ Đã lưu'; setTimeout(function(){b.textContent='💾 Lưu làm mẫu';},1400); };
+document.getElementById('saveTpl').onclick=function(){ if(NVTOK) return; LSs('tb_tpl_'+CURTPL, document.getElementById('noidung').value); var b=document.getElementById('saveTpl'); b.textContent='✓ Đã lưu'; setTimeout(function(){b.textContent='💾 Lưu làm mẫu';},1400); };
 document.getElementById('resetTpl').onclick=function(){ try{ localStorage.removeItem('tb_tpl_'+CURTPL); }catch(e){} document.getElementById('noidung').value=tplDef(CURTPL); };
 document.getElementById('allToa').onclick=function(){ var g=byToa(); Object.keys(g).forEach(function(t){ SEL[t]=true; }); renderToas(); };
 document.getElementById('noToa').onclick=function(){ SEL={}; renderToas(); };

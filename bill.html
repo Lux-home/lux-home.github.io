@@ -189,6 +189,7 @@ function loadData(){
       var dt=new Date(); document.getElementById('thang').value=('0'+(dt.getMonth()+1)).slice(-2)+'-'+dt.getFullYear();
       setChoice(LS('bill_choice')||'def');
       var _t=document.getElementById('thang').value.trim(); logLoad(_t); renderList(_t);
+      if(NVTOK){ var _bt=document.getElementById('btnTpl'); if(_bt) _bt.style.display='none'; var _tw=document.getElementById('tplWrap'); if(_tw) _tw.style.display='none'; }
       document.getElementById('status').textContent=''; }
     else if(NVTOK){ document.getElementById('status').innerHTML='<div style="text-align:center;padding:24px 12px"><div style="font-size:2.2rem">🔒</div><b>Không có quyền Gửi hóa đơn</b><br><span style="color:#888">Tài khoản chưa được cấp quyền này hoặc đã bị khoá. Liên hệ quản lý.</span><br><a href="nv.html" style="color:#0e7ba8;font-weight:700;display:inline-block;margin-top:8px">← Về trang nhân viên</a></div>'; }
     else { document.getElementById('status').textContent='Không tải được danh sách khách — thử lại.'; }
@@ -438,6 +439,7 @@ function renderCard(box){
 document.getElementById('segDef').onclick=function(){ setChoice('def'); };
 document.getElementById('segCus').onclick=function(){ setChoice('cus'); };
 document.getElementById('tSave').onclick=function(){
+  if(NVTOK){ return; }
   LS('bill_vi', document.getElementById('tVI').value||DEF_VI);
   LS('bill_en', document.getElementById('tEN').value||DEF_EN);
   LS('bill_choice','cus');
