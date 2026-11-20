@@ -148,8 +148,23 @@
     .toolbar select{flex:1 1 calc(50% - 3px);max-width:none;min-width:0}
     .toolbar .tbtn{flex:1 1 calc(50% - 3px);justify-content:center}
     main .wrap{padding-block:12px 20px}
-    .grid{grid-template-columns:1fr;gap:12px}
+    .grid{grid-template-columns:repeat(2,1fr);gap:10px}
+    .tile{aspect-ratio:16/11}
+    .tile .code{font-size:1.12rem}
+    .tile .toa{font-size:.66rem}
+    .badge{font-size:.6rem;padding:2px 7px}
+    .body{padding:9px 10px 11px;gap:5px}
+    .meta{font-size:.76rem}
+    .price{font-size:1rem}
+    .statusline{font-size:.72rem;padding:6px 8px;margin:5px 0 1px}
+    .statusline .en{font-size:.64rem}
+    .fee{font-size:.64rem;padding:2px 6px}
+    .desc{-webkit-line-clamp:2;font-size:.76rem}
+    .desc.vi{min-height:0}
+    .desc-en{display:none}
+    .btn{font-size:.72rem;padding:7px 6px}
   }
+  @media (max-width:360px){ .grid{grid-template-columns:1fr} }
   .actions{display:flex;gap:7px;margin-top:auto;flex-wrap:wrap}
   .btn{flex:1 1 auto;display:inline-flex;align-items:center;justify-content:center;gap:5px;
     padding:8px 9px;border-radius:10px;font:inherit;font-size:.76rem;font-weight:700;cursor:pointer;
