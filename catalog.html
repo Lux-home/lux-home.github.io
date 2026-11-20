@@ -83,7 +83,7 @@
   .tile .scrim{position:absolute;inset:0;z-index:1;
     background:linear-gradient(180deg,rgba(0,0,0,.22),rgba(0,0,0,.5))}
   .tile .code{position:relative;z-index:2;font-size:1.5rem;font-weight:800;letter-spacing:.01em;text-shadow:0 1px 10px rgba(0,0,0,.45)}
-  .tile .toa{position:relative;z-index:2;font-size:.78rem;font-weight:600;opacity:.95;letter-spacing:.06em;text-transform:uppercase;text-shadow:0 1px 8px rgba(0,0,0,.45)}
+  .tile .toa{position:relative;z-index:2;font-size:.82rem;font-weight:600;opacity:.96;letter-spacing:.02em;text-shadow:0 1px 8px rgba(0,0,0,.45)}
   .tile .photos{display:none}
   .tile .area{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:2;font-size:.7rem;font-weight:600;color:#fff;
     background:rgba(0,0,0,.45);padding:3px 12px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;
@@ -530,11 +530,11 @@ function render(){
       <div class="tile" style="background:${tileBg(a.trangThai)}">
         ${imgTag(a.facade||toaFacade[String(a.toa||"").trim()]||a.anhdd)}
         <span class="code">${esc(a.ma)}</span>
-        ${a.toa?`<span class="toa">Tòa / Bldg ${esc(a.toa)}</span>`:""}
+        <span class="toa">${esc([typeEN(a.loai),areaEN(a.khuvuc)].filter(Boolean).join(" / "))}</span>
         ${photos}
       </div>
       <div class="body">
-        <div class="meta">${esc([typeEN(a.loai),areaEN(a.khuvuc)].filter(Boolean).join(" / "))}${a.dt?" · "+esc(a.dt)+" m²":""}</div>
+        ${a.dt?`<div class="meta">${esc(a.dt)} m²</div>`:""}
         <div class="price">${a.gia?fmt(a.gia):"Liên hệ / Contact"}${a.gia?' <small>đ/tháng · /month</small>':""}</div>
         ${statusLineHtml(a)}
         ${fees(a)}
