@@ -88,8 +88,8 @@
   .tile .area{position:absolute;left:50%;transform:translateX(-50%);bottom:10px;z-index:2;font-size:.7rem;font-weight:600;color:#fff;
     background:rgba(0,0,0,.45);padding:3px 12px;border-radius:999px;display:inline-flex;align-items:center;gap:4px;
     backdrop-filter:blur(2px);max-width:calc(100% - 20px);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .badge{position:absolute;right:10px;top:10px;z-index:2;font-size:.68rem;font-weight:700;padding:3px 9px;
-    border-radius:999px;max-width:72%;text-align:right}
+  .badge{position:relative;z-index:2;align-self:center;font-size:.64rem;font-weight:700;padding:3px 11px;
+    border-radius:999px;max-width:calc(100% - 20px);text-align:center;line-height:1.25;margin-bottom:2px}
   .b-ok{background:var(--ok-bg);color:var(--ok-fg)} .b-busy{background:var(--busy-bg);color:var(--busy-fg)}
   .b-hold{background:var(--hold-bg);color:var(--hold-fg)} .b-fix{background:var(--fix-bg);color:var(--fix-fg)}
   .b-red{background:var(--red-bg);color:var(--red-fg)}
@@ -482,6 +482,23 @@ function khuVN_EN(khu){
   var en=KHU_EN[s.toLowerCase()];
   return en?(s+" / "+en):s;
 }
+// Trạng thái tách Việt / Anh
+function statusVE(t){
+  var k=statusKey(t);
+  var map={ available:["Đang có sẵn","Available"], soon:["Dự kiến có","Available soon"], sample:["Căn hộ mẫu","Sample"], locked:["Đang Khóa","Locked"] };
+  return map[k]||[(String(t||"").trim())||"—",""];
+}
+// Nhãn gộp: "Căn hộ mẫu / Trung tâm - Sample / Central"
+function badgeCombined(a){
+  var sv=statusVE(a.trangThai), kv=String(a.khuvuc||"").trim();
+  var ke=kv?(KHU_EN[kv.toLowerCase()]||""):"";
+  if(kv){
+    var vn=sv[0]+" / "+kv;
+    var en=(sv[1]+(ke?" / "+ke:"")).trim();
+    return en?(vn+" - "+en):vn;
+  }
+  return sv[1]?(sv[0]+" / "+sv[1]):sv[0];
+}
 function render(){
   const list=filtered();
   grid.innerHTML="";
@@ -503,10 +520,9 @@ function render(){
     card.innerHTML=`
       <div class="tile" style="background:${tileBg(a.trangThai)}">
         ${imgTag(a.facade||toaFacade[String(a.toa||"").trim()]||a.anhdd)}
-        <span class="badge ${badgeClass(a.trangThai)}">${esc(statusLabel(a.trangThai))}</span>
+        <span class="badge ${badgeClass(a.trangThai)}">${esc(badgeCombined(a))}</span>
         <span class="code">${esc(a.ma)}</span>
         ${a.toa?`<span class="toa">Tòa / Bldg ${esc(a.toa)}</span>`:""}
-        ${a.khuvuc?`<span class="area">📍 ${esc(khuVN_EN(a.khuvuc))}</span>`:""}
         ${photos}
       </div>
       <div class="body">
