@@ -166,7 +166,12 @@
     .loc{display:none}
     .price{font-size:.95rem}
     .price small{display:none}
-    .statusline,.fees,.desc,.desc-en{display:none}
+    .statusline{display:none}
+    .fees{gap:4px;margin-top:1px}
+    .fee{font-size:.62rem;padding:2px 6px}
+    .desc{font-size:.72rem;-webkit-line-clamp:2;margin-top:2px}
+    .desc.vi{min-height:0}
+    .desc-en{display:none}
     .actions{gap:5px;margin-top:6px}
     .actions .btn{font-size:.66rem;padding:6px 5px}
     .actions [data-copy]{display:none}
@@ -471,6 +476,9 @@ function render(){
       :"<b>Chưa có dữ liệu. / No data yet.</b><br>Mở mục ⚙️ để nạp. / Open ⚙️ to load.";
     return;}
   empty.hidden=true;
+  // Ảnh toà: căn nào trống ảnh thì dùng chung ảnh facade của toà đó (lấy từ căn bất kỳ cùng toà có ảnh)
+  const toaFacade={};
+  for(const d of DATA){ const t=String(d.toa||"").trim(); const f=String(d.facade||d.anhdd||"").trim(); if(t&&f&&!toaFacade[t]) toaFacade[t]=f; }
   for(const a of list){
     const card=document.createElement("div");card.className="card s-"+statusKey(a.trangThai);
     const photos=a.linkAnh?'<span class="photos">📷 Ảnh + video / Photos</span>':"";
@@ -479,7 +487,7 @@ function render(){
     const mapBtn=a.linkMap?`<a class="btn" href="${esc(a.linkMap)}" target="_blank" rel="noopener">📍 Bản đồ / Map</a>`:"";
     card.innerHTML=`
       <div class="tile" style="background:${tileBg(a.trangThai)}">
-        ${imgTag(a.facade||a.anhdd)}
+        ${imgTag(a.facade||toaFacade[String(a.toa||"").trim()]||a.anhdd)}
         <span class="badge ${badgeClass(a.trangThai)}">${esc(statusLabel(a.trangThai))}</span>
         <span class="code">${esc(a.ma)}</span>
         ${a.toa?`<span class="toa">Tòa / Bldg ${esc(a.toa)}</span>`:""}
