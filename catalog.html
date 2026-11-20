@@ -147,7 +147,14 @@
     .search{flex:1 1 100%}
     .toolbar select{flex:1 1 calc(50% - 3px);max-width:none;min-width:0}
     .toolbar .tbtn{flex:1 1 calc(50% - 3px);justify-content:center}
-    main .wrap{padding-block:12px 20px}
+    main .wrap{padding-block:10px 20px}
+    .top .wrap{padding-block:9px 9px}
+    .brand h1{font-size:1.1rem}
+    .brand .count{font-size:.74rem;padding:2px 8px}
+    .brand p{display:none}
+    .staffbar{padding:6px 12px;font-size:.78rem;gap:6px}
+    .staffbar b{font-size:.95rem;padding:2px 8px}
+    .staffbar .sbnote{display:none}
     .grid{grid-template-columns:repeat(2,1fr);gap:10px}
     .tile{aspect-ratio:16/11}
     .tile .code{font-size:1.12rem}
@@ -448,8 +455,9 @@ function driveId(s){s=(s||"").trim();if(!s)return"";
   let m=s.match(/\/d\/([-\w]{20,})/)||s.match(/[?&]id=([-\w]{20,})/)||s.match(/^([-\w]{20,})$/);
   return m?m[1]:"";}
 function imgTag(anhdd){const id=driveId(anhdd);if(!id)return"";
-  const u="https://drive.google.com/thumbnail?id="+id+"&sz=w1000";
-  return `<img class="cover" src="${u}" alt="" loading="lazy" onerror="this.remove()"><span class="scrim"></span>`;}
+  const u="https://lh3.googleusercontent.com/d/"+id+"=w800";
+  const alt="https://drive.google.com/thumbnail?id="+id+"&sz=w800";
+  return `<img class="cover" src="${u}" alt="" loading="lazy" referrerpolicy="no-referrer" onerror="if(this.src.indexOf('lh3')>-1){this.src='${alt}';}else{this.remove();}"><span class="scrim"></span>`;}
 function render(){
   const list=filtered();
   grid.innerHTML="";
