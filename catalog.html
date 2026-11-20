@@ -98,10 +98,10 @@
   .body{padding:12px 14px 14px;display:flex;flex-direction:column;gap:7px;flex:1}
   .meta{font-size:.82rem;color:var(--muted);font-weight:600}
   .price{font-size:1.18rem;font-weight:800;color:var(--gold);font-variant-numeric:tabular-nums}
-  .availd{font-size:.82rem;font-weight:800;border-radius:8px;padding:3px 9px;display:inline-block;margin:1px 0 3px;white-space:nowrap}
-  .availd.av-soon{color:#c47a12;background:rgba(240,170,40,.18)}
-  .availd.av-available{color:#0f9d58;background:rgba(15,157,88,.16)}
-  .availd.av-sample,.availd.av-locked{color:#c0392b;background:rgba(216,60,50,.16)}
+  .availd{font-size:.82rem;font-weight:800;border-radius:8px;padding:4px 11px;display:inline-block;margin:1px 0 4px;white-space:nowrap;color:#fff;box-shadow:0 2px 6px rgba(0,0,0,.2)}
+  .availd.av-soon{background:#e08a00}
+  .availd.av-available{background:#0a8f4d}
+  .availd.av-sample,.availd.av-locked{background:#cf2f2f}
   .card.s-soon .price{font-size:1.45rem}
   .price small{font-size:.72rem;font-weight:600;color:var(--muted)}
   .statusline{margin:8px 0 2px;padding:7px 10px;border-radius:9px;font-size:.82rem;font-weight:700;
@@ -465,8 +465,11 @@ function filtered(){
   let list=visData().filter(a=>(!q||norm(a.ma).includes(q)||norm(a.noiThat).includes(q))
     &&(!ft||a.toa===ft)&&(!fs||statusKey(a.trangThai)===fs)
     &&(!fk||(a.khuvuc||"").trim()===fk)&&(!fl||(a.loai||"").trim()===fl));
-  if(so)list=list.slice().sort((x,y)=>{const a=parseInt(x.gia||0),b=parseInt(y.gia||0);
-    return so==="asc"?a-b:b-a;});
+  if(so){ list=list.slice().sort((x,y)=>{const a=parseInt(x.gia||0),b=parseInt(y.gia||0);
+    return so==="asc"?a-b:b-a;}); }
+  else { // mặc định: Có sẵn (xanh) -> Dự kiến (vàng) -> Căn hộ mẫu (đỏ)
+    const rank=t=>{const k=statusKey(t);return k==="available"?0:k==="soon"?1:k==="sample"?2:3;};
+    list=list.slice().sort((x,y)=>rank(x.trangThai)-rank(y.trangThai)); }
   return list;
 }
 // Lay ID file tu link/ID Google Drive (anh dai dien)
