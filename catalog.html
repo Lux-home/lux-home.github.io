@@ -482,6 +482,15 @@ function khuVN_EN(khu){
   var en=KHU_EN[s.toLowerCase()];
   return en?(s+" / "+en):s;
 }
+// Loại căn tiếng Anh: "2 phòng ngủ" -> "2 bedrooms"; Studio giữ nguyên
+function typeEN(loai){
+  var s=String(loai||"").trim(); if(!s) return "";
+  var m=s.match(/^(\d+)\s*phòng\s*ngủ/i);
+  if(m){ var n=m[1]; return n+(n==="1"?" bedroom":" bedrooms"); }
+  return s;
+}
+// Khu vực tiếng Anh: "Trung tâm" -> "Central"
+function areaEN(khu){ var s=String(khu||"").trim(); if(!s) return ""; return KHU_EN[s.toLowerCase()]||s; }
 // Trạng thái tách Việt / Anh
 function statusVE(t){
   var k=statusKey(t);
@@ -520,14 +529,12 @@ function render(){
     card.innerHTML=`
       <div class="tile" style="background:${tileBg(a.trangThai)}">
         ${imgTag(a.facade||toaFacade[String(a.toa||"").trim()]||a.anhdd)}
-        <span class="badge ${badgeClass(a.trangThai)}">${esc(badgeCombined(a))}</span>
         <span class="code">${esc(a.ma)}</span>
         ${a.toa?`<span class="toa">Tòa / Bldg ${esc(a.toa)}</span>`:""}
         ${photos}
       </div>
       <div class="body">
-        <div class="meta">${esc(loaiVN_EN(a.loai))}${a.loai&&a.dt?" · ":""}${a.dt?esc(a.dt)+" m²":""}</div>
-        ${a.khuvuc?`<div class="loc">📍 ${esc(khuVN_EN(a.khuvuc))}</div>`:""}
+        <div class="meta">${esc([typeEN(a.loai),areaEN(a.khuvuc)].filter(Boolean).join(" / "))}${a.dt?" · "+esc(a.dt)+" m²":""}</div>
         <div class="price">${a.gia?fmt(a.gia):"Liên hệ / Contact"}${a.gia?' <small>đ/tháng · /month</small>':""}</div>
         ${statusLineHtml(a)}
         ${fees(a)}
