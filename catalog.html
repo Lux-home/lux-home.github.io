@@ -156,20 +156,24 @@
     .staffbar b{font-size:.95rem;padding:2px 8px}
     .staffbar .sbnote{display:none}
     .grid{grid-template-columns:repeat(2,1fr);gap:10px}
-    .tile{aspect-ratio:16/11}
-    .tile .code{font-size:1.12rem}
-    .tile .toa{font-size:.66rem}
-    .badge{font-size:.6rem;padding:2px 7px}
-    .body{padding:9px 10px 11px;gap:5px}
-    .meta{font-size:.76rem}
-    .price{font-size:1rem}
-    .statusline{font-size:.72rem;padding:6px 8px;margin:5px 0 1px}
-    .statusline .en{font-size:.64rem}
-    .fee{font-size:.64rem;padding:2px 6px}
-    .desc{-webkit-line-clamp:2;font-size:.76rem}
-    .desc.vi{min-height:0}
-    .desc-en{display:none}
-    .btn{font-size:.72rem;padding:7px 6px}
+    .tile{aspect-ratio:3/2}
+    .tile .code{font-size:1.05rem}
+    .tile .toa{font-size:.62rem}
+    .badge{font-size:.56rem;padding:1px 6px}
+    .tile .photos{display:none}
+    .body{padding:7px 9px 9px;gap:2px}
+    .meta{font-size:.72rem}
+    .loc{display:none}
+    .price{font-size:.95rem}
+    .price small{display:none}
+    .statusline,.fees,.desc,.desc-en{display:none}
+    .actions{gap:5px;margin-top:6px}
+    .actions .btn{font-size:.66rem;padding:6px 5px}
+    .actions [data-copy]{display:none}
+    /* Cho phần đầu cuộn theo nội dung (không ghim cố định) để lưới thẻ chiếm trọn màn hình */
+    html,body,body.unlocked{height:auto;min-height:100%;overflow:visible}
+    body.unlocked{display:block}
+    body.unlocked header.top,body.unlocked .toolbar,body.unlocked .staffbar,body.unlocked main{position:static;overflow:visible}
   }
   @media (max-width:360px){ .grid{grid-template-columns:1fr} }
   .actions{display:flex;gap:7px;margin-top:auto;flex-wrap:wrap}
