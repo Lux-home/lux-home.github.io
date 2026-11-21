@@ -358,8 +358,8 @@ function mkMsg(kind, ten, ph, ngay, con){
   var key = kind + (qua?'qua':'');
   var vi = (TPL&&TPL.vi&&TPL.vi[key]) || TPL_FALLBACK.vi[key];
   var en = (TPL&&TPL.en&&TPL.en[key]) || TPL_FALLBACK.en[key];
-  var ask = '\n\n📎 Vui lòng gửi trực tiếp ảnh hộ chiếu/visa/CCCD vào khung chat này để khai báo lưu trú.'
-          + '\nPlease send your passport/visa/ID photos directly in this chat for residence declaration.';
+  var ask = '\n\n📎 Vui lòng gửi trực tiếp ảnh và video hộ chiếu/visa/giấy xác nhận tạm trú vào khung chat này để khai báo lưu trú.'
+          + '\nPlease send photos and videos of your passport/visa/temporary residence certificate directly in this chat for residence declaration.';
   return fillTpl(vi, ten, ph, ngay, cd) + '\n\n' + fillTpl(en, ten, ph, ngay, cd) + ask;
 }
 function copyMsg(b){
