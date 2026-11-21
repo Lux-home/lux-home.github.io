@@ -88,6 +88,7 @@
     <label class="drop" for="file"><b>+ Chọn ảnh hóa đơn</b><div class="hint">Chọn nhiều ảnh cùng lúc · app tự đọc mã phòng in trên hóa đơn</div></label>
     <input id="file" type="file" accept="image/*" multiple style="display:none">
     <p class="hint" id="status" style="margin-top:10px"></p>
+    <div id="dupwarn"></div>
     <div id="uploading"></div>
     <div id="logHead" class="lb" style="display:none;margin-top:16px;justify-content:space-between;align-items:center">
       <span>🧾 Nhật ký bill đã nạp (tháng này)</span>
@@ -100,7 +101,7 @@
 
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
-var PW='', CONTACTS=[], VACANT={};
+var PW='', CONTACTS=[], VACANT={}, DUPREP=[];
 // Token nhân viên (nếu mở từ app LUXHOME-NV: ?tok=... hoặc localStorage)
 var NVTOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ try{localStorage.setItem('nv_tok',u);}catch(e){} return u; } return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } })();
 function devId(){ try{ var k=localStorage.getItem('nv_devid'); if(!k){ k=((window.crypto&&crypto.randomUUID)?crypto.randomUUID():(Date.now()+'-'+Math.random())).replace(/-/g,''); localStorage.setItem('nv_devid',k); } return k; }catch(e){ return 'nodev'; } }
@@ -188,6 +189,7 @@ function loadData(){
   callExec(EXEC+'?dsbill=1&'+authQ()+'&callback=cb&t='+Date.now(), function(d){
     if(d&&d.ok){ CONTACTS=d.list||[];
       VACANT={}; (d.vacant||[]).forEach(function(rm){ VACANT[roomUp(rm)]=true; });
+      DUPREP=d.dupRep||[]; renderDupWarn();
       var dt=new Date(); document.getElementById('thang').value=('0'+(dt.getMonth()+1)).slice(-2)+'-'+dt.getFullYear();
       setChoice(LS('bill_choice')||'def');
       var _t=document.getElementById('thang').value.trim(); logLoad(_t); renderList(_t);
@@ -361,6 +363,29 @@ function toggleFlag(thang, room){ var R=roomUp(room); if(BL[R]){ BL[R].flag=!BL[
 function clearLog(thang){ if(!confirm('Xóa nhật ký bill tháng '+thang+' trên máy này?')) return; BL={}; logSave(thang); renderList(thang); }
 function toast(msg){ var t=document.getElementById('toast'); t.textContent=msg; t.style.display='block'; clearTimeout(t._tm); t._tm=setTimeout(function(){ t.style.display='none'; }, 4000); }
 
+// Cảnh báo: 1 mã phòng có >1 khách điền cột B (có thể gõ nhầm số vào cột B của khách phụ)
+function renderDupWarn(){
+  var el=document.getElementById('dupwarn'); if(!el) return;
+  if(!DUPREP||!DUPREP.length){ el.innerHTML=''; return; }
+  var rows=DUPREP.map(function(d){
+    return '<div style="margin-top:4px"><b>'+esc(d.phong)+'</b>: '+esc((d.ten||[]).join(' · '))+'</div>';
+  }).join('');
+  el.innerHTML='<div style="background:rgba(192,57,43,.12);border:1px solid var(--red);color:var(--red);'
+    +'border-radius:10px;padding:10px 12px;margin-top:10px;font-size:.84rem;font-weight:700">'
+    +'⚠️ Có '+DUPREP.length+' căn bị TRÙNG khách chính (nhiều người cùng điền số phòng ở cột B). '
+    +'Mỗi căn chỉ nên có 1 khách đại diện — kiểm tra lại, có thể gõ nhầm số vào cột B của khách phụ:'
+    +rows+'</div>';
+}
+// Mỗi căn chỉ gửi 1 bill/tháng: nếu đã gửi, hỏi xác nhận trước khi gửi lại
+function guardSend(e, thang, room){
+  if(isSent(thang, room)){
+    if(!confirm('⚠️ Căn '+room+' đã gửi bill tháng '+thang+' rồi.\nMỗi căn chỉ nên gửi 1 bill. Vẫn gửi lại?')){
+      if(e){ e.preventDefault(); e.stopPropagation(); }
+      return false;
+    }
+  }
+  return true;
+}
 function renderList(thang){
   var list=document.getElementById('list'); list.innerHTML='';
   var items=Object.keys(BL).map(function(R){ return BL[R]; }).sort(function(a,b){ return (b.t||0)-(a.t||0); });
@@ -391,13 +416,13 @@ function logCard(e, thang){
     +nameLine;
   box.appendChild(info);
   var act=document.createElement('div'); act.className='act'; box.appendChild(act);
-  function mk(){ markSent(thang, room); setTimeout(function(){ renderList(thang); if(reportOpen) renderReport(); },250); }
+  function mk(e){ if(!guardSend(e, thang, room)) return false; markSent(thang, room); setTimeout(function(){ renderList(thang); if(reportOpen) renderReport(); },250); return true; }
   if(vacant){ return box; }                                            // phòng trống: chỉ cảnh báo, không nút gửi
   if(c && c.sdt && c.kenh){
     var msg=buildMsg(c, thang, link);
     if(c.kenh==='wa'){ var a=document.createElement('a'); a.className='wa'; a.href='https://wa.me/'+waNum(c.sdt)+'?text='+encodeURIComponent(msg); a.target='_blank'; a.rel='noopener'; a.textContent='WhatsApp'; a.onclick=mk; act.appendChild(a); }
-    else if(c.kenh==='zalo'){ var a2=document.createElement('a'); a2.className='za'; a2.href='https://zalo.me/'+zaloNum(c.sdt); a2.target='_blank'; a2.rel='noopener'; a2.textContent='Zalo'; a2.onclick=function(){ cpy(msg); toast('✅ Đã copy nội dung — mở Zalo rồi bấm giữ ô chat → Dán để gửi'); mk(); }; act.appendChild(a2); }
-    else if(c.kenh==='wechat'){ var b=document.createElement('button'); b.className='wc'; b.textContent='WeChat'; b.onclick=function(){ cpy(msg); mk(); }; act.appendChild(b); }
+    else if(c.kenh==='zalo'){ var a2=document.createElement('a'); a2.className='za'; a2.href='https://zalo.me/'+zaloNum(c.sdt); a2.target='_blank'; a2.rel='noopener'; a2.textContent='Zalo'; a2.onclick=function(e){ if(!mk(e)) return false; cpy(msg); toast('✅ Đã copy nội dung — mở Zalo rồi bấm giữ ô chat → Dán để gửi'); }; act.appendChild(a2); }
+    else if(c.kenh==='wechat'){ var b=document.createElement('button'); b.className='wc'; b.textContent='WeChat'; b.onclick=function(e){ if(!mk(e)) return; cpy(msg); }; act.appendChild(b); }
   } else if(c && !c.sdt){ var w1=document.createElement('span'); w1.className='warn'; w1.textContent='⚠️ Chưa có SĐT'; act.appendChild(w1); }
   else if(c && !c.kenh){ var w2=document.createElement('span'); w2.className='warn'; w2.textContent='⚠️ Chưa chọn kênh'; act.appendChild(w2); }
   // Nút: khi đang vàng → xác nhận đúng để bỏ vàng; khi đang bình thường → đánh dấu sai
@@ -425,13 +450,13 @@ function renderCard(box){
   if(vacant){ act.innerHTML='<span class="warn" style="color:var(--red)">Phòng đang trống — không nên gửi bill</span>'; return; }
   if(!c){ act.innerHTML='<span class="warn">'+(box._room?('⚠️ Đọc được "'+esc(box._room)+'" nhưng không khớp khách'):'⚠️ Không đọc được mã phòng')+'</span>'; return; }
   if(!c.sdt){ act.innerHTML='<span class="warn">⚠️ Chưa có SĐT</span>'; return; }
-  function mk(){ markSent(thang, c.phong); setTimeout(function(){ renderCard(box); }, 300); }
+  function mk(e){ if(!guardSend(e, thang, c.phong)) return false; markSent(thang, c.phong); setTimeout(function(){ renderCard(box); }, 300); return true; }
   // Nút gửi: mở thẳng chat đúng khách (kèm link xem bill)
   if(c.kenh){
     var msg=buildMsg(c, thang, link);
     if(c.kenh==='wa'){ var a=document.createElement('a'); a.className='wa'; a.href='https://wa.me/'+waNum(c.sdt)+'?text='+encodeURIComponent(msg); a.target='_blank'; a.rel='noopener'; a.textContent='WhatsApp'; a.onclick=mk; act.appendChild(a); }
-    else if(c.kenh==='zalo'){ var a2=document.createElement('a'); a2.className='za'; a2.href='https://zalo.me/'+zaloNum(c.sdt); a2.target='_blank'; a2.rel='noopener'; a2.textContent='Zalo'; a2.onclick=function(){ cpy(msg); toast('✅ Đã copy nội dung — mở Zalo rồi bấm giữ ô chat → Dán để gửi'); mk(); }; act.appendChild(a2); }
-    else if(c.kenh==='wechat'){ var b=document.createElement('button'); b.className='wc'; b.textContent='WeChat'; b.onclick=function(){ cpy(msg); mk(); }; act.appendChild(b); }
+    else if(c.kenh==='zalo'){ var a2=document.createElement('a'); a2.className='za'; a2.href='https://zalo.me/'+zaloNum(c.sdt); a2.target='_blank'; a2.rel='noopener'; a2.textContent='Zalo'; a2.onclick=function(e){ if(!mk(e)) return false; cpy(msg); toast('✅ Đã copy nội dung — mở Zalo rồi bấm giữ ô chat → Dán để gửi'); }; act.appendChild(a2); }
+    else if(c.kenh==='wechat'){ var b=document.createElement('button'); b.className='wc'; b.textContent='WeChat'; b.onclick=function(e){ if(!mk(e)) return; cpy(msg); }; act.appendChild(b); }
   } else {
     var wn=document.createElement('span'); wn.className='warn'; wn.textContent='⚠️ Chưa chọn kênh'; act.appendChild(wn);
   }
