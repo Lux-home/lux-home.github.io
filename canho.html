@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Khóa / Mở căn hộ</title>
+<meta name="theme-color" content="#0e7ba8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LUXHOME">
+<style>
+  :root{ --bg:#eef3f4; --card:#fff; --fg:#13242a; --muted:#5f727a; --line:#e2eaec; --cyan:#0e7ba8; --cyan2:#28c3dd;
+    --ok:#15803d; --okbg:#e7f6ec; --lock:#b91c1c; --lockbg:#fdeaea; --gold:#b7791f; }
+  @media (prefers-color-scheme:dark){:root{ --bg:#0c1518; --card:#13222a; --fg:#e8f1f3; --muted:#90a4ac; --line:#20333c; --okbg:#133222; --lockbg:#2a1414; }}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",system-ui,sans-serif;line-height:1.4}
+  .top{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 16px}
+  .top a.back{display:inline-block;background:rgba(255,255,255,.22);color:#fff;text-decoration:none;font-weight:800;font-size:1.05rem;padding:9px 16px;border-radius:999px;margin-bottom:10px}
+  .brand{font-size:1.4rem;font-weight:800;letter-spacing:1px;color:#ffd977}
+  .brand small{display:block;font-size:.72rem;font-weight:600;letter-spacing:2px;color:#eafbff;margin-top:2px}
+  .wrap{max-width:720px;margin:0 auto;padding:14px 12px 48px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  input,select{padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--fg)}
+  #q{flex:1 1 160px;min-width:140px}
+  select{flex:1 1 120px}
+  .sum{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;font-size:.82rem}
+  .sum span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 11px;font-weight:700}
+  .sum .av{color:var(--ok)} .sum .lk{color:var(--lock)}
+  .row{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:11px 12px;margin-bottom:9px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .info{flex:1 1 150px;min-width:140px}
+  .ma{font-weight:800;font-size:1.02rem}
+  .sub{color:var(--muted);font-size:.82rem;margin-top:1px}
+  .badge{display:inline-block;font-size:.74rem;font-weight:800;padding:3px 9px;border-radius:999px;margin-top:4px}
+  .b-ok{background:var(--okbg);color:var(--ok)} .b-lock{background:var(--lockbg);color:var(--lock)}
+  .b-other{background:rgba(135,149,160,.18);color:var(--muted)}
+  .acts{display:flex;gap:7px;flex:0 0 auto}
+  .btn{border:0;border-radius:10px;padding:10px 12px;font-weight:800;font-size:.86rem;cursor:pointer;color:#fff;white-space:nowrap}
+  .btn.open{background:var(--ok)} .btn.lock{background:var(--lock)}
+  .btn:disabled{opacity:.4;cursor:default}
+  .muted{color:var(--muted)}
+  .hint{color:var(--muted);font-size:.82rem;margin:2px 0 12px}
+  .toast{position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#13242a;color:#fff;padding:11px 16px;border-radius:12px;font-weight:700;font-size:.9rem;box-shadow:0 8px 28px rgba(0,0,0,.3);opacity:0;transition:opacity .2s;z-index:60;max-width:92%}
+  .toast.show{opacity:1}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="index.html">← Trang chính</a>
+  <div class="brand">LUXHOME<small>KHÓA / MỞ CĂN HỘ</small></div>
+</div>
+<div class="wrap">
+  <p class="hint">Kết nối trực tiếp bảng Danh mục căn hộ. <b style="color:var(--ok)">Mở</b> khi khách OUT (căn trống, hiện trong catalog) · <b style="color:var(--lock)">Khóa</b> khi khách IN (đang ở, ẩn khỏi catalog).</p>
+  <div class="bar">
+    <input id="q" placeholder="🔎 Tìm mã căn hộ / tòa…">
+    <select id="fToa"><option value="">Mọi tòa</option></select>
+    <select id="fTt">
+      <option value="">Mọi tình trạng</option>
+      <option value="open">Đang có sẵn</option>
+      <option value="lock">Đang Khóa</option>
+      <option value="other">Khác (mẫu/dự kiến)</option>
+    </select>
+  </div>
+  <div class="sum" id="sum"></div>
+  <div id="list"><p class="muted">Đang tải danh mục…</p></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
+const SHEET_ID="1CqPzUBDTMwa8XY7ACdJywwbxMIgcuE9mTV7V7zdsXZ0";
+const SHEET_NAME="DANH MỤC CĂN HỘ";
+const PW="20252026";           // quyền quản lý (vào thẳng từ app)
+const LOCK="Đang Khóa", OPEN="Đang có sẵn";
+let DATA=[];
+
+function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function enc(s){return encodeURIComponent(s);}
+function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d');}
+function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600);}
+
+// JSONP qua fetch
+function callExec(url, ok, fail){
+  fetch(url).then(r=>r.text()).then(t=>{var i=t.indexOf('('),j=t.lastIndexOf(')');try{ok(JSON.parse(t.slice(i+1,j)));}catch(e){fail&&fail();}}).catch(()=>fail&&fail());
+}
+
+// Đọc CSV công khai (gviz)
+function sheetUrl(){return "https://docs.google.com/spreadsheets/d/"+SHEET_ID+"/gviz/tq?tqx=out:csv&sheet="+enc(SHEET_NAME)+"&t="+Date.now();}
+function parseCSV(text){
+  var rows=[],row=[],cur='',q=false;
+  for(var i=0;i<text.length;i++){var c=text[i];
+    if(q){ if(c=='"'){ if(text[i+1]=='"'){cur+='"';i++;} else q=false; } else cur+=c; }
+    else { if(c=='"')q=true; else if(c==',' ){row.push(cur);cur='';} else if(c=='\n'){row.push(cur);rows.push(row);row=[];cur='';} else if(c=='\r'){} else cur+=c; }
+  }
+  if(cur!==''||row.length){row.push(cur);rows.push(row);}
+  return rows;
+}
+function statusKind(t){var n=norm(t);
+  if(n.indexOf('khoa')>=0||n.indexOf('lock')>=0)return'lock';
+  if(n.indexOf('co san')>=0||n.indexOf('cosan')>=0||n.indexOf('trong')>=0||n.indexOf('available')>=0)return'open';
+  return'other';}
+
+function load(){
+  callExec; // noop
+  fetch(sheetUrl()).then(r=>r.text()).then(csv=>{
+    var rows=parseCSV(csv);
+    // tìm dòng tiêu đề
+    var hr=-1,cToa=-1,cSo=-1,cMa=-1,cTt=-1,cNgay=-1;
+    for(var i=0;i<rows.length;i++){
+      var r=rows[i].map(x=>String(x||'').trim().toUpperCase());
+      var a=r.indexOf('MÃ TÒA'),b=r.indexOf('MÃ CĂN HỘ'),c=r.indexOf('TÌNH TRẠNG');
+      if(b>-1&&c>-1){ hr=i;cMa=b;cTt=c;cToa=a; cSo=r.indexOf('SỐ CĂN HỘ'); cNgay=r.indexOf('NGÀY DỰ KIẾN CÓ'); break; }
+    }
+    if(hr<0){ document.getElementById('list').innerHTML='<p class="muted">Không đọc được bảng.</p>'; return; }
+    DATA=[];
+    for(var r=hr+1;r<rows.length;r++){
+      var row=rows[r]; var ma=String(row[cMa]||'').trim(); if(!ma) continue;
+      DATA.push({ toa:String((cToa>-1?row[cToa]:'')||'').trim(), so:String((cSo>-1?row[cSo]:'')||'').trim(),
+        ma:ma, tt:String(row[cTt]||'').trim(), ngay:String((cNgay>-1?row[cNgay]:'')||'').trim() });
+    }
+    // dropdown tòa
+    var toas=[...new Set(DATA.map(a=>a.toa).filter(Boolean))].sort();
+    var sel=document.getElementById('fToa'); toas.forEach(t=>{var o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);});
+    render();
+  }).catch(()=>{ document.getElementById('list').innerHTML='<p class="muted">Lỗi kết nối bảng danh mục.</p>'; });
+}
+
+function render(){
+  var q=norm(document.getElementById('q').value), ft=document.getElementById('fToa').value, fs=document.getElementById('fTt').value;
+  var nOpen=DATA.filter(a=>statusKind(a.tt)==='open').length, nLock=DATA.filter(a=>statusKind(a.tt)==='lock').length, nOther=DATA.length-nOpen-nLock;
+  document.getElementById('sum').innerHTML='<span>Tổng: '+DATA.length+'</span><span class="av">Có sẵn: '+nOpen+'</span><span class="lk">Khóa: '+nLock+'</span><span>Khác: '+nOther+'</span>';
+  var list=DATA.filter(a=>{
+    if(ft&&a.toa!==ft)return false;
+    if(fs&&statusKind(a.tt)!==fs)return false;
+    if(q){ var hay=norm(a.ma+' '+a.toa+' '+a.so); if(hay.indexOf(q)<0)return false; }
+    return true;
+  });
+  var el=document.getElementById('list');
+  if(!list.length){ el.innerHTML='<p class="muted">Không có căn hộ phù hợp.</p>'; return; }
+  if(list.length>300) list=list.slice(0,300);
+  el.innerHTML=list.map(function(a){
+    var k=statusKind(a.tt);
+    var badge = k==='open'?'<span class="badge b-ok">● Đang có sẵn</span>' : k==='lock'?'<span class="badge b-lock">● Đang Khóa</span>' : '<span class="badge b-other">'+esc(a.tt||'—')+'</span>';
+    return '<div class="row" data-ma="'+esc(a.ma)+'">'
+      +'<div class="info"><div class="ma">'+esc(a.ma)+'</div><div class="sub">Tòa '+esc(a.toa||'?')+(a.so?' · căn '+esc(a.so):'')+'</div>'+badge+'</div>'
+      +'<div class="acts">'
+      +'<button class="btn open" '+(k==='open'?'disabled':'')+' onclick="act(this,\''+esc(a.ma)+'\',\'open\')">🔓 Mở</button>'
+      +'<button class="btn lock" '+(k==='lock'?'disabled':'')+' onclick="act(this,\''+esc(a.ma)+'\',\'lock\')">🔒 Khóa</button>'
+      +'</div></div>';
+  }).join('');
+}
+
+function act(btn, ma, which){
+  var status = which==='open'?OPEN:LOCK;
+  var rowEl=btn.closest('.row'); var bs=rowEl.querySelectorAll('.btn');
+  bs.forEach(b=>b.disabled=true); var old=btn.textContent; btn.textContent='…';
+  callExec(EXEC+'?catset=1&pw='+enc(PW)+'&ma='+enc(ma)+'&status='+enc(status)+'&callback=cb&t='+Date.now(),
+    function(d){
+      if(d&&d.ok){
+        var item=DATA.find(x=>x.ma===ma); if(item) item.tt=status;
+        toast('✓ '+ma+' → '+(which==='open'?'Đang có sẵn':'Đang Khóa'));
+        render();
+      } else {
+        btn.textContent=old; bs.forEach(b=>b.disabled=false);
+        toast(d&&d.err==='notfound'?('Không thấy mã '+ma+' trong bảng'):'Lỗi, thử lại');
+      }
+    },
+    function(){ btn.textContent=old; bs.forEach(b=>b.disabled=false); toast('Không kết nối được'); });
+}
+
+document.getElementById('q').addEventListener('input', render);
+document.getElementById('fToa').addEventListener('change', render);
+document.getElementById('fTt').addEventListener('change', render);
+load();
+
+if("serviceWorker" in navigator){
+  var _had=!!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register("sw.js").then(function(r){try{r.update();}catch(e){}}).catch(function(){});
+  navigator.serviceWorker.addEventListener("controllerchange",function(){ if(!_had||window.__swR)return; window.__swR=1; location.reload(); });
+}
+</script>
+</body>
+</html>
