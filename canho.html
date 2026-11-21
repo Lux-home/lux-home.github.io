@@ -58,7 +58,7 @@
       <option value="">Mọi tình trạng</option>
       <option value="open">Đang có sẵn</option>
       <option value="lock">Đang Khóa</option>
-      <option value="other">Khác (mẫu/dự kiến)</option>
+      <option value="other">Dự kiến có</option>
     </select>
   </div>
   <div class="sum" id="sum"></div>
@@ -135,8 +135,10 @@ function buildFromRows(rows){
   DATA=[];
   for(var r=hr+1;r<rows.length;r++){
     var row=rows[r]; var ma=String(row[cMa]||'').trim(); if(!ma) continue;
+    var tt=String(row[cTt]||'').trim();
+    if(norm(tt).indexOf('mau')>-1) continue;   // bỏ CĂN HỘ MẪU (A01, A02…) khỏi công cụ Khóa/Mở
     DATA.push({ toa:String((cToa>-1?row[cToa]:'')||'').trim(), so:String((cSo>-1?row[cSo]:'')||'').trim(),
-      ma:ma, tt:String(row[cTt]||'').trim(), ngay:String((cNgay>-1?row[cNgay]:'')||'').trim() });
+      ma:ma, tt:tt, ngay:String((cNgay>-1?row[cNgay]:'')||'').trim() });
   }
   applyOverlay();   // đè thay đổi vừa làm (phòng khi máy chủ lỗi phải dùng gviz trễ)
   var sel=document.getElementById('fToa'); sel.length=1;   // giữ "Mọi tòa", tránh nhân đôi option
