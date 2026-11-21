@@ -178,9 +178,9 @@ function act(btn, ma, which){
   bs.forEach(b=>b.disabled=true); var old=btn.textContent; btn.textContent='…';
   callExec(EXEC+'?catset=1&pw='+enc(PW)+'&ma='+enc(ma)+'&status='+enc(status)+'&callback=cb&t='+Date.now(),
     function(d){
-      if(d&&d.ok){
+      if(d&&d.ok&&d.status===status){   // chỉ coi là thành công khi máy chủ xác nhận đã ghi đúng
         var item=DATA.find(x=>x.ma===ma); if(item) item.tt=status;
-        ovPut(ma,status);   // nhớ để lần mở lại không bị cache gviz làm sai
+        ovPut(ma,status);   // nhớ để lần mở lại hiện đúng ngay
         toast('✓ '+ma+' → '+(which==='open'?'Đang có sẵn':'Đang Khóa'));
         render();
       } else {
