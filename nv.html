@@ -99,6 +99,7 @@ function checkMe(){
     if(d&&d.ok){ renderHome(d); }
     else if(d&&d.locked){ document.getElementById('b_title').textContent='Tài khoản đã bị khoá'; document.getElementById('b_msg').textContent='Quản lý đã tạm khoá quyền truy cập.'; document.querySelector('#blocked .ic').textContent='🔒'; var _b=document.getElementById('b_btn'); _b.style.display=''; _b.textContent='Đăng nhập lại'; _b.onclick=function(){ setTok(''); show('login'); }; setTok(''); show('blocked'); }
     else if(d&&d.pending){ showPending(d); }
+    else if(d&&d.needdev){ setTok(''); show('login'); var lm=document.getElementById('l_msg'); if(lm){ lm.className='msg'; lm.textContent='Máy này cần đăng nhập lại để đăng ký đúng tên bạn.'; } }
     else { setTok(''); show('login'); }
   }).catch(function(){ show('login'); });
 }
