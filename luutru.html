@@ -82,16 +82,16 @@
   </header>
   <div class="wrap">
     <div class="bar">
-      <button class="btn" onclick="taiLai()">↻ Làm mới</button>
-      <div class="setwrap" style="position:relative;flex:0 0 auto">
-        <button class="btn" style="background:#5d6b66" onclick="toggleCaiDat(event)">⚙️ Cài đặt ▾</button>
+      <button class="btn" style="flex:1 1 0;min-width:110px" onclick="taiLai()">↻ Làm mới</button>
+      <div class="setwrap" style="position:relative;flex:1 1 0;min-width:110px">
+        <button class="btn" style="width:100%;background:#5d6b66" onclick="toggleCaiDat(event)">⚙️ Cài đặt ▾</button>
         <div id="caidatMenu" style="display:none;position:absolute;top:calc(100% + 6px);right:0;z-index:40;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px rgba(0,0,0,.2);padding:6px;min-width:200px">
           <button class="btn" id="btnTpl" style="width:100%;text-align:left;background:#8a6d1f;margin:0 0 6px" onclick="caiDatChon(moTpl)">✏️ Tin mẫu</button>
           <button class="btn" style="width:100%;text-align:left;background:#5d6b66;margin:0 0 6px" onclick="caiDatChon(moEmail)">📧 Email cảnh báo</button>
           <button class="btn" style="width:100%;text-align:left;background:#0f766e;margin:0" onclick="caiDatChon(moNhatKy)">📋 Nhật ký nhắc</button>
         </div>
       </div>
-      <button class="btn" style="flex:0 0 auto;background:#7c3aed" onclick="moNhatKyAnh()">📷 Nhật ký ảnh</button>
+      <button class="btn" style="flex:1 1 0;min-width:110px;background:#b7791f" onclick="moNhatKyAnh()">📷 Nhật ký ảnh</button>
     </div>
     <div class="cards" id="cards"></div>
     <div id="secs"></div>
