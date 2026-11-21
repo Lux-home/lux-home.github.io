@@ -41,8 +41,9 @@
   <div class="b">LUXHOME</div><div class="s">QUẢN LÝ NHÂN VIÊN</div>
 </div>
 <div class="wrap">
-  <div id="gate" class="card">
-    <div class="lb">Mật khẩu quản lý</div>
+  <div id="gate" class="card" style="display:none">
+    <div class="lb" id="glb">Mật khẩu quản lý</div>
+    <p class="hint" id="ghint" style="margin:2px 0 8px"></p>
     <input type="password" id="apw" placeholder="Nhập mật khẩu quản lý" autocomplete="off">
     <p class="msg" id="gmsg"></p>
     <button class="btn" id="gbtn" style="margin-top:8px">Mở</button>
@@ -81,13 +82,34 @@ function api(qs){ return fetch(EXEC+'?'+qs+'&callback=cb&t='+Date.now(),{cache:'
 // Lấy từ nguồn chung modules.js — tự đồng bộ với màn hình chính (trừ mục quản trị staff:false)
 var MODS=(window.LUX_MODULES||[]).filter(function(m){return m.staff!==false;}).map(function(m){return {k:m.k, n:m.ic+' '+m.nm};});
 
+var GMODE='login';
+function saveMg(p){ try{ localStorage.setItem('mg_pin', p); }catch(e){} }
+function openMain(list){ document.getElementById('gate').style.display='none'; document.getElementById('main').style.display='block'; render(list); }
+function showGate(mode){
+  GMODE=mode;
+  var glb=document.getElementById('glb'), gh=document.getElementById('ghint'), gb=document.getElementById('gbtn'), ap=document.getElementById('apw');
+  if(mode==='setup'){ glb.textContent='Tạo mật khẩu quản lý'; gh.textContent='Lần đầu: đặt mật khẩu/PIN riêng (ít nhất 4 ký tự) — chỉ bạn biết, máy này sẽ nhớ. Máy khác muốn vào phải nhập đúng.'; ap.placeholder='Mật khẩu/PIN mới'; gb.textContent='Tạo & vào'; }
+  else { glb.textContent='Mật khẩu quản lý'; gh.textContent='Nhập mật khẩu quản lý để duyệt/thu hồi/đổi quyền.'; ap.placeholder='Nhập mật khẩu quản lý'; gb.textContent='Mở'; }
+  document.getElementById('gmsg').textContent=''; document.getElementById('apw').value='';
+  document.getElementById('gate').style.display='block';
+  document.getElementById('main').style.display='none';
+}
 function gate(){
   var pw=document.getElementById('apw').value.trim();
-  document.getElementById('gmsg').textContent='Đang kiểm tra…';
-  api('nvadmin=list&pw='+enc(pw)).then(function(d){
-    if(d&&d.ok){ PW=pw; document.getElementById('gate').style.display='none'; document.getElementById('main').style.display='block'; render(d.list); }
-    else { document.getElementById('gmsg').textContent='Sai mật khẩu quản lý.'; }
-  }).catch(function(){ document.getElementById('gmsg').textContent='Không kết nối được.'; });
+  if(!pw){ document.getElementById('gmsg').textContent='Nhập mật khẩu.'; return; }
+  document.getElementById('gmsg').textContent='Đang xử lý…';
+  if(GMODE==='setup'){
+    if(pw.length<4){ document.getElementById('gmsg').textContent='Mật khẩu tối thiểu 4 ký tự.'; return; }
+    api('nvadmin=setpin&newpin='+enc(pw)).then(function(d){
+      if(d&&d.ok){ PW=pw; saveMg(pw); api('nvadmin=list&pw='+enc(PW)).then(function(r){ if(r&&r.ok) openMain(r.list); }); }
+      else { document.getElementById('gmsg').textContent='Không đặt được mật khẩu.'; }
+    }).catch(function(){ document.getElementById('gmsg').textContent='Không kết nối được.'; });
+  } else {
+    api('nvadmin=list&pw='+enc(pw)).then(function(d){
+      if(d&&d.ok){ PW=pw; saveMg(pw); openMain(d.list); }
+      else { document.getElementById('gmsg').textContent='Sai mật khẩu quản lý.'; }
+    }).catch(function(){ document.getElementById('gmsg').textContent='Không kết nối được.'; });
+  }
 }
 function reload(){ api('nvadmin=list&pw='+enc(PW)).then(function(d){ if(d&&d.ok) render(d.list); }); }
 
@@ -159,13 +181,20 @@ document.getElementById('addbtn').onclick=function(){
 document.getElementById('gbtn').onclick=gate;
 document.getElementById('apw').addEventListener('keydown',function(e){ if(e.key==='Enter') gate(); });
 
-// Mở thẳng — bỏ mật khẩu quản lý (vào từ app = tự động quyền quản lý)
+// Khởi động: khoá bằng PIN quản lý riêng. Chưa đặt PIN -> màn tạo PIN. Đã đặt -> nhớ trên máy, máy khác phải nhập.
 (function(){
   document.getElementById('n_perms').innerHTML = MODS.map(function(m){ return '<label><input type="checkbox" data-k="'+m.k+'"> '+m.n+'</label>'; }).join('');
-  PW='20252026';
-  document.getElementById('gate').style.display='none';
-  document.getElementById('main').style.display='block';
-  reload();
+  var saved=''; try{ saved=localStorage.getItem('mg_pin')||''; }catch(e){}
+  api('nvadmin=status').then(function(s){
+    if(!s||!s.ok){ showGate('login'); return; }
+    if(!s.pinset){ showGate('setup'); return; }
+    if(saved){
+      api('nvadmin=list&pw='+enc(saved)).then(function(d){
+        if(d&&d.ok){ PW=saved; openMain(d.list); }
+        else { try{ localStorage.removeItem('mg_pin'); }catch(e){} showGate('login'); }
+      }).catch(function(){ showGate('login'); });
+    } else showGate('login');
+  }).catch(function(){ showGate('login'); });
 })();
 </script>
 </body>
