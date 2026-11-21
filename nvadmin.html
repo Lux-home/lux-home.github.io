@@ -185,8 +185,7 @@ document.getElementById('apw').addEventListener('keydown',function(e){ if(e.key=
 (function(){
   document.getElementById('n_perms').innerHTML = MODS.map(function(m){ return '<label><input type="checkbox" data-k="'+m.k+'"> '+m.n+'</label>'; }).join('');
   var saved=''; try{ saved=localStorage.getItem('mg_pin')||''; }catch(e){}
-  api('nvadmin=status').then(function(s){
-    if(!s||!s.ok){ showGate('login'); return; }
+  function decide(s){
     if(!s.pinset){ showGate('setup'); return; }
     if(saved){
       api('nvadmin=list&pw='+enc(saved)).then(function(d){
@@ -194,7 +193,15 @@ document.getElementById('apw').addEventListener('keydown',function(e){ if(e.key=
         else { try{ localStorage.removeItem('mg_pin'); }catch(e){} showGate('login'); }
       }).catch(function(){ showGate('login'); });
     } else showGate('login');
-  }).catch(function(){ showGate('login'); });
+  }
+  function tryStatus(n){
+    api('nvadmin=status').then(function(s){
+      if(s&&s.ok) decide(s);
+      else if(n>0) setTimeout(function(){ tryStatus(n-1); }, 1200);
+      else showGate('login');
+    }).catch(function(){ if(n>0) setTimeout(function(){ tryStatus(n-1); }, 1200); else showGate('login'); });
+  }
+  tryStatus(3);
 })();
 </script>
 </body>
