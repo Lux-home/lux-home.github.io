@@ -66,7 +66,7 @@
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 function enc(s){return encodeURIComponent(String(s));}
 function api(qs){ return fetch(EXEC+'?'+qs+'&callback=cb&t='+Date.now(),{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){ var i=t.indexOf('('),j=t.lastIndexOf(')'); return JSON.parse(t.slice(i+1,j)); }); }
-var MODS={ bill:{ic:'🧾',tt:'Gửi hóa đơn',ds:'Gửi bill cho khách',href:'bill.html'}, luutru:{ic:'🛂',tt:'Lưu trú',ds:'Nhắc gia hạn lưu trú',href:'luutru.html'}, thongbao:{ic:'📢',tt:'Thông báo',ds:'Báo cư dân theo toà',href:'thongbao.html'} };
+var MODS={ bill:{ic:'🧾',tt:'Gửi hóa đơn',ds:'Gửi bill cho khách',href:'bill.html'}, luutru:{ic:'🛂',tt:'Lưu trú',ds:'Nhắc gia hạn lưu trú',href:'luutru.html'}, thongbao:{ic:'📢',tt:'Thông báo',ds:'Báo cư dân theo toà',href:'thongbao.html'}, catalog:{ic:'🏢',tt:'Danh mục căn hộ',ds:'Xem danh mục căn hộ',href:'catalog.html#k=LUXADMIN2026'}, noibo:{ic:'🔁',tt:'Hoạt động định kỳ',ds:'Vệ sinh, PCCC…',href:'noibo.html'}, hopdong:{ic:'📄',tt:'Hợp đồng PDF',ds:'Tạo HĐ/PLHĐ',href:'hopdong.html'}, congno:{ic:'💰',tt:'Theo dõi công nợ',ds:'Công nợ khách',href:'congno.html'} };
 
 function show(id){ ['login','home','blocked'].forEach(function(x){ document.getElementById(x).style.display = x===id?(x==='home'?'block':'block'):'none'; }); }
 function tok(){ try{ return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } }
@@ -82,7 +82,7 @@ function renderHome(me){
   var perms = me.perms||[];
   var el=document.getElementById('tiles'); el.innerHTML='';
   perms.forEach(function(k){ var m=MODS[k]; if(!m) return;
-    var a=document.createElement('a'); a.className='tile'; a.href=m.href+'?tok='+enc(tok());
+    var a=document.createElement('a'); a.className='tile'; a.href = m.href.indexOf('#')>-1 ? m.href : (m.href+'?tok='+enc(tok()));
     a.innerHTML='<div class="ic">'+m.ic+'</div><div class="tt">'+m.tt+'</div><div class="ds">'+m.ds+'</div>';
     el.appendChild(a);
   });
