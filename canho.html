@@ -115,29 +115,34 @@ function statusKind(t){var n=norm(t);
   return'other';}
 
 function load(){
-  callExec; // noop
-  fetch(sheetUrl()).then(r=>r.text()).then(csv=>{
-    var rows=parseCSV(csv);
-    // tìm dòng tiêu đề
-    var hr=-1,cToa=-1,cSo=-1,cMa=-1,cTt=-1,cNgay=-1;
-    for(var i=0;i<rows.length;i++){
-      var r=rows[i].map(x=>String(x||'').trim().toUpperCase());
-      var a=r.indexOf('MÃ TÒA'),b=r.indexOf('MÃ CĂN HỘ'),c=r.indexOf('TÌNH TRẠNG');
-      if(b>-1&&c>-1){ hr=i;cMa=b;cTt=c;cToa=a; cSo=r.indexOf('SỐ CĂN HỘ'); cNgay=r.indexOf('NGÀY DỰ KIẾN CÓ'); break; }
-    }
-    if(hr<0){ document.getElementById('list').innerHTML='<p class="muted">Không đọc được bảng.</p>'; return; }
-    DATA=[];
-    for(var r=hr+1;r<rows.length;r++){
-      var row=rows[r]; var ma=String(row[cMa]||'').trim(); if(!ma) continue;
-      DATA.push({ toa:String((cToa>-1?row[cToa]:'')||'').trim(), so:String((cSo>-1?row[cSo]:'')||'').trim(),
-        ma:ma, tt:String(row[cTt]||'').trim(), ngay:String((cNgay>-1?row[cNgay]:'')||'').trim() });
-    }
-    applyOverlay();   // đè các thay đổi vừa làm (gviz có thể trễ vài phút)
-    // dropdown tòa
-    var toas=[...new Set(DATA.map(a=>a.toa).filter(Boolean))].sort();
-    var sel=document.getElementById('fToa'); toas.forEach(t=>{var o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);});
-    render();
-  }).catch(()=>{ document.getElementById('list').innerHTML='<p class="muted">Lỗi kết nối bảng danh mục.</p>'; });
+  // Ưu tiên đọc TRỰC TIẾP qua máy chủ (không trễ cache); lỗi thì rơi về gviz
+  callExec(EXEC+'?catlist=1&callback=cb&t='+Date.now(),
+    function(d){ if(d&&d.ok&&d.rows&&d.rows.length){ buildFromRows(d.rows); } else { loadGviz(); } },
+    function(){ loadGviz(); });
+}
+function loadGviz(){
+  fetch(sheetUrl()).then(r=>r.text()).then(csv=>{ buildFromRows(parseCSV(csv)); })
+    .catch(()=>{ document.getElementById('list').innerHTML='<p class="muted">Lỗi kết nối bảng danh mục.</p>'; });
+}
+function buildFromRows(rows){
+  var hr=-1,cToa=-1,cSo=-1,cMa=-1,cTt=-1,cNgay=-1;
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i].map(x=>String(x||'').trim().toUpperCase());
+    var a=r.indexOf('MÃ TÒA'),b=r.indexOf('MÃ CĂN HỘ'),c=r.indexOf('TÌNH TRẠNG');
+    if(b>-1&&c>-1){ hr=i;cMa=b;cTt=c;cToa=a; cSo=r.indexOf('SỐ CĂN HỘ'); cNgay=r.indexOf('NGÀY DỰ KIẾN CÓ'); break; }
+  }
+  if(hr<0){ document.getElementById('list').innerHTML='<p class="muted">Không đọc được bảng.</p>'; return; }
+  DATA=[];
+  for(var r=hr+1;r<rows.length;r++){
+    var row=rows[r]; var ma=String(row[cMa]||'').trim(); if(!ma) continue;
+    DATA.push({ toa:String((cToa>-1?row[cToa]:'')||'').trim(), so:String((cSo>-1?row[cSo]:'')||'').trim(),
+      ma:ma, tt:String(row[cTt]||'').trim(), ngay:String((cNgay>-1?row[cNgay]:'')||'').trim() });
+  }
+  applyOverlay();   // đè thay đổi vừa làm (phòng khi máy chủ lỗi phải dùng gviz trễ)
+  var sel=document.getElementById('fToa'); sel.length=1;   // giữ "Mọi tòa", tránh nhân đôi option
+  var toas=[...new Set(DATA.map(a=>a.toa).filter(Boolean))].sort();
+  toas.forEach(t=>{var o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);});
+  render();
 }
 
 function render(){
