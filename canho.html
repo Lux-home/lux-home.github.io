@@ -78,6 +78,20 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','
 function enc(s){return encodeURIComponent(s);}
 function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d');}
 function toast(m){var t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(()=>t.classList.remove('show'),2600);}
+// Nhớ các thay đổi vừa làm trên máy này, đè lên dữ liệu gviz (bị trễ cache) cho tới khi gviz bắt kịp
+function ovGet(){ try{ return JSON.parse(localStorage.getItem('cat_overlay')||'{}'); }catch(e){ return {}; } }
+function ovSet(o){ try{ localStorage.setItem('cat_overlay', JSON.stringify(o)); }catch(e){} }
+function ovPut(ma,status){ var o=ovGet(); o[ma]={s:status,t:Date.now()}; ovSet(o); }
+function applyOverlay(){
+  var o=ovGet(), changed=false, TTL=30*60*1000, now=Date.now();
+  DATA.forEach(function(a){
+    var e=o[a.ma]; if(!e) return;
+    if(now-e.t>TTL){ delete o[a.ma]; changed=true; return; }                 // quá cũ → tin dữ liệu bảng
+    if(statusKind(a.tt)===statusKind(e.s)){ delete o[a.ma]; changed=true; return; } // bảng đã bắt kịp
+    a.tt=e.s;                                                                // bảng chưa kịp → dùng bản vừa đổi
+  });
+  if(changed) ovSet(o);
+}
 
 // JSONP qua fetch
 function callExec(url, ok, fail){
@@ -118,6 +132,7 @@ function load(){
       DATA.push({ toa:String((cToa>-1?row[cToa]:'')||'').trim(), so:String((cSo>-1?row[cSo]:'')||'').trim(),
         ma:ma, tt:String(row[cTt]||'').trim(), ngay:String((cNgay>-1?row[cNgay]:'')||'').trim() });
     }
+    applyOverlay();   // đè các thay đổi vừa làm (gviz có thể trễ vài phút)
     // dropdown tòa
     var toas=[...new Set(DATA.map(a=>a.toa).filter(Boolean))].sort();
     var sel=document.getElementById('fToa'); toas.forEach(t=>{var o=document.createElement('option');o.value=t;o.textContent=t;sel.appendChild(o);});
@@ -158,6 +173,7 @@ function act(btn, ma, which){
     function(d){
       if(d&&d.ok){
         var item=DATA.find(x=>x.ma===ma); if(item) item.tt=status;
+        ovPut(ma,status);   // nhớ để lần mở lại không bị cache gviz làm sai
         toast('✓ '+ma+' → '+(which==='open'?'Đang có sẵn':'Đang Khóa'));
         render();
       } else {
