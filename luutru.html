@@ -91,7 +91,6 @@
           <button class="btn" style="width:100%;text-align:left;background:#0f766e;margin:0" onclick="caiDatChon(moNhatKy)">📋 Nhật ký nhắc</button>
         </div>
       </div>
-      <button class="btn" style="flex:1 1 0;min-width:110px;background:#b7791f" onclick="moNhatKyAnh()">📷 Nhật ký ảnh</button>
     </div>
     <div class="cards" id="cards"></div>
     <div id="secs"></div>
@@ -140,17 +139,6 @@
   </div>
 </div>
 
-<!-- Nhật ký ảnh giấy tờ khách gửi (thống kê theo ngày) -->
-<div id="anhWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:55;padding:16px;overflow:auto">
-  <div style="max-width:560px;margin:5vh auto;background:var(--card);border-radius:16px;padding:18px">
-    <div style="display:flex;justify-content:space-between;align-items:center">
-      <b style="font-size:1.05rem;color:#7c3aed">📷 Nhật ký ảnh giấy tờ khách gửi</b>
-      <button onclick="document.getElementById('anhWrap').style.display='none'" style="background:none;border:0;font-size:1.3rem;color:var(--muted);cursor:pointer">✕</button>
-    </div>
-    <p class="muted" style="margin:6px 0 10px">Thống kê theo ngày — ai đã gửi ảnh, bấm 📎 để mở thư mục ảnh của khách đó.</p>
-    <div id="anhList"><p class="muted">Đang tải…</p></div>
-  </div>
-</div>
 
 <!-- Nhật ký đã nhắc hết hạn -->
 <div id="nhatkyWrap" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:50;padding:16px;overflow:auto">
@@ -576,38 +564,6 @@ window.addEventListener('DOMContentLoaded', function(){
   }
 });
 // Service worker: tự tải lại khi có bản mới (tránh kẹt bản cũ trong bộ nhớ đệm)
-// ===== Nhật ký ảnh giấy tờ khách gửi (thống kê theo ngày) =====
-function _dmyA(iso){ var p=(iso||'').split('-'); return p.length>=3?(p[2]+'/'+p[1]+'/'+p[0]):iso; }
-function moNhatKyAnh(){
-  document.getElementById('anhWrap').style.display='block';
-  var el=document.getElementById('anhList'); el.innerHTML='<p class="muted">Đang tải…</p>';
-  var q = NVTOK ? ('tok='+encodeURIComponent(NVTOK)+devQS()) : ('pw='+encodeURIComponent(PW));
-  callExec(EXEC+'?nhatkyanh=1&'+q+'&callback=cb&t='+Date.now(), function(d){
-    if(!d||!d.ok){ el.innerHTML='<p class="muted">Không tải được nhật ký (hoặc chưa có quyền).</p>'; return; }
-    var list=d.list||[];
-    if(!list.length){ el.innerHTML='<p class="muted">Chưa có khách nào gửi ảnh.</p>'; return; }
-    var groups={}, order=[];
-    list.forEach(function(x){ var day=(x.t||'').slice(0,10); if(!groups[day]){groups[day]=[];order.push(day);} groups[day].push(x); });
-    var t=new Date(); var y=t.getFullYear()+'-'+('0'+(t.getMonth()+1)).slice(-2)+'-'+('0'+t.getDate()).slice(-2);
-    var ye=new Date(t.getTime()-86400000); var yStr=ye.getFullYear()+'-'+('0'+(ye.getMonth()+1)).slice(-2)+'-'+('0'+ye.getDate()).slice(-2);
-    var html='';
-    order.forEach(function(day){
-      var items=groups[day];
-      var label = day===y?('Hôm nay · '+_dmyA(day)) : day===yStr?('Hôm qua · '+_dmyA(day)) : _dmyA(day);
-      html+='<div style="margin-top:14px"><div style="font-weight:800;color:#7c3aed;border-bottom:1px solid var(--line);padding-bottom:4px">📅 '+label+' <span style="color:var(--muted);font-weight:500">('+items.length+' lượt)</span></div>';
-      items.forEach(function(x){
-        var time=(x.t||'').slice(11);
-        html+='<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 2px;border-bottom:1px solid var(--line)">'
-          +'<div style="min-width:0"><b>'+esc(x.ma)+'</b> · '+esc(x.ten)+'<div style="font-size:.78rem;color:var(--muted)">'+esc(time)+(x.so?(' · '+esc(String(x.so))+' ảnh'):'')+(x.loai?(' · '+esc(x.loai)):'')+'</div></div>'
-          +(x.link?('<a href="'+esc(x.link)+'" target="_blank" rel="noopener" style="flex:0 0 auto;background:#7c3aed;color:#fff;padding:7px 11px;border-radius:9px;text-decoration:none;font-weight:700;font-size:.85rem">📎 Mở</a>'):'')
-          +'</div>';
-      });
-      html+='</div>';
-    });
-    el.innerHTML=html;
-  }, function(){ el.innerHTML='<p class="muted">Không kết nối được.</p>'; });
-}
-
 if("serviceWorker" in navigator){
   var _had=!!navigator.serviceWorker.controller;
   navigator.serviceWorker.register("sw.js").then(function(r){ try{r.update();}catch(e){} }).catch(function(){});
