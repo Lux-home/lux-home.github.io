@@ -62,11 +62,13 @@
 
 </div>
 
+<script src="modules.js"></script>
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 function enc(s){return encodeURIComponent(String(s));}
 function api(qs){ return fetch(EXEC+'?'+qs+'&callback=cb&t='+Date.now(),{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){ var i=t.indexOf('('),j=t.lastIndexOf(')'); return JSON.parse(t.slice(i+1,j)); }); }
-var MODS={ bill:{ic:'🧾',tt:'Gửi hóa đơn',ds:'Gửi bill cho khách',href:'bill.html'}, luutru:{ic:'🛂',tt:'Lưu trú',ds:'Nhắc gia hạn lưu trú',href:'luutru.html'}, thongbao:{ic:'📢',tt:'Thông báo',ds:'Báo cư dân theo toà',href:'thongbao.html'}, catalog:{ic:'🏢',tt:'Danh mục căn hộ',ds:'Xem danh mục căn hộ',href:'catalog.html#k=LUXADMIN2026'}, noibo:{ic:'🔁',tt:'Hoạt động định kỳ',ds:'Vệ sinh, PCCC…',href:'noibo.html'}, hopdong:{ic:'📄',tt:'Hợp đồng PDF',ds:'Tạo HĐ/PLHĐ',href:'hopdong.html'}, congno:{ic:'💰',tt:'Theo dõi công nợ',ds:'Công nợ khách',href:'congno.html'} };
+// Lấy từ nguồn chung modules.js — tự đồng bộ với màn hình chính (trừ mục quản trị staff:false)
+var MODS={}; (window.LUX_MODULES||[]).filter(function(m){return m.staff!==false;}).forEach(function(m){ MODS[m.k]={ic:m.ic,tt:m.nm,ds:m.ds||m.en,href:m.url}; });
 
 function show(id){ ['login','home','blocked'].forEach(function(x){ document.getElementById(x).style.display = x===id?(x==='home'?'block':'block'):'none'; }); }
 function tok(){ try{ return localStorage.getItem('nv_tok')||''; }catch(e){ return ''; } }

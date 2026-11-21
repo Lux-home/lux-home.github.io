@@ -71,13 +71,15 @@
   </div>
 </div>
 
+<script src="modules.js"></script>
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 var PW='';
 function enc(s){return encodeURIComponent(String(s));}
 function esc(s){return String(s==null?'':s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c];});}
 function api(qs){ return fetch(EXEC+'?'+qs+'&callback=cb&t='+Date.now(),{cache:'no-store'}).then(function(r){return r.text();}).then(function(t){ var i=t.indexOf('('),j=t.lastIndexOf(')'); return JSON.parse(t.slice(i+1,j)); }); }
-var MODS=[{k:'bill',n:'🧾 Gửi hóa đơn'},{k:'luutru',n:'🛂 Lưu trú'},{k:'thongbao',n:'📢 Thông báo'},{k:'catalog',n:'🏢 Danh mục căn hộ'},{k:'noibo',n:'🔁 Hoạt động định kỳ'},{k:'hopdong',n:'📄 Hợp đồng PDF'},{k:'congno',n:'💰 Theo dõi công nợ'}];
+// Lấy từ nguồn chung modules.js — tự đồng bộ với màn hình chính (trừ mục quản trị staff:false)
+var MODS=(window.LUX_MODULES||[]).filter(function(m){return m.staff!==false;}).map(function(m){return {k:m.k, n:m.ic+' '+m.nm};});
 
 function gate(){
   var pw=document.getElementById('apw').value.trim();

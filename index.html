@@ -76,26 +76,10 @@
   </div>
 </div>
 
+<script src="modules.js"></script>
 <script>
-// ===== Cấu hình link các module =====
-const LINKS = {
-  catalog: "catalog.html#k=LUXADMIN2026",
-  luutru:  "luutru.html",
-  bill:    "bill.html",
-  thongbao:"thongbao.html"
-};
-
-const LIVE = [
-  {ic:"🏢", nm:"Danh mục căn hộ", en:"Apartment catalog", url:LINKS.catalog},
-  {ic:"🛂", nm:"Lưu trú & hạn visa", en:"Residence & visa", url:LINKS.luutru},
-  {ic:"🧾", nm:"Gửi hóa đơn", en:"Send invoices", url:LINKS.bill},
-  {ic:"📢", nm:"Thông báo cư dân", en:"Resident notices", url:LINKS.thongbao},
-  {ic:"🧑‍💼", nm:"Quản lý quyền app phụ", en:"Staff app permissions", url:"nvadmin.html"},
-  {ic:"🔁", nm:"Hoạt động định kỳ", en:"Periodic activities", url:"noibo.html"},
-  {ic:"📄", nm:"Hợp đồng PDF", en:"Contracts & annexes", url:"hopdong.html"},
-  {ic:"💰", nm:"Theo dõi công nợ", en:"Debt & payments", url:"congno.html"},
-  {ic:"🔑", nm:"Khóa / Mở căn hộ", en:"Lock / open units", url:"canho.html"},
-];
+// Danh sách module lấy từ nguồn chung modules.js (window.LUX_MODULES)
+const LIVE = (window.LUX_MODULES || []);
 const SOON = [
   {ic:"🏠", nm:"Phòng trống", en:"Vacant units & stats"},
   {ic:"🚪", nm:"Cảnh báo cổng", en:"Gate / stranger alert"},
