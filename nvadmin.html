@@ -124,7 +124,8 @@ function render(list){
       +'<span style="color:var(--cyan)">'+nd+'/'+mx+'</span>'
       +'<span style="flex:1"></span>Số máy tối đa: '
       +'<input type="number" class="maxin" min="1" max="20" value="'+mx+'" style="width:58px;padding:6px">'
-      +'<button class="btn d setmax">Đặt</button></div>'
+      +'<button class="btn d setmax">Đặt</button>'
+      +'<button class="btn d dedupe" title="Gộp máy trùng cùng loại về 1">🧹 Dọn trùng</button></div>'
       +devRows
       +'</div><p class="msg m"></p>';
     var ma=nv.ma, locked=nv.locked, msg=box.querySelector('.m');
@@ -137,6 +138,7 @@ function render(list){
     box.querySelector('.lk').onclick=function(){ api('nvadmin=lock&pw='+enc(PW)+'&ma='+enc(ma)+'&lock='+(locked?'0':'1')).then(function(){ reload(); }); };
     box.querySelector('.del').onclick=function(){ if(!confirm('Xoá nhân viên '+ma+'?')) return; api('nvadmin=del&pw='+enc(PW)+'&ma='+enc(ma)).then(function(){ reload(); }); };
     box.querySelector('.setmax').onclick=function(){ var v=box.querySelector('.maxin').value; msg.textContent='Đang lưu số máy…'; api('nvadmin=setmax&pw='+enc(PW)+'&ma='+enc(ma)+'&max='+enc(v)).then(function(d){ msg.textContent=d&&d.ok?'✓ Đã đặt tối đa '+d.max+' máy':'Lỗi'; reload(); }); };
+    box.querySelector('.dedupe').onclick=function(){ if(!confirm('Gộp các máy TRÙNG cùng loại của '+ma+' về 1 (giữ máy đã duyệt, dùng gần nhất)?')) return; msg.textContent='Đang dọn máy trùng…'; api('nvadmin=devdedupe&pw='+enc(PW)+'&ma='+enc(ma)).then(function(d){ msg.textContent=(d&&d.ok)?('✓ Đã dọn '+(d.removed||0)+' máy trùng'):'Lỗi'; reload(); }); };
     [].slice.call(box.querySelectorAll('.dok')).forEach(function(b){ b.onclick=function(){ var id=b.closest('.devrow').getAttribute('data-id'); msg.textContent='Đang duyệt máy…'; api('nvadmin=devok&pw='+enc(PW)+'&ma='+enc(ma)+'&dev='+enc(id)).then(function(d){ if(d&&d.ok){ msg.textContent='✓ Đã duyệt máy'; } else if(d&&d.full){ msg.textContent='⚠️ Đã đủ '+d.max+' máy — tăng "Số máy tối đa" hoặc thu hồi máy cũ trước.'; } else { msg.textContent='Lỗi duyệt máy'; } reload(); }); }; });
     [].slice.call(box.querySelectorAll('.drm')).forEach(function(b){ b.onclick=function(){ var id=b.closest('.devrow').getAttribute('data-id'); if(!confirm('Thu hồi/xoá máy này? App trên máy đó sẽ ngừng dùng được ngay.')) return; msg.textContent='Đang thu hồi…'; api('nvadmin=devrm&pw='+enc(PW)+'&ma='+enc(ma)+'&dev='+enc(id)).then(function(){ msg.textContent='✓ Đã thu hồi máy'; reload(); }); }; });
     el.appendChild(box);
