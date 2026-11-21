@@ -479,9 +479,15 @@ function filtered(){
     &&(!fk||(a.khuvuc||"").trim()===fk)&&(!fl||(a.loai||"").trim()===fl));
   if(so){ list=list.slice().sort((x,y)=>{const a=parseInt(x.gia||0),b=parseInt(y.gia||0);
     return so==="asc"?a-b:b-a;}); }
-  else { // mặc định: Có sẵn (xanh) -> Dự kiến (vàng) -> Căn hộ mẫu (đỏ)
+  else { // mặc định: Có sẵn (xanh) -> Dự kiến (vàng) -> Căn hộ mẫu (đỏ); trong mỗi nhóm sắp theo TÒA T tăng dần
     const rank=t=>{const k=statusKey(t);return k==="available"?0:k==="soon"?1:k==="sample"?2:3;};
-    list=list.slice().sort((x,y)=>rank(x.trangThai)-rank(y.trangThai)); }
+    const toaNum=t=>{const m=String(t||"").match(/(\d+)/);return m?parseInt(m[1],10):9999;};
+    const canNum=a=>{const m=String(a.ma||"").match(/(\d+)/)||String(a.so||"").match(/(\d+)/);return m?parseInt(m[1],10):9999;};
+    list=list.slice().sort((x,y)=>
+      (rank(x.trangThai)-rank(y.trangThai))
+      || (toaNum(x.toa)-toaNum(y.toa))
+      || (canNum(x)-canNum(y))
+      || String(x.ma).localeCompare(String(y.ma))); }
   return list;
 }
 // Lay ID file tu link/ID Google Drive (anh dai dien)
