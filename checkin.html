@@ -90,13 +90,26 @@
     <!-- GỬI DANH SÁCH -->
     <div id="v_gui" style="display:none">
       <div class="card">
-        <div class="lb">1 · Dán danh sách từ Excel</div>
-        <textarea id="paste" placeholder="Mở sheet Checkin → bôi đen các dòng khách từ cột A đến cột X → Ctrl+C → dán vào đây"></textarea>
-        <p class="hint">Copy từ <b>cột A (STT) đến cột X (SĐT)</b>, không cần dòng tiêu đề. Dòng có số căn hộ ở cột B là khách chính; dòng để trống cột B là người ở cùng.</p>
-        <div class="row2">
-          <button class="btn" onclick="phanTich()">Kiểm tra danh sách</button>
-          <button class="btn o" onclick="xoaDan()">Xoá</button>
+        <div class="lb">1 · Chọn file DS Check-in</div>
+        <input type="file" id="fFile" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="docFile(this.files[0])">
+        <button class="btn big" onclick="document.getElementById('fFile').click()">📂 Chọn file Excel (.xlsx)</button>
+        <div id="fBox" style="display:none;margin-top:10px">
+          <div class="muted" id="fName" style="font-size:.84rem;margin-bottom:6px"></div>
+          <div class="row2" style="margin-top:0">
+            <label style="flex:1 1 140px;font-size:.8rem;font-weight:700;color:var(--muted)">Sheet tháng<select id="fSheet" onchange="docSheet()" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></select></label>
+            <label style="flex:1 1 120px;font-size:.8rem;font-weight:700;color:var(--muted)">Check-in từ ngày<input type="date" id="fTu" onchange="locNgay()" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+            <label style="flex:1 1 120px;font-size:.8rem;font-weight:700;color:var(--muted)">đến ngày<input type="date" id="fDen" onchange="locNgay()" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+          </div>
+          <p class="hint">Lọc theo ngày <b>Bắt đầu HĐ</b> của khách chính (người ở cùng đi theo phòng). Để trống = lấy cả sheet.</p>
         </div>
+        <details style="margin-top:12px"><summary class="muted" style="cursor:pointer;font-size:.86rem;font-weight:700">Hoặc dán từ Excel</summary>
+          <textarea id="paste" style="margin-top:8px" placeholder="Bôi đen các dòng khách từ cột A đến cột AC (Ngày nhập cảnh) → Ctrl+C → dán vào đây"></textarea>
+          <div class="row2">
+            <button class="btn" onclick="phanTich()">Kiểm tra danh sách</button>
+            <button class="btn o" onclick="xoaDan()">Xoá</button>
+          </div>
+        </details>
+        <p class="hint">Đúng định dạng file DS Check-in: cột A (STT) → AC (Ngày nhập cảnh). Dòng có số căn hộ ở cột B là khách chính; dòng trống cột B là người ở cùng.</p>
       </div>
       <div class="card" id="preview" style="display:none">
         <div class="lb">2 · Kiểm tra trước khi gửi</div>
@@ -129,8 +142,9 @@
 var CK_EXEC = "";   // ← URL web app …/exec sau khi deploy Code.gs
 var COLS = ['STT','Căn hộ','Tòa','Mã CH','Tên khách','Năm sinh','Quốc tịch','Giới tính','CCCD','Hộ chiếu','Địa chỉ',
   'Bắt đầu HĐ','Kết thúc HĐ','Hạn lưu trú','Tiền cọc','Tiền phòng','Số người','Điện check-in','Giá nước','Phí bảo trì',
-  'Thanh toán','Môi giới','Liên hệ','SĐT'];
-var DATE_COLS=[5,11,12,13,20], NUM_COLS=[14,15,16,17,18,19];
+  'Thanh toán','Môi giới','Liên hệ','SĐT','Mức hoa hồng','Phí hoa hồng','Tiền phòng đợt 1','Tổng tiền đợt 1','Ngày nhập cảnh'];
+var NCOL=29;                                            // A..AC — đúng định dạng file DS Check-in
+var DATE_COLS=[5,11,12,13,20,28], NUM_COLS=[14,15,16,17,18,19,25,26,27], PCT_COL=24;
 function laBoSung(r){ return /b[ổo]\s*sung/i.test(r[4]||''); }
 function laChinh(r){ return !!r[1] && !laBoSung(r); }
 
@@ -237,17 +251,28 @@ function phanTich(){
     // tìm cột mã phòng để biết người dùng copy bắt đầu từ cột nào
     var k=-1; for(var i=0;i<Math.min(r.length,8);i++){ if(ROOM_RE.test(r[i])){ k=i; break; } }
     if(k>=0 && k<3){ var pad=[]; for(var p=0;p<3-k;p++) pad.push(''); r=pad.concat(r); }
-    r=r.slice(0,24); while(r.length<24) r.push('');
+    r=r.slice(0,NCOL); while(r.length<NCOL) r.push('');
     var ten=r[4];
     if(!ten || /^t[eê]n kh[aá]ch$/i.test(ten) || /^=/.test(ten)) return;
-    if(!r[3] && !ROOM_RE.test(r[3])) { /* vẫn giữ, báo lỗi bên dưới */ }
-    DATE_COLS.forEach(function(c){ r[c]=normDate(r[c]); });
-    NUM_COLS.forEach(function(c){ r[c]=normNum(r[c]); });
-    r[3]=r[3].toUpperCase().replace(/\s/g,'');
-    rows.push(r);
+    rows.push(chuanHoa(r));
   });
+  hienThu(rows);
+}
+function chuanHoa(r){
+  DATE_COLS.forEach(function(c){ r[c]=normDate(r[c]); });
+  NUM_COLS.forEach(function(c){ r[c]=normNum(r[c]); });
+  r[PCT_COL]=normPct(r[PCT_COL]);
+  r[3]=String(r[3]||'').toUpperCase().replace(/\s/g,'');
+  return r;
+}
+function normPct(s){
+  s=String(s||'').trim(); if(!s) return s;
+  var m=s.match(/^(\d+(?:[.,]\d+)?)\s*%$/); if(m) return String(parseFloat(m[1].replace(',','.'))/100);
+  return s.replace(',','.');
+}
+function hienThu(rows){
   PARSED=rows;
-  if(!rows.length){ toast('Không đọc được dòng khách nào — copy từ cột A đến X nhé'); document.getElementById('preview').style.display='none'; return; }
+  if(!rows.length){ toast('Không có dòng khách nào'); document.getElementById('preview').style.display='none'; return; }
   veDanhSach(rows, document.getElementById('pList'), document.getElementById('pSum'), null);
   document.getElementById('preview').style.display='block';
   document.getElementById('preview').scrollIntoView({behavior:'smooth'});
@@ -287,7 +312,9 @@ function veDanhSach(rows, el, sumEl, off, dongNo){
         (off?'<input type="checkbox" '+(isOff?'':'checked')+' onchange="toggleRow('+x.i+',this.checked)" title="Bỏ tick để loại dòng này">':'')+
         '<div><div class="nm">'+(laChinh(r)?'⭐ ':(laBoSung(r)?'➕ ':''))+esc(r[4])+'</div>'+
         '<div class="mt">'+[r[6],r[7],r[5]?('SN '+r[5]):'',r[8]?('CCCD '+r[8]):'',r[9]?('HC '+r[9]):'',r[10]].filter(Boolean).map(esc).join(' · ')+'</div>'+
-        (laChinh(r)?'<div class="mt">Cọc '+fm(r[14])+' · Phòng '+fm(r[15])+' · '+esc(r[16]||'?')+' người · Điện '+esc(r[17]||'?')+(r[21]?' · MG '+esc(r[21]):'')+(r[23]?' · ☎ '+esc(r[23]):'')+'</div>':'')+
+        (laChinh(r)?'<div class="mt">Cọc '+fm(r[14])+' · Phòng '+fm(r[15])+' · '+esc(r[16]||'?')+' người · Điện '+esc(r[17]||'?')+(r[21]?' · MG '+esc(r[21]):'')+(r[23]?' · ☎ '+esc(r[23]):'')+'</div>'+
+          '<div class="mt">'+[r[26]?'Tiền phòng đợt 1 '+fm(r[26]):'',r[27]?'<b>Tổng đợt 1 '+fm(r[27])+'</b>':'',r[24]&&r[24]!=='0'?'HH '+pctTxt(r[24])+(r[25]?' = '+fm(r[25]):''):''].filter(Boolean).join(' · ')+'</div>':'')+
+        (r[28]?'<div class="mt">✈️ Nhập cảnh '+esc(r[28])+'</div>':'')+
         (k.e.length?'<div class="iss">⛔ '+esc(k.e.join(' · '))+'</div>':'')+
         (k.w.length?'<div class="iss w">⚠️ '+esc(k.w.join(' · '))+'</div>':'')+
         '</div></div>';
@@ -299,8 +326,81 @@ function veDanhSach(rows, el, sumEl, off, dongNo){
     (nE?'<span class="e">⛔ '+nE+' dòng lỗi</span>':'')+(nW?'<span class="w">⚠️ '+nW+' dòng cần xem</span>':'');
   return {nE:nE,nW:nW,nKhach:nKhach};
 }
-function fm(v){ return /^\d+$/.test(String(v||''))?Number(v).toLocaleString('vi-VN'):esc(v||'?'); }
-function xoaDan(){ document.getElementById('paste').value=''; PARSED=[]; document.getElementById('preview').style.display='none'; }
+function fm(v){ var n=String(v||''); return /^-?\d+(\.\d+)?$/.test(n)?Math.round(Number(n)).toLocaleString('vi-VN'):esc(v||'?'); }
+function pctTxt(v){ var n=Number(v); return isFinite(n)&&n<=1?Math.round(n*100)+'%':esc(v); }
+function xoaDan(){ document.getElementById('paste').value=''; PARSED=[]; FROWS=[]; document.getElementById('fBox').style.display='none'; document.getElementById('fFile').value=''; document.getElementById('preview').style.display='none'; }
+
+// ===== Đọc file DS Check-in (.xlsx) ngay trên máy, không tải file lên máy chủ =====
+var WB=null, FROWS=[];
+function napThuVien(cb){
+  if(window.XLSX) return cb();
+  var sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+  sc.onload=cb; sc.onerror=function(){ toast('❌ Không tải được bộ đọc Excel — kiểm tra mạng'); }; document.head.appendChild(sc);
+}
+function docFile(f){
+  if(!f) return;
+  toast('Đang đọc file…');
+  napThuVien(function(){
+    var rd=new FileReader();
+    rd.onload=function(e){
+      try{ WB=XLSX.read(new Uint8Array(e.target.result),{type:'array'}); }catch(err){ toast('❌ File không đọc được'); return; }
+      var sel=document.getElementById('fSheet'); sel.innerHTML='';
+      WB.SheetNames.forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
+      sel.value=WB.SheetNames[WB.SheetNames.length-1];   // mặc định sheet tháng mới nhất (cuối cùng)
+      document.getElementById('fName').textContent='📄 '+f.name;
+      document.getElementById('fBox').style.display='block';
+      docSheet();
+    };
+    rd.readAsArrayBuffer(f);
+  });
+}
+function hdrKey(v){ return String(v==null?'':v).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/[^a-z0-9]/g,'').toUpperCase(); }
+function fieldOf(h){
+  var M={STT:0,CANHO:1,TENPHONG:1,TOANHA:2,MATOA:2,MACH:3,MAPHONG:3,TENKHACH:4,NAMSINH:5,NGAYSINH:5,QUOCTICH:6,QUOCGIA:6,GIOITINH:7,
+    HOCHIEU:9,DIACHI:10,THOIHANLUUTRU:13,TIENCOC:14,TIENPHONG:15,SONGUOIO:16,SONGUOI:16,DONGIANUOC:18,DONGIABAOTRI:19,PHIBAOTRI:19,
+    MOIGIOI:21,SALE:21,LIENHEKHACH:22,LIENHE:22,MUCHOAHONG:24,TIENPHONGDOT1:26,TONGTIENDOT1:27,NGAYNHAPCANH:28};
+  if(h in M) return M[h];
+  if(/^CCCD/.test(h)) return 8; if(/^BATDAU/.test(h)) return 11; if(/KETTHUC/.test(h)) return 12;
+  if(/^CHISODIEN/.test(h)) return 17; if(/^THANHTOAN/.test(h)) return 20; if(/^SDT|^SODIENTHOAI/.test(h)) return 23;
+  if(/^PHIHOAHONG/.test(h)) return 25;
+  return -1;
+}
+function docSheet(){
+  var ws=WB.Sheets[document.getElementById('fSheet').value];
+  var A=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
+  var hr=-1, map={};
+  for(var i=0;i<Math.min(A.length,15);i++){ if(A[i].some(function(c){return hdrKey(c)==='TENKHACH';})){ hr=i; break; } }
+  if(hr<0){ toast('Sheet này không có cột "Tên khách"'); FROWS=[]; locNgay(); return; }
+  A[hr].forEach(function(c,j){ var k=fieldOf(hdrKey(c)); if(k>=0 && !(k in map)) map[k]=j; });
+  for(var k=0;k<NCOL;k++) if(!(k in map) && hdrKey(A[hr][k])==='') map[k]=k;   // cột phụ không tiêu đề → đúng vị trí
+  FROWS=[]; var lastStart='';
+  for(var r=hr+1;r<A.length;r++){
+    var row=A[r], o=[];
+    for(var k=0;k<NCOL;k++){ o.push(k in map ? cellTxt(row[map[k]],k) : ''); }
+    if(!o[4] || !ROOM_RE.test(String(o[3]).replace(/\s/g,''))) continue;   // bỏ dòng trống, dòng tổng hợp
+    o=chuanHoa(o);
+    if(laChinh(o)) lastStart=o[11];
+    FROWS.push({r:o, start:laChinh(o)?o[11]:lastStart});
+  }
+  locNgay();
+}
+function cellTxt(v,k){
+  if(v===''||v==null) return '';
+  if(typeof v==='number' && DATE_COLS.indexOf(k)>=0 && v>1000){
+    var d=XLSX.SSF.parse_date_code(v); if(d&&d.y) return ('0'+d.d).slice(-2)+'/'+('0'+d.m).slice(-2)+'/'+d.y;
+  }
+  if(typeof v==='number' && NUM_COLS.indexOf(k)>=0 && k!==16) return String(Math.round(v));   // tiền: làm tròn đồng
+  if(typeof v==='number') return String(Math.round(v*1e6)/1e6);
+  return String(v).trim();
+}
+function ymd(dmy){ var m=String(dmy||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m?(m[3]+'-'+m[2]+'-'+m[1]):''; }
+function locNgay(){
+  var tu=document.getElementById('fTu').value, den=document.getElementById('fDen').value;
+  var rows=FROWS.filter(function(x){ var d=ymd(x.start); if(!tu&&!den) return true; if(!d) return false; return (!tu||d>=tu)&&(!den||d<=den); })
+                .map(function(x){ return x.r.slice(); });
+  if(!rows.length){ document.getElementById('preview').style.display='none'; toast(FROWS.length?'Không có khách nào trong khoảng ngày này':'Không đọc được khách nào'); PARSED=[]; return; }
+  hienThu(rows);
+}
 
 function guiDuyet(){
   if(!PARSED.length) return;
