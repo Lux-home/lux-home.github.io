@@ -1529,14 +1529,101 @@ function ttRoomRe(room){
 }
 function ttNgay(s){ var d=kpDate(s); return d?d.getTime():null; }
 
-// --- đọc file sao kê Excel/CSV: tự tìm cột Ngày / Ghi có / Nội dung
-function ttDocSaoKe(file){
+// --- đọc file sao kê Excel/CSV: tự tìm cột Ngày / Ghi có / Nội dung. File BIDV có mật khẩu → giải mã ngay trên máy (mật khẩu không gửi đi)
+// Giải mã file Excel có mật khẩu (chuẩn ECMA-376 Agile — Excel 2010 trở lên, BIDV dùng loại này) bằng WebCrypto, ngay trên máy
+function ttB64(s){ var b=atob(s), u=new Uint8Array(b.length); for(var i=0;i<b.length;i++) u[i]=b.charCodeAt(i); return u; }
+function ttCat(a,b){ var o=new Uint8Array(a.length+b.length); o.set(a,0); o.set(b,a.length); return o; }
+function ttU32(n){ return new Uint8Array([n&255,(n>>>8)&255,(n>>>16)&255,(n>>>24)&255]); }
+function ttGiaiMa(buf, pw){
+  var u=new Uint8Array(buf), cfb=XLSX.CFB.read(u,{type:'array'});
+  var ei=XLSX.CFB.find(cfb,'EncryptionInfo'), ep=XLSX.CFB.find(cfb,'EncryptedPackage');
+  if(!ei||!ep) return Promise.reject(new Error('Không phải file Excel có mật khẩu'));
+  var info=new Uint8Array(ei.content), pkg=new Uint8Array(ep.content);
+  if(!(info[0]===4 && info[2]===4)) return Promise.reject({ chuan:true });          // không phải Agile
+  var xml=new TextDecoder('utf-8').decode(info.slice(8));
+  var doc=new DOMParser().parseFromString(xml,'application/xml');
+  var kd=doc.getElementsByTagName('keyData')[0], ek=doc.getElementsByTagNameNS('*','encryptedKey')[0];
+  var A=function(el,k){ return el.getAttribute(k); };
+  var hn=function(h){ return ({SHA1:'SHA-1','SHA-1':'SHA-1',SHA256:'SHA-256','SHA-256':'SHA-256',SHA384:'SHA-384',SHA512:'SHA-512','SHA-512':'SHA-512'})[String(h).toUpperCase()]||'SHA-512'; };
+  var C=crypto.subtle, H=hn(A(ek,'hashAlgorithm')), spin=+A(ek,'spinCount'), salt=ttB64(A(ek,'saltValue')), kb=+A(ek,'keyBits')/8, bs=+A(ek,'blockSize');
+  var pwb=new Uint8Array(pw.length*2); for(var i=0;i<pw.length;i++){ var c=pw.charCodeAt(i); pwb[2*i]=c&255; pwb[2*i+1]=c>>8; }
+  var dg=function(alg,d){ return C.digest(alg,d).then(function(x){ return new Uint8Array(x); }); };
+  var vua=function(h,n,pad){ var o=new Uint8Array(n); o.fill(pad); o.set(h.slice(0,n)); return o; };
+  var aesRaw=function(key,iv,data){                // AES-CBC không padding (WebCrypto cần padding → thêm 1 block giả)
+    return C.importKey('raw',key,'AES-CBC',false,['encrypt','decrypt']).then(function(k){
+      var last=data.slice(data.length-16);
+      return C.encrypt({name:'AES-CBC',iv:last},k,new Uint8Array(0)).then(function(pad){
+        return C.decrypt({name:'AES-CBC',iv:iv},k,ttCat(data,new Uint8Array(pad))).then(function(x){ return new Uint8Array(x); });
+      });
+    });
+  };
+  var h=dg(H,ttCat(salt,pwb)), i0=0;
+  function lap(x){                                  // 100.000 vòng băm (chia nhỏ để không treo màn hình)
+    var p=Promise.resolve(x);
+    for(var k=0;k<200 && i0<spin;k++,i0++){ (function(j){ p=p.then(function(y){ return dg(H,ttCat(ttU32(j),y)); }); })(i0); }
+    return p.then(function(y){ return i0<spin ? new Promise(function(r){ setTimeout(function(){ r(lap(y)); },0); }) : y; });
+  }
+  return h.then(lap).then(function(hf){
+    var blk=new Uint8Array([0x14,0x6e,0x0b,0xe7,0xab,0xac,0xd0,0xd6]);
+    return dg(H,ttCat(hf,blk)).then(function(d){
+      return aesRaw(vua(d,kb,0x36), vua(salt,bs,0x36), ttB64(A(ek,'encryptedKeyValue')));
+    });
+  }).then(function(ikey){
+    ikey=ikey.slice(0,+A(kd,'keyBits')/8);
+    var kH=hn(A(kd,'hashAlgorithm')), kSalt=ttB64(A(kd,'saltValue')), kBs=+A(kd,'blockSize');
+    var size=pkg[0]+pkg[1]*256+pkg[2]*65536+pkg[3]*16777216+(pkg[4]+pkg[5]*256)*4294967296, data=pkg.slice(8), parts=[], seg=0, jobs=[];
+    for(var off=0; off<data.length; off+=4096, seg++){
+      (function(s,chunk){
+        jobs.push(dg(kH,ttCat(kSalt,ttU32(s))).then(function(ivh){ return aesRaw(ikey, vua(ivh,kBs,0x36), chunk); }).then(function(p){ parts[s]=p; }));
+      })(seg, data.slice(off, Math.min(off+4096, data.length)));
+    }
+    return Promise.all(jobs).then(function(){
+      var out=new Uint8Array(size), pos=0;
+      parts.forEach(function(p){ var n=Math.min(p.length,size-pos); out.set(p.slice(0,n),pos); pos+=n; });
+      if(!(out[0]===0x50 && out[1]===0x4B)) throw { canMK:true, sai:true };
+      return out.buffer;
+    });
+  });
+}
+var TT_PW=''; try{ TT_PW=localStorage.getItem('tt_skpw')||''; }catch(e){}
+var ttXPlib=null;
+function ttXP(){
+  return ttXPlib || (ttXPlib=new Promise(function(ok,no){
+    var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/xlsx-populate@1.21.0/browser/xlsx-populate.min.js';
+    s.onload=function(){ ok(window.XlsxPopulate); }; s.onerror=function(){ ttXPlib=null; no(new Error('Không tải được bộ mở file có mật khẩu, kiểm tra mạng')); };
+    document.head.appendChild(s);
+  }));
+}
+function ttDocSaoKe(file, pw){
   return new Promise(function(ok,no){
     if(!/\.(xlsx|xls|xlsm|csv)$/i.test(file.name)) return no(new Error('"'+file.name+'" không phải file sao kê Excel/CSV. Tải sao kê từ ngân hàng dạng Excel (.xlsx/.xls) rồi chọn lại.'));
-    napThuVien(function(){
-      var rd=new FileReader();
-      rd.onload=function(e){
-        var wb; try{ wb=XLSX.read(new Uint8Array(e.target.result),{type:'array',cellDates:false}); }catch(err){ return no(new Error('File "'+file.name+'" bị lỗi hoặc có mật khẩu, không đọc được.')); }
+    var rd=new FileReader();
+    rd.onerror=function(){ no(new Error('Không đọc được file')); };
+    rd.onload=function(e){
+      var buf=e.target.result, u=new Uint8Array(buf);
+      var khoa=/\.xls[xm]$/i.test(file.name) && u[0]===0xD0 && u[1]===0xCF && u[2]===0x11 && u[3]===0xE0;
+      var mo = !khoa ? Promise.resolve(buf)
+        : (!pw ? Promise.reject({ canMK:true })
+          : new Promise(function(r){ napThuVien(r); }).then(function(){ return ttGiaiMa(buf, pw); })
+              .catch(function(e){
+                if(e && e.chuan) return ttXP().then(function(XP){ return XP.fromDataAsync(buf,{ password:pw }); })
+                  .catch(function(){ throw { canMK:true, sai:true }; }).then(function(wb){ return wb.outputAsync('arraybuffer'); });
+                if(e && e.canMK) throw e;
+                throw { canMK:true, sai:true };
+              }));
+      mo.then(function(b2){
+        napThuVien(function(){
+          try{
+            var wb; try{ wb=XLSX.read(new Uint8Array(b2),{type:'array',cellDates:false}); }catch(err){ throw new Error('File "'+file.name+'" bị lỗi, không đọc được.'); }
+            ok(ttDocWB(wb, file));
+          }catch(err){ no(err); }
+        });
+      }).catch(no);
+    };
+    rd.readAsArrayBuffer(file);
+  });
+}
+function ttDocWB(wb, file){
         var out=[], timThay=false;
         wb.SheetNames.forEach(function(sn){
           var A=XLSX.utils.sheet_to_json(wb.Sheets[sn],{header:1,raw:true,defval:''}), hr=-1, c={};
@@ -1562,14 +1649,9 @@ function ttDocSaoKe(file){
             out.push({ ngay:ng, so:Math.round(so), nd:String(row[c.nd]||'').replace(/\s+/g,' ').trim(), ten:c.ten!=null?String(row[c.ten]||'').trim():'', file:file.name });
           }
         });
-        if(!timThay) return no(new Error('File "'+file.name+'" không đúng định dạng sao kê: không thấy đủ các cột Ngày giao dịch, Số tiền ghi có (tiền vào) và Nội dung.'));
-        if(!out.length) return no(new Error('File "'+file.name+'" không có giao dịch tiền vào nào.'));
-        ok(out);
-      };
-      rd.onerror=function(){ no(new Error('Không đọc được file')); };
-      rd.readAsArrayBuffer(file);
-    });
-  });
+        if(!timThay) throw new Error('File "'+file.name+'" không đúng định dạng sao kê: không thấy đủ các cột Ngày giao dịch, Số tiền ghi có (tiền vào) và Nội dung.');
+        if(!out.length) throw new Error('File "'+file.name+'" không có giao dịch tiền vào nào.');
+        return out;
 }
 function ttTien(v){
   if(typeof v==='number') return v;
@@ -1668,13 +1750,19 @@ function ttThang(){ var ms={}; (TT.khach||[]).forEach(function(r){ ms[r.thang]=(
 function ttChonT(k){ TT.chon[k]=!TT.chon[k]; ttVe(); }
 function ttSaoKe(list){
   var files=[].slice.call(list||[]); document.getElementById('ttSK').value='';
-  var loi=[];
-  Promise.all(files.map(function(f){ return ttDocSaoKe(f).then(function(rows){
+  var loi=[], canMK=[], sai=false;
+  Promise.all(files.map(function(f){ return ttDocSaoKe(f, TT_PW).then(function(rows){
       TT.skFiles=TT.skFiles.filter(function(x){ return x.name!==f.name; }).concat([{ name:f.name, n:rows.length }]);
       TT.sk=TT.sk.filter(function(x){ return x.file!==f.name; }).concat(rows);
-    }).catch(function(e){ loi.push('⛔ '+String(e&&e.message||e)); }); }))
-  .then(function(){ napLoi('ttLoi', loi); ttVe(); });
+    }).catch(function(e){ if(e&&e.canMK){ canMK.push(f); if(e.sai) sai=true; } else loi.push('⛔ '+String(e&&e.message||e)); }); }))
+  .then(function(){ TT.choMK=canMK; TT.saiMK=sai; napLoi('ttLoi', loi); ttVe(); if(canMK.length) setTimeout(function(){ var p=document.getElementById('ttMK'); if(p) p.focus(); },50); });
 }
+function ttMoKhoa(){
+  var v=document.getElementById('ttMK').value; if(!v){ toast('Nhập mật khẩu file sao kê'); return; }
+  TT_PW=v; try{ if(document.getElementById('ttNho').checked) localStorage.setItem('tt_skpw',v); else localStorage.removeItem('tt_skpw'); }catch(e){}
+  var f=TT.choMK||[]; TT.choMK=[]; ttSaoKe(f);
+}
+function ttQuenMK(){ TT_PW=''; try{ localStorage.removeItem('tt_skpw'); }catch(e){} toast('Đã xoá mật khẩu sao kê lưu trên máy này'); ttVe(); }
 function ttBoSK(i){ var n=TT.skFiles[i].name; TT.skFiles.splice(i,1); TT.sk=TT.sk.filter(function(x){ return x.file!==n; }); ttVe(); }
 // thêm ảnh bill: đọc → tự nhận phòng theo nội dung CK → lưu
 function ttBill(list){
@@ -1736,7 +1824,13 @@ function ttVe(){
   var h='<div class="card"><div class="lb">1 · Tháng check-in</div><div class="tkM">'+keys.map(function(k){ return '<button class="tkB'+(TT.chon[k]?' on':'')+'" onclick="ttChonT(\''+k+'\')">'+tkTenThang(k).replace('Tháng ','T')+'<small>'+ms[k]+' phòng</small></button>'; }).join('')+'</div></div>';
   h+='<div class="card"><div class="lb">2 · Sao kê ngân hàng (Excel tải từ ngân hàng)</div>'+
     (TT.skFiles.length?TT.skFiles.map(function(f,i){ return '<div class="kpFile"><div class="kpFn">📄 '+esc(f.name)+' — '+f.n+' giao dịch tiền vào</div><button class="btn o kpX" onclick="ttBoSK('+i+')">✕</button></div>'; }).join(''):'<p class="hint" style="margin-top:0">Chưa có sao kê — điều kiện 1 (đối chiếu sao kê) sẽ chưa kiểm tra được.</p>')+
-    '<button class="btn" style="margin-top:8px" onclick="document.getElementById(\'ttSK\').click()">📂 Chọn file sao kê</button></div>';
+    ((TT.choMK&&TT.choMK.length)?'<div class="hdC"><b>🔒 File sao kê có mật khẩu</b><div class="hint" style="margin-top:2px">'+TT.choMK.map(function(f){ return esc(f.name); }).join('<br>')+'</div>'+
+      (TT.saiMK?'<div class="kpW r">⛔ Mật khẩu không đúng, nhập lại</div>':'')+
+      '<div class="row2"><input type="password" id="ttMK" placeholder="Mật khẩu file sao kê" autocomplete="off" style="flex:1 1 180px" onkeydown="if(event.key===\'Enter\')ttMoKhoa()"><button class="btn ok" style="flex:0 0 auto" onclick="ttMoKhoa()">🔓 Mở</button></div>'+
+      '<label class="hint" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="ttNho" checked> Nhớ mật khẩu trên máy này (lần sau chỉ cần chọn file)</label>'+
+      '<p class="hint">Mật khẩu chỉ dùng để mở file ngay trên máy này, không gửi lên máy chủ.</p></div>':'')+
+    '<button class="btn" style="margin-top:8px" onclick="document.getElementById(\'ttSK\').click()">📂 Chọn file sao kê</button>'+
+    (TT_PW?' <a href="javascript:ttQuenMK()" class="hint">Quên mật khẩu đã lưu</a>':'')+'</div>';
   var sel=keys.filter(function(k){ return TT.chon[k]; });
   var ks=TT.khach.filter(function(r){ return TT.chon[r.thang]; });
   var nb=TT.bills.filter(function(b){ return ks.some(function(g){ return String(g.c[3]).toUpperCase()===b.room; }); }).length;
