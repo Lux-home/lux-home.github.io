@@ -121,6 +121,22 @@
       </div>
     </div>
 
+    <!-- ĐỔI MẬT KHẨU (chỉ chủ) -->
+    <div id="v_pw" style="display:none">
+      <div class="card">
+        <div class="lb">Mật khẩu hiện tại</div>
+        <input type="password" id="pwCu" autocomplete="current-password" placeholder="Mật khẩu đang dùng">
+        <div class="lb" style="margin-top:12px">Mật khẩu mới</div>
+        <input type="password" id="pwMoi" autocomplete="new-password" placeholder="Ít nhất 6 ký tự">
+        <div class="lb" style="margin-top:12px">Nhập lại mật khẩu mới</div>
+        <input type="password" id="pwMoi2" autocomplete="new-password" placeholder="Nhập lại cho chắc">
+        <button class="btn big ok" style="margin-top:12px" id="btnPw" onclick="doiMatKhau()">🔑 Đổi mật khẩu</button>
+        <div class="err" id="pwErr"></div>
+        <p class="hint">Mật khẩu mới có hiệu lực ngay trên mọi máy. Máy khác đang dùng mật khẩu cũ sẽ phải đăng nhập lại.</p>
+        <button class="btn o" style="margin-top:6px" onclick="dangXuat()">🚪 Đăng xuất khỏi máy này</button>
+      </div>
+    </div>
+
     <!-- DANH SÁCH ĐỢT -->
     <div id="v_list" style="display:none">
       <div id="lList"><p class="muted">Đang tải…</p></div>
@@ -188,7 +204,7 @@ function start(){
     }
     ME=d;
     document.getElementById('who').textContent = d.owner ? '👑 Chủ nhà · quyền duyệt' : ('👤 '+d.ten+' · Mã NV '+d.ma);
-    var tabs = d.owner ? [['cho','⏳ Chờ duyệt'],['gui','📤 Gửi danh sách'],['ls','📚 Lịch sử']]
+    var tabs = d.owner ? [['cho','⏳ Chờ duyệt'],['gui','📤 Gửi danh sách'],['ls','📚 Lịch sử'],['pw','🔑 Mật khẩu']]
                        : [['gui','📤 Gửi danh sách'],['cua','📋 Đợt của tôi']];
     document.getElementById('tabs').innerHTML = tabs.map(function(t){ return '<button class="tab" data-k="'+t[0]+'" onclick="moTab(\''+t[0]+'\')">'+t[1]+(t[0]==='cho'?'<span class="n" id="nCho" style="display:none"></span>':'')+'</button>'; }).join('');
     show('app');
@@ -202,12 +218,35 @@ function dangNhap(){
 }
 document.getElementById('gpw').addEventListener('keydown',function(e){ if(e.key==='Enter') dangNhap(); });
 
+// ===== Đổi mật khẩu duyệt (chủ) =====
+function doiMatKhau(){
+  var cu=document.getElementById('pwCu').value.trim(), m1=document.getElementById('pwMoi').value.trim(), m2=document.getElementById('pwMoi2').value.trim();
+  var er=document.getElementById('pwErr'); er.textContent='';
+  if(!cu||!m1){ er.textContent='Nhập đủ mật khẩu hiện tại và mật khẩu mới'; return; }
+  if(m1.length<6){ er.textContent='Mật khẩu mới phải có ít nhất 6 ký tự'; return; }
+  if(m1!==m2){ er.textContent='Hai lần nhập mật khẩu mới không khớp'; return; }
+  var b=document.getElementById('btnPw'); b.disabled=true; b.textContent='Đang đổi…';
+  fetch(CK_EXEC,{method:'POST',body:JSON.stringify({act:'changepw',pw:cu,newpw:m1})})
+    .then(function(r){return r.text();}).then(function(t){ return JSON.parse(t.slice(t.indexOf('{'))); })
+    .then(function(d){
+      if(!d||!d.ok){ er.textContent=(d&&d.err)||'Không đổi được mật khẩu'; return; }
+      PW=m1; try{ localStorage.setItem('ck_pw',PW); }catch(e){}
+      ['pwCu','pwMoi','pwMoi2'].forEach(function(x){ document.getElementById(x).value=''; });
+      toast('✅ Đã đổi mật khẩu duyệt');
+    })
+    .catch(function(){ er.textContent='Không kết nối được máy chủ'; })
+    .then(function(){ b.disabled=false; b.textContent='🔑 Đổi mật khẩu'; });
+}
+function dangXuat(){ try{ localStorage.removeItem('ck_pw'); }catch(e){} PW=''; ME=null; document.getElementById('who').textContent=''; document.getElementById('gpw').value=''; show('gate'); }
+
 function moTab(k){
   curTab=k;
   [].forEach.call(document.querySelectorAll('.tab'),function(b){ b.classList.toggle('on', b.getAttribute('data-k')===k); });
   document.getElementById('v_gui').style.display = k==='gui'?'block':'none';
   document.getElementById('v_list').style.display = (k==='cho'||k==='ls'||k==='cua')?'block':'none';
   document.getElementById('v_dot').style.display = 'none';
+  document.getElementById('v_pw').style.display = k==='pw'?'block':'none';
+  if(k==='pw') return;
   if(k!=='gui') taiDanhSach();
   else if(ME&&ME.owner) demCho();
 }
