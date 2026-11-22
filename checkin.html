@@ -97,8 +97,8 @@
           <div class="muted" id="fName" style="font-size:.84rem;margin-bottom:6px"></div>
           <div class="row2" style="margin-top:0">
             <label style="flex:1 1 140px;font-size:.8rem;font-weight:700;color:var(--muted)">Sheet tháng<select id="fSheet" onchange="docSheet()" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></select></label>
-            <label style="flex:1 1 120px;font-size:.8rem;font-weight:700;color:var(--muted)">Check-in từ ngày<input type="date" id="fTu" onchange="locNgay()" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
-            <label style="flex:1 1 120px;font-size:.8rem;font-weight:700;color:var(--muted)">đến ngày<input type="date" id="fDen" onchange="locNgay()" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+            <label style="flex:1 1 120px;font-size:.8rem;font-weight:700;color:var(--muted)">Check-in từ ngày<input type="text" id="fTu" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" oninput="goNgay(this)" onchange="locNgay()" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+            <label style="flex:1 1 120px;font-size:.8rem;font-weight:700;color:var(--muted)">đến ngày<input type="text" id="fDen" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" oninput="goNgay(this)" onchange="locNgay()" style="width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
           </div>
           <p class="hint">Lọc theo ngày <b>Bắt đầu HĐ</b> của khách chính (người ở cùng đi theo phòng). Để trống = lấy cả sheet.</p>
         </div>
@@ -433,8 +433,26 @@ function cellTxt(v,k){
   return String(v).trim();
 }
 function ymd(dmy){ var m=String(dmy||'').match(/^(\d{2})\/(\d{2})\/(\d{4})$/); return m?(m[3]+'-'+m[2]+'-'+m[1]):''; }
+// Ô ngày tự gõ kiểu Việt Nam dd/mm/yyyy (không dùng lịch của trình duyệt vì máy đặt kiểu Mỹ sẽ đảo ngày/tháng)
+function goNgay(el){
+  var d=el.value.replace(/\D/g,'').slice(0,8), v=d;
+  if(d.length>4) v=d.slice(0,2)+'/'+d.slice(2,4)+'/'+d.slice(4); else if(d.length>2) v=d.slice(0,2)+'/'+d.slice(2);
+  if(el.value!==v) el.value=v;
+  if(!v || d.length===8) locNgay();
+}
+function ngayLoc(id){
+  var el=document.getElementById(id), v=el.value.trim(); el.style.borderColor='';
+  if(!v) return '';
+  var m=v.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/), ok=false, out='';
+  if(m){ var dd=+m[1], mm=+m[2], yy=+m[3], t=new Date(yy,mm-1,dd);
+    ok = t.getFullYear()===yy && t.getMonth()===mm-1 && t.getDate()===dd;
+    out = yy+'-'+('0'+mm).slice(-2)+'-'+('0'+dd).slice(-2); }
+  if(!ok){ el.style.borderColor='#d33'; return null; }
+  return out;
+}
 function locNgay(){
-  var tu=document.getElementById('fTu').value, den=document.getElementById('fDen').value;
+  var tu=ngayLoc('fTu'), den=ngayLoc('fDen');
+  if(tu===null||den===null){ toast('Ngày không hợp lệ — gõ theo dạng ngày/tháng/năm, VD 22/11/2026'); return; }
   var rows=FROWS.filter(function(x){ var d=ymd(x.start); if(!tu&&!den) return true; if(!d) return false; return (!tu||d>=tu)&&(!den||d<=den); })
                 .map(function(x){ return x.r.slice(); });
   if(!rows.length){ document.getElementById('preview').style.display='none'; toast(FROWS.length?'Không có khách nào trong khoảng ngày này':'Không đọc được khách nào'); PARSED=[]; return; }
