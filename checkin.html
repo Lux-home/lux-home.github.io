@@ -418,7 +418,7 @@ function guiDuyet(){
 }
 
 // ===== Danh sách đợt =====
-function stCls(s){ return s==='CHỜ DUYỆT'?'cho':s==='ĐÃ DUYỆT'?'duyet':s==='TRẢ LẠI'?'tra':s==='ĐÃ NHẬP EXCEL'?'nhap':'huy'; }
+function stCls(s){ return s==='CHỜ DUYỆT'?'cho':(s==='ĐÃ DUYỆT'||s==='ĐÃ CẬP NHẬT FILE')?'duyet':s==='TRẢ LẠI'?'tra':s==='ĐÃ NHẬP EXCEL'?'nhap':'huy'; }
 var DOTS=[];
 function demCho(){
   apiGet('list=1').then(function(d){ if(d&&d.ok){ DOTS=d.dots; capNhatDem(); } }).catch(function(){});
@@ -462,18 +462,20 @@ function moDot(id){
       '<div class="mt">Gửi '+esc(x.ngay)+' · '+esc(x.ten)+' ('+esc(x.ma)+')'+(x.ngayDuyet?' · xử lý '+esc(x.ngayDuyet):'')+(x.ngayNhap?' · nhập Excel '+esc(x.ngayNhap):'')+'</div></div>'+
       '<span class="st '+stCls(x.st)+'">'+esc(x.st)+'</span></div>'+
       (x.note?'<div class="note">📝 <b>Người gửi:</b> '+esc(x.note)+'</div>':'')+
-      (x.dnote?'<div class="note">👑 <b>Chủ:</b> '+esc(x.dnote)+'</div>':'');
+      (x.dnote?'<div class="note">👑 <b>Chủ:</b> '+esc(x.dnote)+'</div>':'')+
+      (x.baocao?'<details class="note" style="margin-top:8px"><summary style="cursor:pointer;font-weight:700">📄 Báo cáo ghi vào file QUAN LY KHACH HANG</summary><pre style="white-space:pre-wrap;font:inherit;font-size:.8rem;margin:6px 0 0">'+esc(x.baocao)+'</pre></details>':'');
     veDot();
     var act=document.getElementById('dAct');
     if(d.owner && x.st==='CHỜ DUYỆT'){
-      act.innerHTML='<div class="lb">Duyệt đợt này</div><p class="hint" style="margin-top:0">Bỏ tick ở dòng sai để loại khỏi đợt. Dòng bị loại không được đưa vào Excel.</p>'+
+      act.innerHTML='<div class="lb">Duyệt đợt này</div><p class="hint" style="margin-top:0">Bỏ tick ở dòng sai để loại khỏi đợt. Bấm <b>Duyệt</b> là máy chủ ghi thẳng vào sheet DANH SACH LUU TRU của file <b>QUAN LY KHACH HANG</b> trên Drive (tự lưu bản backup trước). <b>Hãy đóng file này trên máy tính trước khi duyệt.</b></p>'+
+        '<div id="pv"></div>'+
         '<input type="text" id="aNote" placeholder="Ghi chú (bắt buộc khi Trả lại)">'+
-        '<div class="row2"><button class="btn ok" id="bDuyet" onclick="duyet()">✅ Duyệt</button><button class="btn bad" onclick="traLai()">↩️ Trả lại</button></div>';
+        '<div class="row2"><button class="btn o" id="bXem" onclick="xemTruoc()">👁 Xem trước</button><button class="btn ok" id="bDuyet" onclick="duyet()">✅ Duyệt &amp; ghi vào file</button><button class="btn bad" onclick="traLai()">↩️ Trả lại</button></div>';
       act.style.display='block';
     } else if(x.st==='CHỜ DUYỆT'){
       act.innerHTML='<button class="btn o big" onclick="huyDot()">🗑️ Huỷ đợt này (gửi nhầm)</button>';
       act.style.display='block';
-    } else if(d.owner && x.st==='ĐÃ DUYỆT'){
+    } else if(false){
       act.innerHTML='<p class="hint" style="margin-top:0">Đợt đã duyệt, đang chờ file Excel bấm <b>TẢI KHÁCH ĐÃ DUYỆT</b>.</p><input type="text" id="aNote" placeholder="Lý do huỷ duyệt"><div class="row2"><button class="btn bad" onclick="traLai()">↩️ Huỷ duyệt & trả lại</button></div>';
       act.style.display='block';
     }
@@ -486,14 +488,31 @@ function veDot(){
   if(!editable) [].forEach.call(document.querySelectorAll('#dList input[type=checkbox]'),function(c){c.disabled=true;});
 }
 function toggleRow(i,on){ if(on) OFF.delete(i); else OFF.add(i); veDot(); }
+function dongLoai(){ var d=CURDOT, remove=[]; OFF.forEach(function(i){ remove.push(d.rows[i].dong); }); return remove; }
+function veBaoCao(r){
+  return '<div class="note"><b>'+esc(r.tom||'')+'</b><pre style="white-space:pre-wrap;font:inherit;font-size:.8rem;margin:6px 0 0">'+esc((r.report||[]).join('\n'))+'</pre></div>';
+}
+function xemTruoc(){
+  var b=document.getElementById('bXem'); b.disabled=true; b.textContent='Đang đọc file…';
+  apiGet('preview='+encodeURIComponent(CURDOT.dot.id)+'&remove='+dongLoai().join(','))
+    .then(function(r){
+      b.disabled=false; b.textContent='👁 Xem trước';
+      if(!r||!r.ok){ toast('❌ '+((r&&r.err)||'Lỗi')); return; }
+      var c=r.counts; r.tom='Nếu duyệt: ghi vào phòng '+c.ghi+' · chèn '+c.chen+' dòng · chuyển phòng '+c.chuyen+' · đã có (bỏ qua) '+c.daco+' · xoá trắng '+c.xoatrang+(c.bo?' · bỏ qua HĐ cũ '+c.bo:'');
+      document.getElementById('pv').innerHTML=veBaoCao(r);
+    }).catch(function(){ b.disabled=false; b.textContent='👁 Xem trước'; toast('❌ Mất kết nối'); });
+}
 function duyet(){
-  var d=CURDOT, remove=[]; OFF.forEach(function(i){ remove.push(d.rows[i].dong); });
+  var d=CURDOT, remove=dongLoai();
   var con=d.rows.length-remove.length;
-  if(!confirm('Duyệt '+con+' khách'+(remove.length?' (loại '+remove.length+' dòng)':'')+'?')) return;
-  var b=document.getElementById('bDuyet'); b.disabled=true; b.textContent='Đang duyệt…';
+  if(!confirm('Duyệt '+con+' khách'+(remove.length?' (loại '+remove.length+' dòng)':'')+' và ghi vào file QUAN LY KHACH HANG trên Drive?\n\nNhớ đóng file này trên máy tính trước.')) return;
+  var b=document.getElementById('bDuyet'); b.disabled=true; b.textContent='Đang ghi vào file…';
   apiPost({act:'approve', id:d.dot.id, remove:remove, note:document.getElementById('aNote').value})
-    .then(function(r){ if(r&&r.ok){ toast('✅ Đã duyệt '+r.so+' khách'); moTab('cho'); } else { b.disabled=false; b.textContent='✅ Duyệt'; toast('❌ '+((r&&r.err)||'Lỗi')); } })
-    .catch(function(){ b.disabled=false; b.textContent='✅ Duyệt'; toast('❌ Mất kết nối'); });
+    .then(function(r){
+      if(r&&r.ok){ toast('✅ Đã ghi '+r.so+' khách vào file'); document.getElementById('dAct').innerHTML='<div class="lb">✅ Đã cập nhật file QUAN LY KHACH HANG</div>'+veBaoCao(r); }
+      else { b.disabled=false; b.textContent='✅ Duyệt & ghi vào file'; toast('❌ '+((r&&r.err)||'Lỗi')); }
+    })
+    .catch(function(){ b.disabled=false; b.textContent='✅ Duyệt & ghi vào file'; toast('❌ Mất kết nối — mở lại đợt để kiểm tra trạng thái'); });
 }
 function traLai(){
   var note=(document.getElementById('aNote')||{}).value||'';
