@@ -1,6 +1,6 @@
 // LUXHOME app tổng — service worker (shell cache cho cài đặt PWA)
-const CACHE = "luxhome-v80";
-const SHELL = ["./index.html", "./modules.js", "./luutru.html", "./bill.html", "./nv.html", "./nvadmin.html", "./thongbao.html", "./noibo.html", "./hopdong.html", "./congno.html", "./catalog.html", "./canho.html", "./manifest.webmanifest", "./manifest-nv.webmanifest", "./icon-192.png", "./icon-512.png"];
+const CACHE = "luxhome-v81";
+const SHELL = ["./index.html", "./modules.js", "./luutru.html", "./bill.html", "./nv.html", "./nvadmin.html", "./thongbao.html", "./noibo.html", "./hopdong.html", "./congno.html", "./catalog.html", "./canho.html", "./checkin.html", "./manifest.webmanifest", "./manifest-nv.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 // Cài đặt: chiếm quyền NGAY, nạp shell từng file (một file lỗi do mạng yếu không làm hỏng cập nhật)
 self.addEventListener("install", e => {

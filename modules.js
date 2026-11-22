@@ -14,5 +14,6 @@ window.LUX_MODULES = [
   { k:"noibo",    ic:"🔁", nm:"Hoạt động định kỳ",     en:"Periodic activities",   ds:"Vệ sinh, PCCC…",         url:"noibo.html",    staff:true },
   { k:"hopdong",  ic:"📄", nm:"Hợp đồng PDF",          en:"Contracts & annexes",   ds:"Tạo HĐ/PLHĐ",            url:"hopdong.html",  staff:true },
   { k:"congno",   ic:"💰", nm:"Theo dõi công nợ",      en:"Debt & payments",       ds:"Công nợ khách",          url:"congno.html",   staff:true },
+  { k:"checkin",  ic:"🛎️", nm:"Cập nhật khách check-in", en:"Check-in updates",  ds:"Gửi DS check-in chờ duyệt", url:"checkin.html", staff:true },
   { k:"canho",    ic:"🔑", nm:"Khóa / Mở căn hộ",      en:"Lock / open units",     ds:"Khoá/mở căn khi in-out", url:"canho.html",    staff:true },
 ];
