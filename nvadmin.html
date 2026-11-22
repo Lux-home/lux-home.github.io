@@ -155,7 +155,7 @@ function render(list){
       var ps=[].slice.call(box.querySelectorAll('.pm input:checked')).map(function(c){return c.getAttribute('data-k');});
       var npw=box.querySelector('.npw').value.trim();
       msg.textContent='Đang lưu…';
-      api('nvadmin=set&pw='+enc(PW)+'&ma='+enc(ma)+'&perms='+enc(ps.join(','))+(npw?'&nvpw='+enc(npw):'')+'&locked='+(locked?'1':'0')).then(function(d){ msg.textContent=d&&d.ok?'✓ Đã lưu':'Lỗi'; reload(); });
+      api('nvadmin=set&pw='+enc(PW)+'&ma='+enc(ma)+'&perms='+enc((window.luxPermsSave?window.luxPermsSave(ps):ps).join(','))+(npw?'&nvpw='+enc(npw):'')+'&locked='+(locked?'1':'0')).then(function(d){ msg.textContent=d&&d.ok?'✓ Đã lưu':'Lỗi'; reload(); });
     };
     box.querySelector('.lk').onclick=function(){ api('nvadmin=lock&pw='+enc(PW)+'&ma='+enc(ma)+'&lock='+(locked?'0':'1')).then(function(){ reload(); }); };
     box.querySelector('.del').onclick=function(){ if(!confirm('Xoá nhân viên '+ma+'?')) return; api('nvadmin=del&pw='+enc(PW)+'&ma='+enc(ma)).then(function(){ reload(); }); };
@@ -173,7 +173,7 @@ document.getElementById('addbtn').onclick=function(){
   var am=document.getElementById('amsg');
   if(!ma||!pw){ am.textContent='Cần có Mã NV và mật khẩu.'; return; }
   am.textContent='Đang thêm…';
-  api('nvadmin=set&pw='+enc(PW)+'&ma='+enc(ma)+'&ten='+enc(ten)+'&nvpw='+enc(pw)+'&perms='+enc(ps.join(','))+'&locked=0').then(function(d){
+  api('nvadmin=set&pw='+enc(PW)+'&ma='+enc(ma)+'&ten='+enc(ten)+'&nvpw='+enc(pw)+'&perms='+enc((window.luxPermsSave?window.luxPermsSave(ps):ps).join(','))+'&locked=0').then(function(d){
     if(d&&d.ok){ am.textContent='✓ Đã thêm '+ma; document.getElementById('n_ma').value='';document.getElementById('n_ten').value='';document.getElementById('n_pw').value='';[].slice.call(document.querySelectorAll('#n_perms input')).forEach(function(c){c.checked=false;}); reload(); }
     else am.textContent='Lỗi khi thêm.';
   });
