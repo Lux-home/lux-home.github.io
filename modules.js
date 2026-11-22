@@ -8,7 +8,7 @@
 window.LUX_MODULES = [
   { k:"quanlycanho", ic:"🏢", nm:"Quản lý căn hộ",     en:"Apartment management",  ds:"Danh mục · Khóa/Mở căn", url:"quanlycanho.html", staff:true },
   { k:"luutru",   ic:"🛂", nm:"Lưu trú & hạn visa",    en:"Residence & visa",      ds:"Nhắc gia hạn lưu trú",   url:"luutru.html",   staff:true },
-  { k:"quanlythanhtoan", ic:"💳", nm:"Quản lý thanh toán", en:"Payment management", ds:"Gửi hóa đơn · Công nợ", url:"quanlythanhtoan.html", staff:true },
+  { k:"quanlythanhtoan", ic:"💳", nm:"Quản lý thanh toán", en:"Payment management", ds:"Gửi hóa đơn · Theo dõi thanh toán", url:"quanlythanhtoan.html", staff:true },
   { k:"thongbao", ic:"📢", nm:"Thông báo cư dân",      en:"Resident notices",      ds:"Báo cư dân theo toà",    url:"thongbao.html", staff:true },
   { k:"nvadmin",  ic:"🧑‍💼", nm:"Quản lý quyền app phụ", en:"Staff app permissions", ds:"Phân quyền app phụ",     url:"nvadmin.html",  staff:false },
   { k:"noibo",    ic:"🔁", nm:"Hoạt động định kỳ",     en:"Periodic activities",   ds:"Vệ sinh, PCCC…",         url:"noibo.html",    staff:true },
