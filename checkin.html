@@ -73,6 +73,17 @@
   .kpW{font-size:.86rem;font-weight:700;padding:6px 10px;border-radius:8px;margin-top:6px}
   .kpW.r{background:var(--badbg);color:var(--bad)} .kpW.y{background:var(--warnbg);color:var(--warn)}
   .kpTag{display:inline-block;font-size:.72rem;font-weight:800;padding:2px 7px;border-radius:999px;background:rgba(14,123,168,.14);color:var(--cyan);margin-left:4px}
+  .hdC{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
+  .hdH{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;word-break:break-all}
+  .hdH span{display:flex;gap:6px}
+  .hdK{border-top:1px dashed var(--line);margin-top:10px;padding-top:8px}
+  .hdI{width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px}
+  .hdBar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:6px} .hdBar i{display:block;height:100%;background:var(--cyan)}
+  .kpW.g{background:var(--okbg);color:var(--ok)}
+  .napTab{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
+  .napB{flex:1 1 100px;display:flex;flex-direction:column;align-items:center;gap:2px;padding:10px 6px;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--fg);font:inherit;font-weight:800;font-size:.86rem;cursor:pointer}
+  .napB b{font-size:.72rem;color:var(--muted)}
+  .napB.on{background:linear-gradient(135deg,#26bdd8,#0e7ba8);color:#fff;border-color:transparent} .napB.on b{color:#e6f7fb}
 </style>
 </head>
 <body>
@@ -99,8 +110,14 @@
 
     <!-- GỬI DANH SÁCH -->
     <div id="v_gui" style="display:none">
-      <div class="card">
-        <div class="lb">1 · Chọn file DS Check-in</div>
+      <div class="napTab">
+        <button class="napB" data-n="excel" onclick="napChon('excel')"><b>1</b>📊 File Excel</button>
+        <button class="napB" data-n="le" onclick="napChon('le')"><b>2</b>👤 Khách lẻ</button>
+        <button class="napB" data-n="pdf" onclick="napChon('pdf')"><b>3</b>📑 Hợp đồng PDF</button>
+      </div>
+      <div class="card napP" id="napExcel">
+        <div class="lb">Nạp theo file Excel DS Check-in</div>
+        <div id="excelLoi"></div>
         <input type="file" id="fFile" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="docFile(this.files[0])">
         <button class="btn big" onclick="document.getElementById('fFile').click()">📂 Chọn file Excel (.xlsx)</button>
         <div id="fBox" style="display:none;margin-top:10px">
@@ -121,49 +138,57 @@
         </details>
         <p class="hint">Đúng định dạng file DS Check-in: cột A (STT) → AC (Ngày nhập cảnh). Dòng có số căn hộ ở cột B là khách chính; dòng trống cột B là người ở cùng.</p>
       </div>
+      <div class="card napP" id="napPdf" style="display:none">
+        <div class="lb">Nạp theo danh sách hợp đồng PDF</div>
+        <div id="pdfLoi"></div>
+        <input type="file" id="hdFile" accept="application/pdf,.pdf" multiple style="display:none" onchange="hdChon(this.files)">
+        <button class="btn big" onclick="document.getElementById('hdFile').click()">📑 Chọn hợp đồng PDF (bản quét)</button>
+        <p class="hint">Đặt tên file dạng <b>P301_T121_17.11-16.2.27_-_Megas.pdf</b> (căn hộ_tòa_ngày vào-ngày kết thúc_môi giới). App tự đọc hộ chiếu/CCCD, dấu nhập cảnh, phụ lục 03 &amp; 04 và ảnh chuyển khoản trong file; nhân viên kiểm tra rồi bấm <b>Đưa vào danh sách gửi</b>. Chọn được nhiều file một lúc.</p>
+        <div id="hdList"></div>
+      </div>
       <div class="card" id="preview" style="display:none">
-        <div class="lb">2 · Kiểm tra trước khi gửi</div>
+        <div class="lb">Kiểm tra trước khi gửi</div>
         <div class="sum" id="pSum"></div>
         <div id="pList"></div>
-        <div class="lb" style="margin-top:14px">3 · Ghi chú cho chủ (nếu có)</div>
+        <div class="lb" style="margin-top:14px">Ghi chú cho chủ (nếu có)</div>
         <input type="text" id="pNote" placeholder="VD: khách T103 chuyển phòng, đã thu đủ cọc…">
         <button class="btn big ok" style="margin-top:10px" id="btnGui" onclick="guiDuyet()">📤 Gửi chủ duyệt</button>
       </div>
-    </div>
-
     <!-- KHÁCH PHỤ -->
-    <div id="v_phu" style="display:none">
-      <div class="card">
-        <div class="lb">1 · Phòng của khách chính</div>
-        <div class="row2" style="margin-top:0"><input type="text" id="kpPhong" placeholder="VD: 402-T08" autocomplete="off" style="flex:1 1 160px" onkeydown="if(event.key==='Enter')kpTraPhong()"><button class="btn" style="flex:0 0 auto" onclick="kpTraPhong()">🔎 Kiểm tra</button></div>
-        <div id="kpPhongKQ" class="hint"></div>
-        <div class="lb" style="margin-top:14px">2 · Giấy tờ khách phụ</div>
-        <div class="row2" style="margin-top:0"><button class="btn kpLoai" data-v="NN" onclick="kpChonLoai('NN')">🌍 Người nước ngoài</button><button class="btn kpLoai o" data-v="VN" onclick="kpChonLoai('VN')">🇻🇳 Người Việt Nam</button></div>
-        <p class="hint" id="kpCan"></p>
-        <input type="file" id="kpFile" accept="image/*,application/pdf" multiple style="display:none" onchange="kpThemFile(this.files)">
-        <button class="btn big" onclick="document.getElementById('kpFile').click()">📷 Chụp / chọn ảnh giấy tờ</button>
-        <div id="kpFiles"></div>
-      </div>
-      <div class="card" id="kpForm" style="display:none">
-        <div class="lb">3 · Thông tin khách (app tự điền — kiểm tra lại)</div>
-        <div class="kpG">
-          <label class="kpL"><span>Họ tên</span><input type="text" id="kpTen" autocomplete="off" oninput="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
-          <label class="kpL"><span>Ngày sinh</span><input type="text" id="kpNgaySinh" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" oninput="kpGoNgay(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
-          <label class="kpL"><span>Giới tính</span><select id="kpGioi" onchange="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"><option value=""></option><option>Nam</option><option>Nữ</option></select></label>
-          <label class="kpL"><span>Số hộ chiếu</span><input type="text" id="kpHC" autocomplete="off" oninput="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
-          <label class="kpL"><span>Số CCCD</span><input type="text" id="kpCCCD" inputmode="numeric" autocomplete="off" oninput="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
-          <label class="kpL"><span id="kpLbNuoc">Quốc tịch (nước)</span><input type="text" id="kpNuoc" autocomplete="off" oninput="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+      <div id="v_phu" class="napP" style="display:none">
+        <div class="card">
+          <div class="lb">1 · Phòng của khách chính</div>
+          <div class="row2" style="margin-top:0"><input type="text" id="kpPhong" placeholder="VD: 402-T08" autocomplete="off" style="flex:1 1 160px" onkeydown="if(event.key==='Enter')kpTraPhong()"><button class="btn" style="flex:0 0 auto" onclick="kpTraPhong()">🔎 Kiểm tra</button></div>
+          <div id="kpPhongKQ" class="hint"></div>
+          <div class="lb" style="margin-top:14px">2 · Giấy tờ khách phụ</div>
+          <div class="row2" style="margin-top:0"><button class="btn kpLoai" data-v="NN" onclick="kpChonLoai('NN')">🌍 Người nước ngoài</button><button class="btn kpLoai o" data-v="VN" onclick="kpChonLoai('VN')">🇻🇳 Người Việt Nam</button></div>
+          <p class="hint" id="kpCan"></p>
+          <input type="file" id="kpFile" accept="image/*,application/pdf" multiple style="display:none" onchange="kpThemFile(this.files)">
+          <button class="btn big" onclick="document.getElementById('kpFile').click()">📷 Chụp / chọn ảnh giấy tờ</button>
+          <div id="kpFiles"></div>
         </div>
-        <div class="kpG" id="kpRowNN">
-          <label class="kpL"><span>Hạn lưu trú</span><input type="text" id="kpHan" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" oninput="kpGoNgay(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
-          <label class="kpL"><span>Ngày nhập cảnh</span><input type="text" id="kpNhap" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" oninput="kpGoNgay(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+        <div class="card" id="kpForm" style="display:none">
+          <div class="lb">3 · Thông tin khách (app tự điền — kiểm tra lại)</div>
+          <div class="kpG">
+            <label class="kpL"><span>Họ tên</span><input type="text" id="kpTen" autocomplete="off" oninput="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+            <label class="kpL"><span>Ngày sinh</span><input type="text" id="kpNgaySinh" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" oninput="kpGoNgay(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+            <label class="kpL"><span>Giới tính</span><select id="kpGioi" onchange="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"><option value=""></option><option>Nam</option><option>Nữ</option></select></label>
+            <label class="kpL"><span>Số hộ chiếu</span><input type="text" id="kpHC" autocomplete="off" oninput="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+            <label class="kpL"><span>Số CCCD</span><input type="text" id="kpCCCD" inputmode="numeric" autocomplete="off" oninput="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+            <label class="kpL"><span id="kpLbNuoc">Quốc tịch (nước)</span><input type="text" id="kpNuoc" autocomplete="off" oninput="kpSua(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+          </div>
+          <div class="kpG" id="kpRowNN">
+            <label class="kpL"><span>Hạn lưu trú</span><input type="text" id="kpHan" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" oninput="kpGoNgay(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+            <label class="kpL"><span>Ngày nhập cảnh</span><input type="text" id="kpNhap" inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" autocomplete="off" oninput="kpGoNgay(this)" style="width:100%;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px"></label>
+          </div>
+          <div id="kpWarn" style="margin-top:10px"></div>
+          <input type="text" id="kpNote" placeholder="Ghi chú cho chủ (nếu có)" style="margin-top:10px">
+          <button class="btn big ok" style="margin-top:10px" id="kpGuiBtn" onclick="kpGui()">📤 Gửi chủ duyệt</button>
+          <button class="btn o" style="margin-top:8px" onclick="kpMoi()">🧹 Làm lại từ đầu</button>
         </div>
-        <div id="kpWarn" style="margin-top:10px"></div>
-        <input type="text" id="kpNote" placeholder="Ghi chú cho chủ (nếu có)" style="margin-top:10px">
-        <button class="btn big ok" style="margin-top:10px" id="kpGuiBtn" onclick="kpGui()">📤 Gửi chủ duyệt</button>
-        <button class="btn o" style="margin-top:8px" onclick="kpMoi()">🧹 Làm lại từ đầu</button>
       </div>
-    </div>
+  
+      </div>
 
     <!-- ĐỔI MẬT KHẨU (chỉ chủ) -->
     <div id="v_pw" style="display:none">
@@ -248,8 +273,8 @@ function start(){
     }
     ME=d;
     document.getElementById('who').textContent = d.owner ? '👑 Chủ nhà · quyền duyệt' : ('👤 '+d.ten+' · Mã NV '+d.ma);
-    var tabs = d.owner ? [['cho','⏳ Chờ duyệt'],['gui','📤 Gửi danh sách'],['phu','👥 Khách phụ'],['ls','📚 Lịch sử'],['pw','🔑 Mật khẩu']]
-                       : [['gui','📤 Gửi danh sách'],['phu','👥 Khách phụ'],['cua','📋 Đợt của tôi']];
+    var tabs = d.owner ? [['cho','⏳ Chờ duyệt'],['gui','📥 Nạp danh sách khách'],['ls','📚 Lịch sử'],['pw','🔑 Mật khẩu']]
+                       : [['gui','📥 Nạp danh sách khách'],['cua','📋 Đợt của tôi']];
     document.getElementById('tabs').innerHTML = tabs.map(function(t){ return '<button class="tab" data-k="'+t[0]+'" onclick="moTab(\''+t[0]+'\')">'+t[1]+(t[0]==='cho'?'<span class="n" id="nCho" style="display:none"></span>':'')+'</button>'; }).join('');
     show('app');
     moTab(d.owner?'cho':'gui');
@@ -290,8 +315,7 @@ function moTab(k){
   document.getElementById('v_list').style.display = (k==='cho'||k==='ls'||k==='cua')?'block':'none';
   document.getElementById('v_dot').style.display = 'none';
   document.getElementById('v_pw').style.display = k==='pw'?'block':'none';
-  document.getElementById('v_phu').style.display = k==='phu'?'block':'none';
-  if(k==='phu'){ kpMo(); if(ME&&ME.owner) demCho(); return; }
+  if(k==='gui') napChon(NAP);
   if(k==='pw') return;
   if(k!=='gui') taiDanhSach();
   else if(ME&&ME.owner) demCho();
@@ -341,6 +365,8 @@ function phanTich(){
     if(!ten || /^t[eê]n kh[aá]ch$/i.test(ten) || /^=/.test(ten)) return;
     rows.push(chuanHoa(r));
   });
+  if(!rows.length){ napLoi('excelLoi',['⛔ Dữ liệu dán không đúng định dạng: bôi đen các dòng khách từ cột A (STT) đến AC (Ngày nhập cảnh) trong file DS Check-in rồi dán lại. Cột D phải là mã phòng dạng 301-T121.']); return; }
+  napLoi('excelLoi',[]);
   hienThu(rows);
 }
 function chuanHoa(r){
@@ -413,7 +439,7 @@ function veDanhSach(rows, el, sumEl, off, dongNo){
 }
 function fm(v){ var n=String(v||''); return /^-?\d+(\.\d+)?$/.test(n)?Math.round(Number(n)).toLocaleString('vi-VN'):esc(v||'?'); }
 function pctTxt(v){ var n=Number(v); return isFinite(n)&&n<=1?Math.round(n*100)+'%':esc(v); }
-function xoaDan(){ document.getElementById('paste').value=''; PARSED=[]; FROWS=[]; document.getElementById('fBox').style.display='none'; document.getElementById('fFile').value=''; document.getElementById('preview').style.display='none'; }
+function xoaDan(){ document.getElementById('paste').value=''; PARSED=[]; FROWS=[]; HD=[]; if(document.getElementById('hdList')) hdVe(); document.getElementById('fBox').style.display='none'; document.getElementById('fFile').value=''; document.getElementById('preview').style.display='none'; }
 
 // ===== Đọc file DS Check-in (.xlsx) ngay trên máy, không tải file lên máy chủ =====
 var WB=null, FROWS=[];
@@ -422,13 +448,23 @@ function napThuVien(cb){
   var sc=document.createElement('script'); sc.src='https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
   sc.onload=cb; sc.onerror=function(){ toast('❌ Không tải được bộ đọc Excel — kiểm tra mạng'); }; document.head.appendChild(sc);
 }
+function napLoi(id, list){
+  var el=document.getElementById(id); if(!el) return;
+  el.innerHTML=(list||[]).map(function(x){ var c=x.charAt(0); return '<div class="kpW '+(c==='⛔'?'r':c==='✅'?'g':'y')+'">'+esc(x)+'</div>'; }).join('');
+  if(list&&list.length) el.scrollIntoView({behavior:'smooth',block:'nearest'});
+}
 function docFile(f){
   if(!f) return;
+  napLoi('excelLoi',[]);
+  if(!/\.(xlsx|xlsm|xls)$/i.test(f.name)){
+    napLoi('excelLoi',['⛔ "'+f.name+'" không phải file Excel. Mục 1 chỉ nhận file DS Check-in dạng .xlsx'+(/\.pdf$/i.test(f.name)?' — file hợp đồng PDF hãy dùng mục 3 (Hợp đồng PDF).':/\.(jpe?g|png|heic)$/i.test(f.name)?' — ảnh giấy tờ hãy dùng mục 2 (Khách lẻ).':'.')]);
+    document.getElementById('fFile').value=''; return;
+  }
   toast('Đang đọc file…');
   napThuVien(function(){
     var rd=new FileReader();
     rd.onload=function(e){
-      try{ WB=XLSX.read(new Uint8Array(e.target.result),{type:'array'}); }catch(err){ toast('❌ File không đọc được'); return; }
+      try{ WB=XLSX.read(new Uint8Array(e.target.result),{type:'array'}); }catch(err){ napLoi('excelLoi',['⛔ File "'+f.name+'" bị lỗi hoặc có mật khẩu — không đọc được. Mở bằng Excel, lưu lại dạng .xlsx rồi chọn lại.']); return; }
       var sel=document.getElementById('fSheet'); sel.innerHTML='';
       WB.SheetNames.forEach(function(n){ var o=document.createElement('option'); o.value=n; o.textContent=n; sel.appendChild(o); });
       sel.value=WB.SheetNames[WB.SheetNames.length-1];   // mặc định sheet tháng mới nhất (cuối cùng)
@@ -455,8 +491,12 @@ function docSheet(){
   var A=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:''});
   var hr=-1, map={};
   for(var i=0;i<Math.min(A.length,15);i++){ if(A[i].some(function(c){return hdrKey(c)==='TENKHACH';})){ hr=i; break; } }
-  if(hr<0){ toast('Sheet này không có cột "Tên khách"'); FROWS=[]; locNgay(); return; }
+  var shn=document.getElementById('fSheet').value;
+  if(hr<0){ napLoi('excelLoi',['⛔ Sheet "'+shn+'" không đúng định dạng DS Check-in: không thấy dòng tiêu đề có cột "Tên khách". Chọn đúng sheet tháng (VD: TH 11).']); FROWS=[]; document.getElementById('preview').style.display='none'; PARSED=[]; return; }
   A[hr].forEach(function(c,j){ var k=fieldOf(hdrKey(c)); if(k>=0 && !(k in map)) map[k]=j; });
+  var thieu=[[3,'Mã CH'],[11,'Bắt đầu HĐ']].filter(function(x){ return !(x[0] in map); }).map(function(x){ return x[1]; });
+  if(!(8 in map) && !(9 in map)) thieu.push('CCCD hoặc Hộ chiếu');
+  var LOI=[]; if(thieu.length) LOI.push('⛔ Sheet "'+shn+'" thiếu cột: '+thieu.join(', ')+' — file không đúng mẫu DS Check-in (cột A → AC).');
   for(var k=0;k<NCOL;k++) if(!(k in map) && hdrKey(A[hr][k])==='') map[k]=k;   // cột phụ không tiêu đề → đúng vị trí
   FROWS=[]; var lastStart='';
   for(var r=hr+1;r<A.length;r++){
@@ -467,6 +507,9 @@ function docSheet(){
     if(laChinh(o)) lastStart=o[11];
     FROWS.push({r:o, start:laChinh(o)?o[11]:lastStart});
   }
+  if(!FROWS.length) LOI.push('⛔ Sheet "'+shn+'" không có dòng khách nào hợp lệ: cột Mã CH phải dạng 301-T121 và có Tên khách.');
+  napLoi('excelLoi', LOI);
+  if(!FROWS.length){ document.getElementById('preview').style.display='none'; PARSED=[]; return; }
   locNgay();
 }
 function cellTxt(v,k){
@@ -510,7 +553,7 @@ function guiDuyet(){
   var nE=PARSED.filter(function(r){return kiemTra(r).e.length;}).length;
   if(nE && !confirm('Có '+nE+' dòng đang lỗi (⛔). Vẫn gửi để chủ xem?')) return;
   var b=document.getElementById('btnGui'); b.disabled=true; b.textContent='Đang gửi…';
-  apiPost({act:'submit', rows:PARSED, note:document.getElementById('pNote').value})
+  apiPost({act:'submit', rows:PARSED, files:hdGiay(), note:document.getElementById('pNote').value})
     .then(function(d){
       b.disabled=false; b.textContent='📤 Gửi chủ duyệt';
       if(!d||!d.ok){ toast('❌ '+((d&&d.err)||'Gửi không được')); return; }
@@ -675,7 +718,7 @@ function kpCk(s){                            // số kiểm tra MRZ (7-3-1)
 function kpSo(s){ return s.replace(/[OQD]/g,'0').replace(/[IL]/g,'1').replace(/Z/g,'2').replace(/S/g,'5').replace(/B/g,'8').replace(/G/g,'6'); }
 // Hộ chiếu: đọc 2 dòng mã MRZ cuối trang thông tin
 function kpMRZ(text){
-  var L=String(text||'').toUpperCase().replace(/[«‹]/g,'<').split(/\n/).map(function(l){ return l.replace(/\s+/g,''); })
+  var L=String(text||'').toUpperCase().replace(/\\/g,'').replace(/[«‹]/g,'<').split(/\n/).map(function(l){ return l.replace(/\s+/g,''); })
         .filter(function(l){ return l.length>=28 && /^[A-Z0-9<]+$/.test(l) && /</.test(l); });
   for(var i=0;i<L.length;i++){
     var l2=L[i];
@@ -830,7 +873,13 @@ function kpQRDoc(c){              // đọc mã QR trên CCCD (nếu có)
 function kpThemFile(list){
   [].forEach.call(list||[], function(file){
     var f={ ten:file.name||'anh.jpg', st:'doc', loai:'', kq:null, text:'', qr:'', id:'' };
-    KP.files.push(f); kpVeFiles();
+    KP.files.push(f);
+    if(!/^image\/|^application\/pdf$/.test(file.type||'') && !/\.(jpe?g|png|webp|pdf)$/i.test(f.ten)){
+      f.st='loi'; f.err='Sai định dạng — mục 2 chỉ nhận ảnh chụp giấy tờ (JPG/PNG) hoặc visa điện tử PDF'+(/\.xls/i.test(f.ten)?'. File Excel hãy dùng mục 1.':'');
+      kpVeFiles(); kpTinh(); return;
+    }
+    if(file.type==='application/pdf' && file.size>8*1024*1024){ f.st='loi'; f.err='PDF quá lớn — nếu là hợp đồng nhiều trang hãy dùng mục 3 (Hợp đồng PDF)'; kpVeFiles(); kpTinh(); return; }
+    kpVeFiles();
     kpNen(file).then(function(z){
       return kpQRDoc(z.canvas).then(function(qr){
         f.qr=qr;
@@ -852,12 +901,13 @@ function kpDoiLoai(i, v){
   f.kq=f.kq||{}; f.kq.loai=v; f.ep=true;
   kpVeFiles(); kpTinh();
 }
+function kpNhanRa(f){ var k=f.kq||{}; return !!(k.ten||k.hoChieu||k.cccd||k.nhapCanh||k.hanLuuTru||k.denNgay||f.loai==='visa'||f.loai==='khac'&&f.ep); }
 function kpXoaFile(i){ KP.files.splice(i,1); kpVeFiles(); kpTinh(); }
 function kpVeFiles(){
   document.getElementById('kpFiles').innerHTML = KP.files.map(function(f,i){
     var st = f.st==='doc' ? '<span class="muted">⏳ Đang đọc…</span>' : f.st==='loi' ? '<span class="err" style="margin:0">❌ '+esc(f.err||'Lỗi')+'</span>'
       : '<select onchange="kpDoiLoai('+i+',this.value)" class="kpSel">'+Object.keys(KP_LOAI).map(function(k){ return '<option value="'+k+'"'+(k===f.loai?' selected':'')+'>'+KP_LOAI[k]+'</option>'; }).join('')+'</select>'+
-        (f.kq && f.kq.loai==='hc' && !f.kq.ten && !f.ep ? '' : '');
+        (kpNhanRa(f) ? '' : '<div class="kpW y" style="margin-top:4px">⚠️ Không nhận ra giấy tờ trong ảnh — chọn đúng loại hoặc chụp lại rõ, thẳng, đủ sáng</div>');
     return '<div class="kpFile"><div class="kpFn">📄 '+esc(f.ten)+'</div><div class="kpFs">'+st+'<button class="btn o kpX" onclick="kpXoaFile('+i+')">✕</button></div></div>';
   }).join('');
 }
@@ -921,7 +971,8 @@ function kpCanhBao(g){
     if(!c && !v('kpHC')) w.push('⛔ Chưa có số CCCD hoặc hộ chiếu');
     else if(c && c.length!==12) w.push('⚠️ Số CCCD không đủ 12 số');
   }
-  if(KP.files.some(function(f){ return f.st==='loi'; })) w.push('⚠️ Có ảnh đọc lỗi — xoá và chụp lại');
+  if(KP.files.some(function(f){ return f.st==='loi'; })) w.push('⛔ Có file sai định dạng hoặc đọc lỗi — xoá và chọn lại');
+  if(KP.files.some(function(f){ return f.st==='xong' && !kpNhanRa(f); })) w.push('⚠️ Có ảnh không nhận ra giấy tờ — kiểm tra lại ảnh');
   return w;
 }
 function kpGui(){
@@ -959,6 +1010,295 @@ function kpFilesHtml(x){
     (fs.length?'<div class="note">📎 <b>Giấy tờ:</b> '+fs.map(function(f){ return '<a href="https://drive.google.com/file/d/'+encodeURIComponent(f.id)+'/view" target="_blank" rel="noopener">'+esc(f.loai||f.ten)+'</a>'; }).join(' · ')+'</div>':'');
 }
 
+
+// ===== Cập nhật theo HỢP ĐỒNG PDF (bản quét) =====
+// Tên file mẫu: P301_T121_17.11-16.2.27_-_Megas.pdf → phòng 301-T121, 17/11 → 16/02/2027, môi giới Megas
+function hdTenFile(name){
+  var s=String(name||'').replace(/\.pdf$/i,'').replace(/_+/g,' ').replace(/\s+/g,' ').trim(), o={};
+  var m=s.match(/^P?\s*([A-Z0-9]{1,6})\s*[- ]\s*(T?\s*\d+[A-Z]?)\s+(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?\s*-\s*(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})\s*(.*)$/i);
+  if(!m) return o;
+  var bld=m[2].replace(/\s/g,'').toUpperCase(); if(/^\d/.test(bld)) bld='T'+bld;
+  o.apt=m[1].toUpperCase(); o.bld=bld; o.room=o.apt+'-'+bld;
+  var ey=+m[8]; if(ey<100) ey+=2000;
+  o.end=kp2(+m[6])+'/'+kp2(+m[7])+'/'+ey;
+  var sy=m[5]?(+m[5]<100?2000+(+m[5]):+m[5]):((+m[4])>(+m[7])?ey-1:ey);
+  o.start=kp2(+m[3])+'/'+kp2(+m[4])+'/'+sy;
+  var mg=m[9].replace(/^[-\s]+/,'').replace(/\s+\d+$/,'').trim(); if(mg) o.mg=mg;
+  return o;
+}
+function hdSo(s){ return String(s||'').replace(/\D/g,''); }
+function hdTien(t){                                  // các số tiền trong đoạn văn: "8.000.000", "3.7.3.3.000", "150,000"
+  var out=[], re=/\d[\d.,]*[.,]\d{3}(?![\d])/g, m;
+  while((m=re.exec(t))){ var d=hdSo(m[0]); if(d.length>=4 && d.length<=10) out.push(+d); }
+  return out;
+}
+function hdSau(t, nhan, n){ var i=t.search(nhan); return i<0?'':t.slice(i, i+(n||260)); }
+function hdTienSau(t, nhan, min, n){ var a=hdTien(hdSau(t,nhan,n)).filter(function(x){ return x>=(min||0); }); return a.length?a[0]:''; }
+
+function hdDocTrang(pages){                          // pages: [{text, qr}] theo thứ tự trang
+  var hd={ khach:[], ck:[], canhBao:[], coPL3:false, coPL4:false, coHD:false }, last=null, dauCho=[];
+  pages.forEach(function(p, idx){
+    var t=String(p.text||'').replace(/\\([<*#])/g,'$1'), U=t.toUpperCase();
+    var hc=kpMRZ(t);
+    if(hc && hc.hoChieu){
+      var cu=hd.khach.filter(function(k){ return k.hc===hc.hoChieu; })[0];
+      if(!cu){ cu={ ten:hc.ten, ns:hc.ngaySinh, gt:hc.gioiTinh, hc:hc.hoChieu, cccd:'', nuoc:hc.nuoc, nn:hc.maNuoc!=='VNM', chac:hc.chac, han:'', nhap:'', trang:idx+1 }; hd.khach.push(cu);
+        dauCho.forEach(function(d){ if(!cu.nhap) cu.nhap=d.nhapCanh||''; if(!cu.han) { cu.han=d.hanLuuTru||''; cu.hanTay=!!d.hanLuuTru; } }); dauCho=[]; }
+      last=cu; return;
+    }
+    var cc=(p.qr&&kpQR(p.qr)) || kpCCCD(t);
+    if(cc && (cc.cccd||cc.ten)){
+      var c2=hd.khach.filter(function(k){ return cc.cccd && k.cccd===cc.cccd; })[0];
+      if(!c2){ hd.khach.push(c2={ ten:cc.ten||'', ns:cc.ngaySinh||'', gt:cc.gioiTinh||'', hc:'', cccd:cc.cccd||'', nuoc:cc.diaChi||'', nn:false, chac:!!cc.chac, han:'', nhap:'', trang:idx+1 }); }
+      last=c2; return;
+    }
+    if(/CHUY[ỂE]N\s*TI[ỀE]N|GIAO\s*D[ỊI]CH|TRANSFER|SUCCESSFUL|TH[ÀA]NH\s*C[ÔO]NG/.test(U)){
+      var tien=t.match(/(\d{1,3}(?:[.,]\d{3})+)\s*(?:VND|VNĐ|đ)/i);
+      if(tien){ hd.ck.push({ so:+hdSo(tien[1]), coc:/C[ỌO]C/i.test(t), trang:idx+1 }); return; }
+    }
+    if(/APPENDIX\s*0?3|PH[ỤU]\s*L[ỤU]C\s*0?3|SERVICE\s*PRICE\s*TABLE/.test(U)){
+      hd.coPL3=true;
+      hd.phong = hd.phong || hdTienSau(t,/rental price|Đơn giá thuê phòng/i,300000);
+      hd.coc = hd.coc || hdTienSau(t,/deposit|tiền đặt cọc/i,300000);
+      var sn=hdSau(t,/registered occupants|Số người đăng ký/i,120).match(/person\W*(\d{1,2})\b/i); if(sn) hd.soNguoi=sn[1];
+      var dk=hdSau(t,/nhận phòng|meter reading/i,80).match(/\b(\d{2,6})(?:[.,]\d)?\b/); if(dk) hd.dien=dk[1];
+      hd.nuoc = hd.nuoc || hdTienSau(t,/Đơn giá nước|water/i,1000);
+      hd.dv = hd.dv || hdTienSau(t,/Service fee|Phí dịch vụ/i,1000);
+      var nt=t.match(/ng[àa]y\s*\/\s*day\W*(\d{1,2})\b/i); if(nt) hd.ngayTT=nt[1];
+    }
+    if(/FIRST\s*CHECK\s*IN\s*PAYMENT|THANH\s*TO[ÁA]N\s*Đ[ỢO]T\s*1|FIRST\s*INSTALLMENT|FIRST\s*APARTMENT\s*RENT/.test(U)){
+      hd.coPL4=true;
+      var ds=t.match(/\d{1,2}\/\d{1,2}\/\d{4}/g)||[]; if(ds.length>=2){ hd.ngayVao=kpChuan(ds[0]); hd.hetDot1=kpChuan(ds[1]); }
+      var nums=hdSau(t,/First apartment rent|Tiền thuê căn hộ đợt 1/i,300).match(/\d[\d.,]*\d|\d/g)||[];
+      var vals=nums.map(hdSo).filter(String).map(Number), d1=kpDate(hd.ngayVao), d2=kpDate(hd.hetDot1), ngay=(d1&&d2)?Math.round((d2-d1)/864e5)+1:0;
+      var lon=vals.filter(function(x){ return x>=10000; });
+      if(lon.length){ hd.tpd1 = lon.length>1 ? lon[1] : lon[0]; if(lon.length>1 && !hd.phong) hd.phong=lon[0]; }
+      if(ngay) hd.soNgay=ngay;
+      hd.tong = hdTienSau(t,/Total amount|Tổng số tiền/i,100000,200) || hd.tong;
+      if(!hd.coc) hd.coc=hdTienSau(t,/Security deposit|Tiền đặt cọc/i,300000,120);
+    }
+    if(/H[ỢO]P\s*Đ[ỒO]NG\s*THU[ÊE]|LEASE\s*CONTRACT/.test(U)) hd.coHD=true;
+    if(/H[ỢO]P\s*Đ[ỒO]NG\s*THU[ÊE]|LEASE\s*CONTRACT/.test(U) && /PARTY\s*B|B[ÊE]N\s*THU[ÊE]/.test(U)){
+      var b=t.split(/B[ÊE]N\s*THU[ÊE]|THE\s*LESSEE/i).slice(1).join(' ');
+      var hcB=hdSo((b.match(/Passport\s*No[^\n]*\n+[^\n]*?([\d.\s]{8,})/i)||[])[1]);
+      if(hcB) hd.hcHopDong=hcB;
+      var dt=(b.match(/(\+\s*\d[\d\s.\-]{7,}\d)/)||b.match(/\b(0\d[\d\s.\-]{7,}\d)/)||[])[1];
+      if(dt && hdSo(dt)!==hcB) hd.sdt=dt.replace(/[\s.\-]/g,'');
+    }
+    var dau=kpDau(t);
+    if(t.length<1500 && (dau.nhapCanh || /PERMIT|REMAIN\s*UNTIL|IMMIGRATION|NH[ẬA]P\s*C[ẢA]NH/.test(U))){
+      if(last){ if(!last.nhap) last.nhap=dau.nhapCanh||''; if(!last.han && dau.hanLuuTru){ last.han=dau.hanLuuTru; last.hanTay=true; } }
+      else dauCho.push(dau);
+    }
+  });
+  // khách chính: người có số hộ chiếu trùng trang 1 hợp đồng, không thì người đầu tiên
+  if(hd.hcHopDong){ var i=-1; hd.khach.forEach(function(k,j){ if(i<0 && k.hc && hdSo(k.hc)===hd.hcHopDong) i=j; }); if(i>0) hd.khach.unshift(hd.khach.splice(i,1)[0]); }
+  return hd;
+}
+function kpChuan(d){ var m=String(d).match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); return m?kp2(+m[1])+'/'+kp2(+m[2])+'/'+m[3]:''; }
+
+// Gộp tên file + nội dung → bản ghi hợp đồng có thể sửa
+function hdTaoBanGhi(fileName, doc){
+  var f=hdTenFile(fileName), d=doc;
+  return { file:fileName,
+    room:f.room||'', start:f.start||d.ngayVao||'', end:f.end||'', mg:f.mg||'',
+    phong:d.phong||'', coc:d.coc||'', soNguoi:d.soNguoi||String(d.khach.length||''), dien:d.dien||'', nuoc:d.nuoc||'', dv:d.dv||'',
+    hetDot1:d.hetDot1||'', tpd1:d.tpd1||'', tong:d.tong||'', sdt:d.sdt||'', lh:'', muc:'', phiHH:'',
+    khach:d.khach, ck:d.ck, soNgay:d.soNgay||'', tuTen:!!f.room };
+}
+function hdCanhBao(h){
+  var w=[], hom=new Date(), n=function(x){ return Number(hdSo(x))||0; }; hom.setHours(0,0,0,0);
+  if(h.coHD===false && !h.khach.length) w.push('⛔ File này không giống hợp đồng thuê: không thấy trang hợp đồng, hộ chiếu hay CCCD nào');
+  if(!h.tuTen) w.push('⚠️ Tên file sai định dạng (cần P301_T121_17.11-16.2.27_-_MôiGiới.pdf) — kiểm tra mã phòng, ngày HĐ, môi giới đã gõ');
+  if(!h.room) w.push('⛔ Chưa có mã phòng — gõ vào ô Mã phòng (dạng 301-T121)');
+  else if(!ROOM_RE.test(h.room)) w.push('⛔ Mã phòng "'+h.room+'" sai định dạng — cần dạng 301-T121');
+  if(h.coPL3===false) w.push('⚠️ Không thấy Phụ lục 03 (bảng đơn giá) — kiểm tra tiền phòng, cọc, điện, nước');
+  if(h.coPL4===false) w.push('⚠️ Không thấy Phụ lục 04 (thanh toán đợt 1) — kiểm tra tiền phòng đợt 1, tổng đợt 1');
+  if(!kpDate(h.start)) w.push('⛔ Chưa có ngày bắt đầu HĐ');
+  if(!kpDate(h.end)) w.push('⚠️ Chưa có ngày kết thúc HĐ');
+  if(!h.khach.length) w.push('⛔ Không đọc được hộ chiếu/CCCD nào trong file');
+  if(!n(h.phong)) w.push('⚠️ Chưa có tiền phòng');
+  if(!n(h.coc)) w.push('⚠️ Chưa có tiền cọc');
+  if(!h.sdt) w.push('⚠️ Chưa có SĐT khách');
+  h.khach.forEach(function(k){
+    var nm=k.ten||'(chưa có tên)';
+    if(k.nn){
+      var hd=kpDate(k.han);
+      if(!k.han) w.push('⚠️ '+nm+': chưa có hạn lưu trú — xem dấu nhập cảnh trong PDF và gõ vào');
+      else if(!hd) w.push('⛔ '+nm+': hạn lưu trú không hợp lệ');
+      else if(hd<hom) w.push('⛔ '+nm+': QUÁ HẠN LƯU TRÚ ('+k.han+')');
+      else if(k.hanTay && !k.hanSua) w.push('⚠️ '+nm+': hạn lưu trú đọc từ chữ viết tay — kiểm tra lại');
+      if(!k.hc) w.push('⛔ '+nm+': chưa có số hộ chiếu');
+      if(k.chac===false) w.push('⚠️ '+nm+': mã hộ chiếu đọc chưa chắc — kiểm tra số HC, ngày sinh');
+    } else if(!k.cccd && !k.hc) w.push('⛔ '+nm+': chưa có CCCD/hộ chiếu');
+  });
+  var p=n(h.phong), c=n(h.coc), t1=n(h.tpd1), tg=n(h.tong);
+  if(p && h.soNgay && t1 && Math.abs(Math.round(p/30*h.soNgay)-t1)>1000) w.push('⚠️ Tiền phòng đợt 1 ('+fm(t1)+') khác cách tính '+fm(p)+'/30×'+h.soNgay+' ngày = '+fm(Math.round(p/30*h.soNgay)));
+  if(tg && t1 && c && t1+c!==tg) w.push('⚠️ Tổng đợt 1 ('+fm(tg)+') ≠ tiền phòng đợt 1 + cọc ('+fm(t1+c)+')');
+  if(h.ck.length){
+    var s=h.ck.reduce(function(a,x){ return a+x.so; },0), cocCK=h.ck.filter(function(x){ return x.coc; }).reduce(function(a,x){ return a+x.so; },0);
+    var txt=h.ck.length+' giao dịch = '+fm(s)+(cocCK?' (cọc '+fm(cocCK)+')':'');
+    if(tg && s===tg) w.push('✅ Chuyển khoản trong PDF: '+txt+' — khớp tổng đợt 1');
+    else if(tg) w.push('⚠️ Chuyển khoản trong PDF: '+txt+' — KHÔNG khớp tổng đợt 1 ('+fm(tg)+')');
+    else w.push('💳 Chuyển khoản trong PDF: '+txt);
+  } else w.push('⚠️ Không thấy ảnh chuyển khoản trong PDF');
+  return w;
+}
+function hdRows(h){
+  var p=h.room.indexOf('-'), apt=p>0?h.room.slice(0,p):'', bld=p>0?h.room.slice(p+1):'', rows=[];
+  h.khach.forEach(function(k,i){
+    var r=[]; for(var j=0;j<NCOL;j++) r.push('');
+    r[1]=i===0?apt:''; r[2]=bld; r[3]=h.room; r[4]=k.nn?String(k.ten||'').toUpperCase():k.ten; r[5]=k.ns; r[6]=k.nn?'NN':'VN'; r[7]=k.gt;
+    r[8]=hdSo(k.cccd); r[9]=String(k.hc||'').toUpperCase(); r[10]=k.nuoc; r[13]=k.nn?k.han:''; r[28]=k.nn?k.nhap:'';
+    if(i===0){
+      r[11]=h.start; r[12]=h.end; r[14]=hdSo(h.coc); r[15]=hdSo(h.phong); r[16]=String(h.soNguoi||''); r[17]=hdSo(h.dien);
+      r[18]=hdSo(h.nuoc); r[19]=hdSo(h.dv); r[20]=h.hetDot1; r[21]=h.mg; r[22]=h.lh; r[23]=h.sdt;
+      r[24]=h.muc?normPct(h.muc):''; r[25]=hdSo(h.phiHH); r[26]=hdSo(h.tpd1); r[27]=hdSo(h.tong);
+    }
+    rows.push(r);
+  });
+  return rows;
+}
+
+// --- giao diện hợp đồng PDF
+var HD=[], HD_SEQ=0, hdPdf=null;
+function hdTaiPdfJs(){
+  return hdPdf || (hdPdf=new Promise(function(ok,no){
+    var s=document.createElement('script'); s.src='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.min.js';
+    s.onload=function(){ window.pdfjsLib.GlobalWorkerOptions.workerSrc='https://cdn.jsdelivr.net/npm/pdfjs-dist@3.11.174/build/pdf.worker.min.js'; ok(window.pdfjsLib); };
+    s.onerror=function(){ hdPdf=null; no(new Error('Không tải được bộ đọc PDF, kiểm tra mạng')); };
+    document.head.appendChild(s);
+  }));
+}
+function hdChon(list){
+  var files=[].slice.call(list||[]); document.getElementById('hdFile').value='';
+  var loi=[];
+  files.forEach(function(f){
+    if(!/\.pdf$/i.test(f.name) && f.type!=='application/pdf'){ loi.push('⛔ "'+f.name+'" không phải file PDF — mục 3 chỉ nhận hợp đồng dạng PDF'+(/\.xls/i.test(f.name)?' (file Excel hãy dùng mục 1)':/\.(jpe?g|png|heic)$/i.test(f.name)?' (ảnh giấy tờ hãy dùng mục 2)':'')); return; }
+    if(!hdTenFile(f.name).room) loi.push('⚠️ Tên file "'+f.name+'" sai định dạng — cần dạng P301_T121_17.11-16.2.27_-_MôiGiới.pdf; app vẫn đọc nhưng phải gõ tay mã phòng và ngày HĐ.');
+    HD.push({ id:++HD_SEQ, file:f.name, st:'cho', xong:0, tong:0, f:f });
+  });
+  napLoi('pdfLoi', loi);
+  hdVe(); hdChay();
+}
+var hdDangChay=false;
+function hdChay(){
+  if(hdDangChay) return;
+  var h=HD.filter(function(x){ return x.st==='cho'; })[0]; if(!h) return;
+  hdDangChay=true; h.st='doc'; hdVe();
+  hdDocFile(h).then(function(){ h.st='xong'; }).catch(function(e){ h.st='loi'; h.err=String(e&&e.message||e); })
+    .then(function(){ delete h.f; hdDangChay=false; hdVe(); hdChay(); });
+}
+function hdDocFile(h){
+  return hdTaiPdfJs().then(function(lib){ return h.f.arrayBuffer().then(function(buf){ return lib.getDocument({data:buf}).promise; }); })
+  .then(function(pdf){
+    h.tong=pdf.numPages; var pages=new Array(pdf.numPages), next=1, giay=[];
+    function mot(n){
+      return pdf.getPage(n).then(function(pg){
+        var v=pg.getViewport({scale:1}), k=Math.min(2.5, 1500/v.width), vp=pg.getViewport({scale:k}), c=document.createElement('canvas');
+        c.width=Math.round(vp.width); c.height=Math.round(vp.height);
+        return pg.render({canvasContext:c.getContext('2d'), viewport:vp}).promise.then(function(){
+          var data=c.toDataURL('image/jpeg',0.8).split(',')[1];
+          return apiPost({ act:'ocr', data:data, mime:'image/jpeg', name:h.file+' trang '+n, noSave:true }).then(function(d){
+            if(!d||!d.ok) throw new Error((d&&d.err)||'Không đọc được trang '+n);
+            var t=d.text||'', p={ text:t, qr:'' };
+            var laGiay = !!kpMRZ(t) || /C[ĂA]N\s*C[ƯU][ỚO]C|IDENTITY/i.test(t) || (t.length<1500 && (kpDau(t).nhapCanh || /PERMIT|REMAIN\s*UNTIL|IMMIGRATION/i.test(t)));
+            var qr = /C[ĂA]N\s*C[ƯU][ỚO]C|IDENTITY/i.test(t) ? kpQRDoc(c) : Promise.resolve('');
+            return qr.then(function(q){
+              p.qr=q; pages[n-1]=p; h.xong++; hdVe();
+              if(laGiay) return apiPost({ act:'ocr', data:data, mime:'image/jpeg', name:h.file+' trang '+n, noOcr:true, room:'' })
+                .then(function(s){ if(s&&s.ok&&s.fileId) giay.push({ id:s.fileId, loai:'Giấy tờ trang '+n, ten:h.file, trang:n }); }).catch(function(){});
+            });
+          });
+        });
+      });
+    }
+    function luong(){ if(next>pdf.numPages) return Promise.resolve(); var n=next++; return mot(n).then(luong); }
+    return Promise.all([luong(),luong(),luong()]).then(function(){
+      var doc=hdDocTrang(pages); Object.assign(h, hdTaoBanGhi(h.file, doc));
+      h.coPL3=doc.coPL3; h.coPL4=doc.coPL4; h.coHD=doc.coHD;
+      h.giay=giay.sort(function(a,b){ return a.trang-b.trang; });
+      if(!h.room) h.room='';
+    });
+  });
+}
+function hdVe(){
+  var el=document.getElementById('hdList');
+  el.innerHTML=HD.map(function(h,i){
+    var head='<div class="hdH"><b>📑 '+esc(h.file)+'</b><button class="btn o kpX" onclick="hdBo('+i+')">✕</button></div>';
+    if(h.st==='cho') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang chờ…</div></div>';
+    if(h.st==='doc') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang đọc trang '+h.xong+'/'+(h.tong||'?')+'… (mỗi trang ~5–10 giây)</div><div class="hdBar"><i style="width:'+(h.tong?Math.round(h.xong*100/h.tong):3)+'%"></i></div></div>';
+    if(h.st==='loi') return '<div class="hdC">'+head+'<div class="err">❌ '+esc(h.err)+'</div></div>';
+    return '<div class="hdC">'+head+hdForm(h,i)+'</div>';
+  }).join('');
+}
+function hdO(i,k,lbl,date,w){
+  var v=HD[i][k]; v=v==null?'':String(v);
+  return '<label class="kpL" style="flex:1 1 '+(w||140)+'px"><span>'+lbl+'</span><input type="text" value="'+esc(v)+'" '+
+    (date?'inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" ':'')+'oninput="hdSet('+i+',\''+k+'\',this'+(date?',1':'')+')" class="hdI"></label>';
+}
+function hdOK(i,j,k,lbl,date,w){
+  var v=HD[i].khach[j][k]; v=v==null?'':String(v);
+  return '<label class="kpL" style="flex:1 1 '+(w||130)+'px"><span>'+lbl+'</span><input type="text" value="'+esc(v)+'" '+
+    (date?'inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" ':'')+'oninput="hdSetK('+i+','+j+',\''+k+'\',this'+(date?',1':'')+')" class="hdI"></label>';
+}
+function hdForm(h,i){
+  var lh=['','Zalo','WhatsApp','WeChat','Telegram','Viber','Khác'];
+  var g='<div class="kpG">'+hdO(i,'room','Mã phòng',0,110)+hdO(i,'start','Bắt đầu HĐ',1)+hdO(i,'end','Kết thúc HĐ',1)+'</div>'+
+    '<div class="kpG">'+hdO(i,'phong','Tiền phòng')+hdO(i,'coc','Tiền cọc')+hdO(i,'soNguoi','Số người',0,80)+hdO(i,'dien','Chỉ số điện',0,100)+'</div>'+
+    '<div class="kpG">'+hdO(i,'nuoc','Giá nước')+hdO(i,'dv','Phí dịch vụ/bảo trì')+hdO(i,'hetDot1','Hết đợt 1',1)+'</div>'+
+    '<div class="kpG">'+hdO(i,'tpd1','Tiền phòng đợt 1')+hdO(i,'tong','Tổng đợt 1')+'</div>'+
+    '<div class="kpG">'+hdO(i,'mg','Môi giới')+
+      '<label class="kpL" style="flex:1 1 120px"><span>Liên hệ</span><select class="hdI" onchange="hdSet('+i+',\'lh\',this)">'+lh.map(function(x){ return '<option'+(x===h.lh?' selected':'')+'>'+x+'</option>'; }).join('')+'</select></label>'+
+      hdO(i,'sdt','SĐT khách',0,150)+'</div>'+
+    '<div class="kpG">'+hdO(i,'muc','Mức hoa hồng (%)',0,110)+hdO(i,'phiHH','Phí hoa hồng',0,120)+'</div>';
+  var k=(h.khach||[]).map(function(x,j){
+    return '<div class="hdK"><div class="hdH"><b>'+(j===0?'⭐ Khách chính':'👤 Người ở cùng')+'</b><span>'+
+      (j>0?'<button class="btn o kpX" title="Đặt làm khách chính" onclick="hdChinh('+i+','+j+')">⭐</button>':'')+
+      '<button class="btn o kpX" onclick="hdXoaK('+i+','+j+')">✕</button></span></div>'+
+      '<div class="kpG">'+hdOK(i,j,'ten','Họ tên',0,200)+hdOK(i,j,'ns','Ngày sinh',1)+
+        '<label class="kpL" style="flex:1 1 90px"><span>Giới tính</span><select class="hdI" onchange="hdSetK('+i+','+j+',\'gt\',this)">'+['','Nam','Nữ'].map(function(o){ return '<option'+(o===x.gt?' selected':'')+'>'+o+'</option>'; }).join('')+'</select></label></div>'+
+      '<div class="kpG">'+(x.nn?hdOK(i,j,'hc','Hộ chiếu'):hdOK(i,j,'cccd','CCCD')+hdOK(i,j,'hc','Hộ chiếu'))+hdOK(i,j,'nuoc',x.nn?'Quốc tịch':'Địa chỉ',0,160)+'</div>'+
+      (x.nn?'<div class="kpG">'+hdOK(i,j,'han','Hạn lưu trú',1)+hdOK(i,j,'nhap','Ngày nhập cảnh',1)+'</div>':'')+
+    '</div>';
+  }).join('');
+  var giay=(h.giay||[]).length?'<div class="hint">📎 Đã lưu '+h.giay.length+' trang giấy tờ (hộ chiếu/dấu nhập cảnh) để chủ xem khi duyệt.</div>':'';
+  return g+k+giay+'<div id="hdW'+i+'">'+hdVeCB(h)+'</div>'+
+    '<button class="btn big ok" style="margin-top:10px" onclick="hdThem('+i+')">'+(h.daThem?'🔄 Cập nhật lại trong danh sách gửi':'➕ Đưa vào danh sách gửi')+'</button>';
+}
+function hdVeCB(h){ return hdCanhBao(h).map(function(x){ var c=x.charAt(0); return '<div class="kpW '+(c==='⛔'?'r':c==='✅'?'g':'y')+'">'+esc(x)+'</div>'; }).join(''); }
+function hdNgay(el){ var d=el.value.replace(/\D/g,'').slice(0,8), v=d; if(d.length>4) v=d.slice(0,2)+'/'+d.slice(2,4)+'/'+d.slice(4); else if(d.length>2) v=d.slice(0,2)+'/'+d.slice(2); if(el.value!==v) el.value=v; return v; }
+function hdSet(i,k,el,date){ var v=date?hdNgay(el):el.value; if(k==='room') v=v.toUpperCase().replace(/\s/g,''); HD[i][k]=v; hdCB(i); }
+function hdSetK(i,j,k,el,date){ var v=date?hdNgay(el):el.value; HD[i].khach[j][k]=v; if(k==='han') HD[i].khach[j].hanSua=true; hdCB(i); }
+function hdCB(i){ var e=document.getElementById('hdW'+i); if(e) e.innerHTML=hdVeCB(HD[i]); }
+function hdChinh(i,j){ var k=HD[i].khach; k.unshift(k.splice(j,1)[0]); hdVe(); }
+function hdXoaK(i,j){ HD[i].khach.splice(j,1); HD[i].soNguoi=String(HD[i].khach.length); hdVe(); }
+function hdBo(i){ var h=HD[i]; if(h.daThem){ PARSED=PARSED.filter(function(r){ return r._hd!==h.id; }); if(PARSED.length) hienThu(PARSED); else document.getElementById('preview').style.display='none'; } HD.splice(i,1); hdVe(); }
+function hdThem(i){
+  var h=HD[i];
+  if(!h.room || !ROOM_RE.test(h.room)){ toast('Mã phòng dạng 301-T121'); return; }
+  if(!h.khach.length){ toast('Chưa có khách nào'); return; }
+  var red=hdCanhBao(h).filter(function(x){ return x.charAt(0)==='⛔'; });
+  if(red.length && !confirm('Hợp đồng '+h.file+' có '+red.length+' lỗi:\n\n'+red.join('\n')+'\n\nVẫn đưa vào danh sách gửi?')) return;
+  var rows=hdRows(h).map(function(r){ r=chuanHoa(r); r._hd=h.id; return r; });
+  PARSED=(PARSED||[]).filter(function(r){ return r._hd!==h.id; }).concat(rows);
+  h.daThem=true; hdVe(); hienThu(PARSED);
+  toast('✅ Đã đưa '+rows.length+' khách phòng '+h.room+' vào danh sách gửi');
+}
+function hdGiay(){ var a=[]; HD.forEach(function(h){ if(h.daThem) a=a.concat((h.giay||[]).map(function(g){ return { id:g.id, loai:h.room+' · '+g.loai, ten:g.ten }; })); }); return a; }
+
+
+// ===== Nạp danh sách khách: 3 cách =====
+var NAP='excel'; try{ NAP=localStorage.getItem('ck_nap')||'excel'; }catch(e){}
+function napChon(n){
+  NAP=n; try{ localStorage.setItem('ck_nap',n); }catch(e){}
+  [].forEach.call(document.querySelectorAll('.napB'),function(b){ b.classList.toggle('on', b.getAttribute('data-n')===n); });
+  document.getElementById('napExcel').style.display = n==='excel'?'block':'none';
+  document.getElementById('napPdf').style.display = n==='pdf'?'block':'none';
+  document.getElementById('v_phu').style.display = n==='le'?'block':'none';
+  document.getElementById('preview').style.display = (n!=='le' && PARSED && PARSED.length)?'block':'none';
+  if(n==='le') kpMo();
+}
 </script>
 </body>
 </html>
