@@ -81,7 +81,7 @@ function devQS(){ return '&dev='+enc(devId())+'&devname='+enc(devName()); }
 function renderHome(me){
   document.getElementById('w_name').textContent = me.ten||me.ma;
   document.getElementById('w_role').textContent = 'Mã NV: '+me.ma;
-  var perms = me.perms||[];
+  var perms = window.luxPerms ? window.luxPerms(me.perms) : (me.perms||[]);
   var el=document.getElementById('tiles'); el.innerHTML='';
   perms.forEach(function(k){ var m=MODS[k]; if(!m) return;
     var a=document.createElement('a'); a.className='tile'; a.href = m.href.indexOf('#')>-1 ? m.href : (m.href+'?tok='+enc(tok()));

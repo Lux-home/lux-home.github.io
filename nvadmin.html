@@ -119,7 +119,7 @@ function render(list){
   el.innerHTML='';
   list.forEach(function(nv){
     var box=document.createElement('div'); box.className='nv'+(nv.locked?' locked':'');
-    var perms=nv.perms||[];
+    var perms=window.luxPerms ? window.luxPerms(nv.perms) : (nv.perms||[]);
     var checks=MODS.map(function(m){ var on=perms.indexOf(m.k)>-1; return '<label><input type="checkbox" data-k="'+m.k+'" '+(on?'checked':'')+'> '+m.n+'</label>'; }).join('');
     var devs=nv.devices||[], nd=nv.ndev||0, mx=nv.max||1;
     var devRows = !devs.length
