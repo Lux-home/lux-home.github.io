@@ -199,7 +199,7 @@
 
     <!-- KIỂM TRA THANH TOÁN ĐỢT 1 (checkin.html?mode=tt) -->
     <div id="v_tt" style="display:none">
-      <p class="hint" style="margin-top:0">Mỗi phòng phải đạt đồng thời: <b>①</b> mọi bill khách gửi đều có trong sao kê; <b>②</b> tiền phòng đợt 1 (cột AA) = (30 − ngày check-in + 1)/30 × giá thuê (cột P), đúng từng đồng; <b>③</b> tổng bill = tiền cọc (O) + tiền phòng đợt 1.</p>
+      <p class="hint" style="margin-top:0">Mỗi phòng phải đạt đồng thời: <b>①</b> mọi bill khách gửi đều có trong sao kê; <b>②</b> tiền phòng đợt 1 (cột AA) = (30 − ngày check-in + 1)/30 × giá thuê (cột P) — lệch dưới 1.000đ bỏ qua; <b>③</b> tổng bill = tiền cọc (O) + tiền phòng đợt 1.</p>
       <label class="hint" style="display:flex;gap:8px;align-items:center;margin:0 0 10px"><input type="checkbox" id="ttTT" onchange="ttMo()"> Tính cả các đợt đang chờ duyệt</label>
       <input type="file" id="ttSK" accept=".xlsx,.xls,.xlsm,.csv" multiple style="display:none" onchange="ttSaoKe(this.files)">
       <input type="file" id="ttBF" accept="image/*" multiple style="display:none" onchange="ttBill(this.files)">
@@ -1587,6 +1587,8 @@ function ttNgaySK(v){
 }
 
 // --- đối chiếu
+var TT_LECH=1000;   // lệch dưới 1.000đ coi như khớp (khách hay làm tròn đến nghìn)
+function ttLe(d){ return d?' (lệch '+fm0(Math.abs(d))+'đ, bỏ qua)':''; }
 function ttKiemTra(khach, bills, sk){
   var dung={}, KQ=[];
   sk.forEach(function(x,i){ x._i=i; x._u=ttKhongDau(x.nd); });
@@ -1601,9 +1603,9 @@ function ttKiemTra(khach, bills, sk){
     else {
       if(day>30) canh.push('Check-in ngày 31: công thức (30−31+1)/30 cho 0 ngày — kiểm tra lại');
       if(AArec==null) loi.push('Chưa có tiền phòng đợt 1 (cột AA). Đúng phải là '+fm0(expAA));
-      else if(AArec!==expAA) loi.push('Tiền phòng đợt 1 (AA) ghi '+fm0(AArec)+' ≠ ('+soNgay+'/30)×'+fm0(P)+' = '+fm0(expAA)+' (lệch '+fm0(AArec-expAA)+')');
-      else ok.push('Tiền phòng đợt 1 đúng: '+soNgay+'/30 × '+fm0(P)+' = '+fm0(expAA));
-      if(ABrec!=null && AArec!=null && ABrec!==O+AArec) canh.push('Cột AB ('+fm0(ABrec)+') ≠ cọc + AA ('+fm0(O+AArec)+')');
+      else if(Math.abs(AArec-expAA)>=TT_LECH) loi.push('Tiền phòng đợt 1 (AA) ghi '+fm0(AArec)+' ≠ ('+soNgay+'/30)×'+fm0(P)+' = '+fm0(expAA)+' (lệch '+fm0(AArec-expAA)+')');
+      else ok.push('Tiền phòng đợt 1 đúng: '+soNgay+'/30 × '+fm0(P)+' = '+fm0(expAA)+ttLe(AArec-expAA));
+      if(ABrec!=null && AArec!=null && Math.abs(ABrec-(O+AArec))>=TT_LECH) canh.push('Cột AB ('+fm0(ABrec)+') ≠ cọc + AA ('+fm0(O+AArec)+')');
     }
     // bill của phòng (cùng đợt, hoặc tải lên sau, trong khoảng −20 → +15 ngày quanh ngày vào)
     var bs=bills.filter(function(b){
@@ -1615,9 +1617,9 @@ function ttKiemTra(khach, bills, sk){
     // Điều kiện 3: tổng bill = tổng đợt 1
     if(!bs.length) loi.push('Chưa có bill chuyển khoản của khách');
     else if(expAB!=null){
-      if(tong===expAB) ok.push('Tổng bill '+fm0(tong)+' = cọc '+fm0(O)+' + tiền phòng đợt 1 '+fm0(expAA));
+      if(Math.abs(tong-expAB)<TT_LECH) ok.push('Tổng bill '+fm0(tong)+' = cọc '+fm0(O)+' + tiền phòng đợt 1 '+fm0(expAA)+ttLe(tong-expAB));
       else loi.push('Tổng bill '+fm0(tong)+' ≠ tổng đợt 1 đúng '+fm0(expAB)+' ('+(tong<expAB?'thiếu ':'thừa ')+fm0(Math.abs(expAB-tong))+')');
-      if(ABrec!=null && ABrec!==expAB) loi.push('Tổng đợt 1 ghi trong DS (AB) '+fm0(ABrec)+' ≠ đúng '+fm0(expAB));
+      if(ABrec!=null && Math.abs(ABrec-expAB)>=TT_LECH) loi.push('Tổng đợt 1 ghi trong DS (AB) '+fm0(ABrec)+' ≠ đúng '+fm0(expAB));
     }
     // Điều kiện 1: từng bill phải có trong sao kê
     var bk=bs.map(function(b){
