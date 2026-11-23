@@ -722,7 +722,15 @@ function showStaffBanner(){
     +'<span class="sbnote"> (tự đổi mỗi thứ Hai / changes every Monday)</span>';
   const tb=document.querySelector(".toolbar"); if(tb) tb.after(bn); else document.body.appendChild(bn);
   const btn=bn.querySelector("#cpwk");
-  if(btn) btn.addEventListener("click",function(){ try{navigator.clipboard&&navigator.clipboard.writeText(wc);}catch(e){} toast("Đã copy / Copied: "+wc); });
+  if(btn) btn.addEventListener("click",function(){
+    var link="https://lux-home.github.io/catalog.html";
+    var msg="Chào bạn, đây là link các căn hộ với 3 loại hình: studio, 1 phòng ngủ, 2 phòng ngủ tương ứng với 4 khu vực của Nha Trang: trung tâm, phía Nam, phía Bắc, phía Tây. Vui lòng nhập mật khẩu để xem. Cảm ơn."
+      +"\n\nHello, here is the link to our apartments with 3 types: studio, 1-bedroom, 2-bedroom, across 4 areas of Nha Trang: Central, South, North, West. Please enter the password to view. Thank you."
+      +"\n\n🔑 Mật khẩu / Password: "+wc
+      +"\n🔗 "+link;
+    try{ if(navigator.clipboard&&navigator.clipboard.writeText) navigator.clipboard.writeText(msg); else { var t=document.createElement("textarea"); t.value=msg; document.body.appendChild(t); t.select(); document.execCommand("copy"); document.body.removeChild(t); } }catch(e){}
+    toast("Đã copy tin nhắn kèm mật khẩu / Copied message + password");
+  });
 }
 
 async function initGate(){
