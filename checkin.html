@@ -120,6 +120,7 @@
       <div class="napTab">
         <button class="napB" data-n="pdf" onclick="napChon('pdf')"><b>1</b>📑 Hợp đồng checkin PDF</button>
         <button class="napB" data-n="le" onclick="napChon('le')"><b>2</b>👤 Bổ sung khách ở thêm</button>
+        <button class="napB" data-n="tt" onclick="napChon('tt')"><b>3</b>💳 Check lại thanh toán check-in</button>
       </div>
       <div class="card napP" id="napExcel" style="display:none">
         <div class="lb">Nạp theo file Excel DS Check-in</div>
@@ -363,6 +364,7 @@ function moTab(k){
   document.getElementById('v_dot').style.display = 'none';
   document.getElementById('v_pw').style.display = k==='pw'?'block':'none';
   document.getElementById('v_tk').style.display = k==='tk'?'block':'none';
+  if(MODE!=='tt') document.getElementById('v_tt').style.display = 'none';
   if(k==='tk'){ tkMo(); return; }
   if(k==='gui') napChon(NAP);
   if(k==='pw') return;
@@ -1371,15 +1373,18 @@ function hdGiay(){ var a=[]; HD.forEach(function(h){ if(h.daThem) a=a.concat((h.
 
 
 // ===== Nạp danh sách khách: 3 cách =====
-var NAP='pdf'; try{ NAP=localStorage.getItem('ck_nap')||'pdf'; }catch(e){} if(NAP!=='le'&&NAP!=='pdf') NAP='pdf';   // đã bỏ mục File Excel
+var NAP='pdf'; try{ NAP=localStorage.getItem('ck_nap')||'pdf'; }catch(e){} if(NAP!=='le'&&NAP!=='pdf'&&NAP!=='tt') NAP='pdf';   // đã bỏ mục File Excel
 function napChon(n){
-  if(n!=='le'&&n!=='pdf') n='pdf';
+  if(n!=='le'&&n!=='pdf'&&n!=='tt') n='pdf';
   NAP=n; try{ localStorage.setItem('ck_nap',n); }catch(e){}
   [].forEach.call(document.querySelectorAll('.napB'),function(b){ b.classList.toggle('on', b.getAttribute('data-n')===n); });
   document.getElementById('napExcel').style.display = 'none';
   document.getElementById('napPdf').style.display = n==='pdf'?'block':'none';
   document.getElementById('v_phu').style.display = n==='le'?'block':'none';
-  document.getElementById('preview').style.display = (n!=='le' && PARSED && PARSED.length)?'block':'none';
+  document.getElementById('preview').style.display = (n==='pdf' && PARSED && PARSED.length)?'block':'none';
+  // mục 3: nạp sao kê ngân hàng → đối chiếu tiền khách check-in chuyển (dùng lại chức năng Kiểm tra thanh toán đợt 1)
+  document.getElementById('v_tt').style.display = n==='tt'?'block':'none';
+  if(n==='tt' && !napChon._tt){ napChon._tt=1; ttMo(); }
   if(n==='le') kpMo();
 }
 
