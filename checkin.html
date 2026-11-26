@@ -263,6 +263,8 @@ var TOK=QS.get('tok')||'';
 var PW=''; try{ if(!TOK) PW=localStorage.getItem('ck_pw')||''; }catch(e){}
 var ME=null, curTab='', PARSED=[], CURDOT=null;
 if(TOK) document.getElementById('backLink').href='checkinout.html?tok='+encodeURIComponent(TOK);
+// mục 3 (đối chiếu sao kê) chỉ dành cho chủ — máy chủ check-in chỉ cho chủ xem thống kê thanh toán
+if(TOK){ var _b3=document.querySelector('.napB[data-n="tt"]'); if(_b3) _b3.style.display='none'; }
 var MODE=QS.get('mode')||'';
 if(MODE==='tt'){
   document.title='LUXHOME · Kiểm tra thanh toán đợt 1';
@@ -1376,6 +1378,7 @@ function hdGiay(){ var a=[]; HD.forEach(function(h){ if(h.daThem) a=a.concat((h.
 var NAP='pdf'; try{ NAP=localStorage.getItem('ck_nap')||'pdf'; }catch(e){} if(NAP!=='le'&&NAP!=='pdf'&&NAP!=='tt') NAP='pdf';   // đã bỏ mục File Excel
 function napChon(n){
   if(n!=='le'&&n!=='pdf'&&n!=='tt') n='pdf';
+  if(n==='tt'&&TOK) n='pdf';   // nhân viên không dùng mục đối chiếu sao kê
   NAP=n; try{ localStorage.setItem('ck_nap',n); }catch(e){}
   [].forEach.call(document.querySelectorAll('.napB'),function(b){ b.classList.toggle('on', b.getAttribute('data-n')===n); });
   document.getElementById('napExcel').style.display = 'none';
