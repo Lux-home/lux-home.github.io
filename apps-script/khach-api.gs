@@ -148,12 +148,11 @@ function xlsmOpen_() {
   return { meta, byName, order, get, wb, sheetPath, s: get(sheetPath), cellVal, parseRow, rowRe };
 }
 
-function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
-  opt = opt || {}; const fill = opt.fill || null;
+/** Mở file 1 lần, sửa nhiều dòng trong bộ nhớ, rồi ghi lên Drive 1 lần (commit). */
+function xlsmSession_() {
   const X = xlsmOpen_(), meta = X.meta, byName = X.byName, order = X.order, get = X.get, wb = X.wb, sheetPath = X.sheetPath;
   const cellVal = X.cellVal, parseRow = X.parseRow, rowRe = X.rowRe;
-  let s = X.s;
-  const changed = {};
+  let s = X.s, dirty = false;
 
   // --- kiểm tra cấu trúc (dòng tiêu đề)
   let hdr = null;
@@ -165,122 +164,195 @@ function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
   if (!hdr) throw new Error('Không thấy dòng tiêu đề trong file');
   for (const L in K_CHECK) if (norm_(cellVal(hdr[colNum_(L)])) !== K_CHECK[L]) throw new Error('Cột ' + L + ' của file không đúng mẫu — đã dừng, không ghi.');
 
-  // --- dòng cần sửa + kiểm tra khớp
-  const rm = s.match(rowRe(rowNum));
-  if (!rm) throw new Error('Không thấy dòng ' + rowNum + ' trong file');
-  const rowXml = rm[0], cells = parseRow(rowXml);
-  const curMa = cmp_(cellVal(cells[colNum_('D')])), curTen = cmp_(cellVal(cells[colNum_('E')]));
-  if ((expect.ma != null && cmp_(expect.ma) !== curMa) || (expect.ten != null && cmp_(expect.ten) !== curTen)) {
-    return { ok: false, err: 'changed', msg: 'Dòng ' + rowNum + ' trong file đã thay đổi (hiện là: ' + (curMa || '—') + ' · ' + (curTen || 'trống') + '). Tải lại danh sách rồi sửa lại.' };
-  }
-
-  // --- styles: thêm định dạng ngày dd/mm/yyyy + màu vàng khi cần
-  let st = get('xl/styles.xml');
+  // --- styles: định dạng ngày dd/mm/yyyy + màu vàng (thêm khi cần)
+  let st = get('xl/styles.xml'), stDirty = false;
   const xfsM = st.match(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/);
   const xfs = xfsM[2].match(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g), added = [], xcache = {};
-  let YELLOW = null;
-  if (fill === 'yellow') {
-    const fm = st.match(/<fills count="(\d+)">([\s\S]*?)<\/fills>/);
-    YELLOW = +fm[1];
-    st = st.replace(fm[0], '<fills count="' + (YELLOW + 1) + '">' + fm[2] + '<fill><patternFill patternType="solid"><fgColor rgb="FFFFEB9C"/><bgColor indexed="64"/></patternFill></fill></fills>');
-  }
-  let DATEFMT = 0, maxId = 163; const fmtCode = {};
+  let YELLOW = null, DATEFMT = 0, maxId = 163; const fmtCode = {};
   const nfM = st.match(/<numFmts count="(\d+)">([\s\S]*?)<\/numFmts>/);
   if (nfM) nfM[2].replace(/<numFmt numFmtId="(\d+)" formatCode="([^"]*)"\/>/g, (m, id, code) => { fmtCode[id] = xUnesc_(code); if (+id > maxId) maxId = +id; if (xUnesc_(code) === 'dd/mm/yyyy') DATEFMT = +id; return m; });
-  if (!DATEFMT) {
-    DATEFMT = maxId + 1;
+  const dateFmt = () => {
+    if (DATEFMT) return DATEFMT;
+    DATEFMT = maxId + 1; stDirty = true;
     const nf = '<numFmt numFmtId="' + DATEFMT + '" formatCode="dd/mm/yyyy"/>';
     st = nfM ? st.replace(nfM[0], '<numFmts count="' + (+nfM[1] + 1) + '">' + nfM[2] + nf + '</numFmts>') : st.replace('<fonts', '<numFmts count="1">' + nf + '</numFmts><fonts');
-  }
+    return DATEFMT;
+  };
+  const yellow = () => {
+    if (YELLOW != null) return YELLOW;
+    const fm = st.match(/<fills count="(\d+)">([\s\S]*?)<\/fills>/);
+    YELLOW = +fm[1]; stDirty = true;
+    st = st.replace(fm[0], '<fills count="' + (YELLOW + 1) + '">' + fm[2] + '<fill><patternFill patternType="solid"><fgColor rgb="FFFFEB9C"/><bgColor indexed="64"/></patternFill></fill></fills>');
+    return YELLOW;
+  };
   const isDateFmt = id => { id = +id; if ((id >= 14 && id <= 22) || (id >= 45 && id <= 47)) return true; const c = fmtCode[id]; return !!c && /[dy]/i.test(c.replace(/"[^"]*"|\[[^\]]*\]/g, '')) && !/[#0]/.test(c); };
-  const xfFor = (base, kind) => {
-    const key = base + '|' + kind + '|' + (YELLOW == null ? '' : YELLOW);
+  const xfFor = (base, kind, fill) => {
+    const key = base + '|' + kind + '|' + (fill || '');
     if (xcache[key] != null) return xcache[key];
     let x = xfs[+base] || xfs[0];
     const nid = +(x.match(/ numFmtId="(\d+)"/) || [0, 0])[1];
     let setFmt = null;
-    if (kind === 'date' && !isDateFmt(nid)) setFmt = DATEFMT;
+    if (kind === 'date' && !isDateFmt(nid)) setFmt = dateFmt();
     if (kind === 'text' && isDateFmt(nid)) setFmt = 49;
-    if (setFmt == null && YELLOW == null) { xcache[key] = +base; return +base; }
+    if (setFmt == null && !fill) { xcache[key] = +base; return +base; }
     if (setFmt != null) {
       x = / numFmtId="/.test(x) ? x.replace(/ numFmtId="\d+"/, ' numFmtId="' + setFmt + '"') : x.replace('<xf ', '<xf numFmtId="' + setFmt + '" ');
       x = / applyNumberFormat="/.test(x) ? x.replace(/ applyNumberFormat="\d"/, ' applyNumberFormat="1"') : x.replace('<xf ', '<xf applyNumberFormat="1" ');
     }
-    if (YELLOW != null) {
-      x = / fillId="/.test(x) ? x.replace(/ fillId="\d+"/, ' fillId="' + YELLOW + '"') : x.replace('<xf ', '<xf fillId="' + YELLOW + '" ');
+    if (fill) {
+      const Y = yellow();
+      x = / fillId="/.test(x) ? x.replace(/ fillId="\d+"/, ' fillId="' + Y + '"') : x.replace('<xf ', '<xf fillId="' + Y + '" ');
       x = / applyFill="/.test(x) ? x.replace(/ applyFill="\d"/, ' applyFill="1"') : x.replace('<xf ', '<xf applyFill="1" ');
     }
-    xcache[key] = xfs.length + added.length; added.push(x);
+    xcache[key] = xfs.length + added.length; added.push(x); stDirty = true;
     return xcache[key];
   };
   const serial = d => { const m = String(d).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/); return m ? Math.round((Date.UTC(+m[3], +m[2] - 1, +m[1]) - Date.UTC(1899, 11, 30)) / 86400000) : null; };
-  const newCell = (col, v, base, kind) => {
-    const ref = colName_(col) + rowNum, sa = ' s="' + xfFor(base, kind) + '"';
-    v = String(v == null ? '' : v).trim();
-    if (v === '') return '<c r="' + ref + '"' + sa + '/>';
-    if (kind === 'date') { const se = serial(v); if (se != null) return '<c r="' + ref + '"' + sa + '><v>' + se + '</v></c>'; }
-    if (kind === 'num') { let n = v.replace(/[,\s]/g, ''); if (/^\d{1,3}(\.\d{3})+$/.test(n)) n = n.replace(/\./g, ''); if (/^-?\d+(\.\d+)?$/.test(n)) return '<c r="' + ref + '"' + sa + '><v>' + n + '</v></c>'; }
-    const t = xEsc_(v);
-    return '<c r="' + ref + '"' + sa + ' t="inlineStr"><is><t' + (t !== t.trim() ? ' xml:space="preserve"' : '') + '>' + t + '</t></is></c>';
-  };
 
-  // --- dựng lại dòng
-  const byCol = {};
-  Object.keys(cells).forEach(c => { byCol[+c] = cells[c].xml; });
-  Object.keys(setV).forEach(L => {
-    const c = colNum_(L);
-    if (c >= colNum_('AI') && c <= colNum_('AN')) throw new Error('Không được ghi vào cột công thức ' + L);
-    const old = cells[c];
-    if (old && /<f[ >]/.test(old.xml)) { if (opt.skipFormula) return; throw new Error('Ô ' + L + rowNum + ' là công thức — không ghi đè'); }
-    byCol[c] = newCell(c, setV[L], old ? old.s : '0', kinds[L] || 'text');
-  });
-  if (fill === 'yellow') {
-    for (let c = 1; c <= colNum_('AH'); c++) {
-      if (setV[colName_(c)] != null) continue;
-      const old = cells[c];
-      if (!old) { byCol[c] = '<c r="' + colName_(c) + rowNum + '" s="' + xfFor('0', 'keep') + '"/>'; continue; }
-      byCol[c] = / s="\d+"/.test(old.xml) ? old.xml.replace(/ s="\d+"/, ' s="' + xfFor(old.s, 'keep') + '"') : old.xml.replace('<c ', '<c s="' + xfFor('0', 'keep') + '" ');
+  /** Sửa 1 dòng trong bộ nhớ. expect {ma, ten} phải khớp nội dung hiện tại; opt {fill:'yellow', skipFormula} */
+  function edit(rowNum, expect, setV, kinds, opt) {
+    opt = opt || {}; expect = expect || {};
+    const rm = s.match(rowRe(rowNum));
+    if (!rm) return { ok: false, err: 'norow', msg: 'Không thấy dòng ' + rowNum + ' trong file' };
+    const rowXml = rm[0], cells = parseRow(rowXml);
+    const curMa = cmp_(cellVal(cells[colNum_('D')])), curTen = cmp_(cellVal(cells[colNum_('E')]));
+    if ((expect.ma != null && cmp_(expect.ma) !== curMa) || (expect.ten != null && cmp_(expect.ten) !== curTen)) {
+      return { ok: false, err: 'changed', msg: 'Dòng ' + rowNum + ' trong file đã thay đổi (hiện là: ' + (curMa || '—') + ' · ' + (curTen || 'trống') + '). Tải lại danh sách rồi sửa lại.' };
     }
+    const fill = opt.fill === 'yellow';
+    const newCell = (col, v, base, kind) => {
+      const ref = colName_(col) + rowNum, sa = ' s="' + xfFor(base, kind, fill) + '"';
+      v = String(v == null ? '' : v).trim();
+      if (v === '') return '<c r="' + ref + '"' + sa + '/>';
+      if (kind === 'date') { const se = serial(v); if (se != null) return '<c r="' + ref + '"' + sa + '><v>' + se + '</v></c>'; }
+      if (kind === 'num') { let n = v.replace(/[,\s]/g, ''); if (/^\d{1,3}(\.\d{3})+$/.test(n)) n = n.replace(/\./g, ''); if (/^-?\d+(\.\d+)?$/.test(n)) return '<c r="' + ref + '"' + sa + '><v>' + n + '</v></c>'; }
+      const t = xEsc_(v);
+      return '<c r="' + ref + '"' + sa + ' t="inlineStr"><is><t' + (t !== t.trim() ? ' xml:space="preserve"' : '') + '>' + t + '</t></is></c>';
+    };
+    const byCol = {};
+    Object.keys(cells).forEach(c => { byCol[+c] = cells[c].xml; });
+    for (const L of Object.keys(setV)) {
+      const c = colNum_(L);
+      if (c >= colNum_('AI') && c <= colNum_('AN')) return { ok: false, err: 'formula', msg: 'Không được ghi vào cột công thức ' + L };
+      const old = cells[c];
+      if (old && /<f[ >]/.test(old.xml)) { if (opt.skipFormula) continue; return { ok: false, err: 'formula', msg: 'Ô ' + L + rowNum + ' là công thức — không ghi đè' }; }
+      byCol[c] = newCell(c, setV[L], old ? old.s : '0', kinds[L] || 'text');
+    }
+    if (fill) {
+      for (let c = 1; c <= colNum_('AH'); c++) {
+        if (setV[colName_(c)] != null) continue;
+        const old = cells[c];
+        if (!old) { byCol[c] = '<c r="' + colName_(c) + rowNum + '" s="' + xfFor('0', 'keep', true) + '"/>'; continue; }
+        byCol[c] = / s="\d+"/.test(old.xml) ? old.xml.replace(/ s="\d+"/, ' s="' + xfFor(old.s, 'keep', true) + '"') : old.xml.replace('<c ', '<c s="' + xfFor('0', 'keep', true) + '" ');
+      }
+    }
+    const tag = rowXml.match(/^<row\b[^>]*?(?=\/?>)/)[0].replace(/ spans="[^"]*"/, '');
+    const newRow = tag + '>' + Object.keys(byCol).map(Number).sort((a, b) => a - b).map(c => byCol[c]).join('') + '</row>';
+    s = s.replace(rowXml, () => newRow); dirty = true;
+    return { ok: true };
   }
-  const tag = rowXml.match(/^<row\b[^>]*?(?=\/?>)/)[0].replace(/ spans="[^"]*"/, '');
-  const newRow = tag + '>' + Object.keys(byCol).map(Number).sort((a, b) => a - b).map(c => byCol[c]).join('') + '</row>';
-  s = s.replace(rowXml, () => newRow);
-  changed[sheetPath] = s;
-  if (added.length || fill === 'yellow' || !nfM || DATEFMT > maxId) {
-    st = st.replace(xfsM[0], '<cellXfs count="' + (xfs.length + added.length) + '">' + xfs.join('') + added.join('') + '</cellXfs>');
-    changed['xl/styles.xml'] = st;
-  }
-  // tính lại công thức khi mở file
-  changed['xl/workbook.xml'] = /<calcPr\b[^>]*\/>/.test(wb)
-    ? wb.replace(/<calcPr\b([^>]*)\/>/, (m, a) => '<calcPr' + a.replace(/ fullCalcOnLoad="\w+"/, '') + ' fullCalcOnLoad="1"/>')
-    : wb.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
 
-  // --- sao lưu rồi ghi
-  const backupId = KH_TARGET === QLKH_ID ? maybeBackup_(meta.name) : null;
-  const blobs = [], first = '[Content_Types].xml';
-  [first].concat(order.filter(n => n !== first)).forEach(n => {
-    if (!byName[n]) return;
-    blobs.push(changed[n] != null ? Utilities.newBlob(Utilities.newBlob(changed[n]).getBytes(), 'application/xml', n) : byName[n]);
-  });
-  const zip = Utilities.zip(blobs, meta.name);
-  const up = drive_('/upload/drive/v3/files/' + KH_TARGET + '?uploadType=media&supportsAllDrives=true', { method: 'patch', contentType: QLKH_MIME, payload: zip.getBytes() });
-  if (up.getResponseCode() !== 200) throw new Error('Ghi file lên Drive không được (HTTP ' + up.getResponseCode() + ')');
-  return { ok: true, backupId: backupId };
+  /** Sao lưu (nếu cần) rồi ghi file lên Drive 1 lần. */
+  function commit() {
+    if (!dirty) return { ok: true, nothing: true };
+    const changed = {};
+    changed[sheetPath] = s;
+    if (stDirty) { changed['xl/styles.xml'] = st.replace(xfsM[0], '<cellXfs count="' + (xfs.length + added.length) + '">' + xfs.join('') + added.join('') + '</cellXfs>'); }
+    changed['xl/workbook.xml'] = /<calcPr\b[^>]*\/>/.test(wb)
+      ? wb.replace(/<calcPr\b([^>]*)\/>/, (m, a) => '<calcPr' + a.replace(/ fullCalcOnLoad="\w+"/, '') + ' fullCalcOnLoad="1"/>')
+      : wb.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
+    const backupId = KH_TARGET === QLKH_ID ? maybeBackup_(meta.name) : null;
+    const blobs = [], first = '[Content_Types].xml';
+    [first].concat(order.filter(n => n !== first)).forEach(n => {
+      if (!byName[n]) return;
+      blobs.push(changed[n] != null ? Utilities.newBlob(Utilities.newBlob(changed[n]).getBytes(), 'application/xml', n) : byName[n]);
+    });
+    const zip = Utilities.zip(blobs, meta.name);
+    const up = drive_('/upload/drive/v3/files/' + KH_TARGET + '?uploadType=media&supportsAllDrives=true', { method: 'patch', contentType: QLKH_MIME, payload: zip.getBytes() });
+    if (up.getResponseCode() !== 200) throw new Error('Ghi file lên Drive không được (HTTP ' + up.getResponseCode() + ')');
+    return { ok: true, backupId: backupId };
+  }
+  return { edit: edit, commit: commit };
+}
+/** Sửa 1 dòng và ghi ngay (dùng cho hàm thử). */
+function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
+  const S = xlsmSession_(), r = S.edit(rowNum, expect, setV, kinds, opt);
+  if (!r.ok) return r;
+  return S.commit();
 }
 
-/* ======================= LỆNH CHO APP ======================= */
-function khSave_(p) {
-  const row = +p.row, f = p.fields || {};
-  if (!(row > 8)) return { ok: false, err: 'badrow' };
+/* ======================= LỆNH CHO APP (HÀNG CHỜ — LƯU NHANH) =======================
+ * App bấm Lưu -> khqueue: chỉ ghi nhận thay đổi vào hàng chờ (~1 giây) rồi trả lời ngay.
+ * Sau đó app gọi khapply (chạy nền): mở file 1 lần, áp TẤT CẢ thay đổi đang chờ, ghi file 1 lần.
+ * Dù app bị tắt, lần gọi khapply / khlist / khqueue kế tiếp sẽ ghi nốt phần còn chờ.
+ */
+const KQ_PREFIX = 'khq_', KQ_ERR = 'khq_errors';
+function editSpec_(fields) {
   const setV = {}, kinds = {};
-  Object.keys(f).forEach(k => {
+  Object.keys(fields || {}).forEach(k => {
     if (K_EDIT.indexOf(k) < 0) return;
-    const L = KF[k]; setV[L] = f[k];
+    const L = KF[k]; setV[L] = fields[k];
     kinds[L] = K_DATE.indexOf(k) >= 0 ? 'date' : K_NUM.indexOf(k) >= 0 ? 'num' : 'text';
   });
-  if (!Object.keys(setV).length) return { ok: false, err: 'nothing' };
-  return xlsmEditRow_(row, { ma: p.expect && p.expect.ma, ten: p.expect && p.expect.ten }, setV, kinds, {});
+  return { setV: setV, kinds: kinds };
 }
+function outSpec_() {
+  const setV = {}, kinds = {};
+  for (let c = colNum_('E'); c <= colNum_('AC'); c++) { setV[colName_(c)] = ''; kinds[colName_(c)] = 'text'; }
+  return { setV: setV, kinds: kinds };
+}
+function khQueue_(p) {
+  const row = +p.row;
+  if (!(row > 8)) return { ok: false, err: 'badrow' };
+  const item = { t: Date.now(), type: p.type === 'out' ? 'out' : 'save', row: row, expect: p.expect || {} };
+  if (item.type === 'save') {
+    const f = {}; Object.keys(p.fields || {}).forEach(k => { if (K_EDIT.indexOf(k) >= 0) f[k] = p.fields[k]; });
+    if (!Object.keys(f).length) return { ok: false, err: 'nothing' };
+    item.fields = f;
+  } else {
+    item.guest = p.guest || {}; item.note = p.note || ''; item.openUnit = !!p.openUnit;
+    item.expect = { ma: item.guest.ma, ten: item.guest.ten };
+  }
+  const key = KQ_PREFIX + item.t + '_' + Math.random().toString(36).slice(2, 7);
+  PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(item));
+  return { ok: true, id: key, pending: khPending_().length };
+}
+function khPending_() {
+  const all = PropertiesService.getScriptProperties().getProperties();
+  return Object.keys(all).filter(k => k.indexOf(KQ_PREFIX) === 0 && k !== KQ_ERR).sort().map(k => { const o = JSON.parse(all[k]); o.key = k; return o; });
+}
+function khErrors_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(KQ_ERR) || '[]'); } catch (e) { return []; } }
+/** Áp mọi thay đổi đang chờ vào file (1 lần tải + 1 lần ghi). Gọi bên trong khoá. */
+function khApply_() {
+  const P = PropertiesService.getScriptProperties();
+  const items = khPending_();
+  if (!items.length) return { ok: true, applied: 0, errors: khErrors_() };
+  const S = xlsmSession_(), done = [], errs = khErrors_(), after = [];
+  items.forEach(it => {
+    const sp = it.type === 'out' ? outSpec_() : editSpec_(it.fields);
+    const r = S.edit(it.row, it.expect, sp.setV, sp.kinds, it.type === 'out' ? { fill: 'yellow', skipFormula: true } : {});
+    if (r.ok) { done.push(it); if (it.type === 'out') after.push(it); }
+    else errs.unshift({ t: it.t, row: it.row, ma: (it.expect || {}).ma || '', ten: (it.expect || {}).ten || '', type: it.type, msg: r.msg || r.err, fields: it.fields || null });
+  });
+  const c = S.commit();   // lỗi ghi file -> ném lỗi, hàng chờ GIỮ NGUYÊN để thử lại lần sau
+  items.forEach(it => P.deleteProperty(it.key));
+  P.setProperty(KQ_ERR, JSON.stringify(errs.slice(0, 30)));
+  // việc phụ của OUT (sau khi file đã ghi xong)
+  after.forEach(it => {
+    const g = it.guest || {};
+    try {
+      outLog_().appendRow([Utilities.formatDate(new Date(it.t), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'), 'Admin', g.ma, g.ten, g.ns, g.qt, g.gt, g.cccd, g.hc, g.dc,
+        g.bd, g.kt, g.lt, g.coc, g.tp, g.sn, g.sale, g.lh, g.sdt, g.gc, it.note || ''].map(x => x == null ? '' : "'" + String(x)));
+    } catch (e) {}
+    if (it.openUnit) {
+      try { const t = unitTable_(), ma = String(g.ma || '').replace(/-/g, '').toUpperCase(), i = findUnit_(t, ma);
+        if (i >= 0 && t.C.tt >= 0) t.sh.getRange(i + 1, t.C.tt + 1).setValue('Đang có sẵn'); } catch (e) {}
+    }
+  });
+  return { ok: true, applied: done.length, failed: items.length - done.length, backupId: c.backupId || null, errors: errs.slice(0, 30) };
+}
+function khStatus_() { return { ok: true, pending: khPending_().length, errors: khErrors_() }; }
+function khClearErr_() { PropertiesService.getScriptProperties().deleteProperty(KQ_ERR); return { ok: true }; }
 function outLog_() {
   const P = PropertiesService.getScriptProperties();
   let id = P.getProperty('kh_outlog'), ss = null;
@@ -293,28 +365,6 @@ function outLog_() {
     P.setProperty('kh_outlog', ss.getId());
   }
   return ss.getSheets()[0];
-}
-function khOut_(p) {
-  const g = p.guest || {}, row = +p.row;
-  if (!(row > 8)) return { ok: false, err: 'badrow' };
-  // xoá trắng thông tin khách (E..AC) — giữ STT, phòng, tòa, mã phòng, chỉ số điện & đơn giá (AD..AH) cho khách sau
-  const setV = {}, kinds = {};
-  for (let c = colNum_('E'); c <= colNum_('AC'); c++) { setV[colName_(c)] = ''; kinds[colName_(c)] = 'text'; }
-  const r = xlsmEditRow_(row, { ma: g.ma, ten: g.ten }, setV, kinds, { fill: 'yellow', skipFormula: true });
-  if (!r.ok) return r;
-  try {
-    outLog_().appendRow([Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'), 'Admin', g.ma, g.ten, g.ns, g.qt, g.gt, g.cccd, g.hc, g.dc,
-      g.bd, g.kt, g.lt, g.coc, g.tp, g.sn, g.sale, g.lh, g.sdt, g.gc, p.note || ''].map(x => x == null ? '' : "'" + String(x)));
-  } catch (e) { r.logErr = String(e.message || e); }
-  // mở căn trên catalog nếu được yêu cầu (phòng trống)
-  if (p.openUnit) {
-    try {
-      const t = unitTable_(), ma = String(g.ma || '').replace(/-/g, '').toUpperCase(), i = findUnit_(t, ma);
-      if (i >= 0 && t.C.tt >= 0) { t.sh.getRange(i + 1, t.C.tt + 1).setValue('Đang có sẵn'); r.unitOpened = ma; }
-      else r.unitOpened = '';
-    } catch (e) { r.unitErr = String(e.message || e); }
-  }
-  return r;
 }
 function khExport_() {
   const res = drive_('/drive/v3/files/' + QLKH_ID + '?alt=media&supportsAllDrives=true');
@@ -343,8 +393,9 @@ function thuGhiBanSao() {
   try {
     const L = khList_(), g = L.rows.find(r => r.ten && r.row > 8), e = L.rows.find(r => !r.ten && r.row > 8);
     Logger.log('Thử sửa dòng ' + g.row + ' (' + g.ma + ' · ' + g.ten + ')');
-    Logger.log('Sai tên -> ' + JSON.stringify(khSave_({ row: g.row, expect: { ma: g.ma, ten: 'SAI' }, fields: { gc: 'x' } })));
-    Logger.log('Sửa -> ' + JSON.stringify(khSave_({ row: g.row, expect: { ma: g.ma, ten: g.ten }, fields: { gc: 'THU GHI APP', dmoi: '12345', lt: '31/12/2027', tp: '7.000.000' } })));
+    const sp = editSpec_({ gc: 'THU GHI APP', dmoi: '12345', lt: '31/12/2027', tp: '7.000.000' });
+    Logger.log('Sai tên -> ' + JSON.stringify(xlsmEditRow_(g.row, { ma: g.ma, ten: 'SAI' }, sp.setV, sp.kinds, {})));
+    Logger.log('Sửa -> ' + JSON.stringify(xlsmEditRow_(g.row, { ma: g.ma, ten: g.ten }, sp.setV, sp.kinds, {})));
     const g2 = khList_().rows.find(r => r.row === g.row);
     Logger.log('Đọc lại bản sao: ghi chú=' + g2.gc + ' điện mới=' + g2.dmoi + ' hạn lưu trú=' + g2.lt + ' tiền phòng=' + g2.tp);
     const r2 = xlsmEditRow_(g.row, { ma: g.ma, ten: g.ten }, (() => { const o = {}; for (let c = 5; c <= 29; c++) o[colName_(c)] = ''; return o; })(), {}, { fill: 'yellow', skipFormula: true });

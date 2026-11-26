@@ -64,9 +64,11 @@ function handle_(a, p) {
   if (a === 'pwlist')       return pwList_();
   if (a === 'pwsave')       return withLock_(() => pwSave_(p.item || {}));
   // ---- khách thuê (file QUAN LY KHACH HANG.xlsm) — chỉ Admin
-  if (a === 'khlist')       return khList_();
-  if (a === 'khsave')       return withLock_(() => khSave_(p));
-  if (a === 'khout')        return withLock_(() => khOut_(p));
+  if (a === 'khlist')       { if (khPending_().length) withLock_(() => khApply_()); return Object.assign(khList_(), { errors: khErrors_() }); }
+  if (a === 'khqueue')      return khQueue_(p);
+  if (a === 'khapply')      return withLock_(() => khApply_());
+  if (a === 'khstatus')     return khStatus_();
+  if (a === 'khclearerr')   return khClearErr_();
   if (a === 'khexport')     return khExport_();
   if (a === 'khoutlist')    return khOutList_();
   return { ok: false, err: 'unknown' };

@@ -72,6 +72,8 @@
   .olist{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:8px;font-size:.88rem}
   .toast{position:fixed;left:50%;bottom:90px;transform:translateX(-50%);background:#13242a;color:#fff;padding:11px 16px;border-radius:12px;font-weight:700;font-size:.9rem;box-shadow:0 8px 28px rgba(0,0,0,.3);opacity:0;transition:opacity .2s;z-index:90;max-width:92%;pointer-events:none}
   .toast.show{opacity:1}
+  .sync{position:fixed;right:12px;top:calc(env(safe-area-inset-top,0px) + 12px);z-index:80;border-radius:999px;padding:7px 12px;font-size:.8rem;font-weight:800;box-shadow:0 4px 16px rgba(0,0,0,.2);display:none;cursor:pointer;border:0}
+  .sync.show{display:block} .sync.w{background:#fff6dd;color:#8a5a00} .sync.ok{background:#e7f6ec;color:#15803d} .sync.err{background:#fdeaea;color:#b91c1c}
   .busy{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:95;display:none;align-items:center;justify-content:center;color:#fff;font-weight:800;text-align:center;padding:20px}
   .busy.show{display:flex}
   @media (max-width:440px){ .grid{grid-template-columns:1fr} }
@@ -93,6 +95,7 @@
 <div class="modal" id="modal"><div class="box" id="mBox"></div></div>
 <div class="busy" id="busy"><div>⏳ <span id="busyT">Đang ghi vào file…</span><br><small style="font-weight:600;opacity:.85">(5–20 giây — đừng tắt app)</small></div></div>
 <div class="toast" id="toast"></div>
+<button class="sync" id="sync" onclick="syncClick()"></button>
 
 <script src="canho-api.js"></script>
 <script>
@@ -151,7 +154,7 @@ function load(silent){
     if(!d||!d.ok){ if(d&&d.err==='badpw'){ try{localStorage.removeItem(PWKEY);}catch(e){} return showLogin('Mật khẩu đã đổi, đăng nhập lại'); }
       if(d&&d.err==='noperm'){ try{localStorage.removeItem(PWKEY);}catch(e){} return showLogin('Chỉ Admin được vào trang này'); }
       $('main').innerHTML='<div class="warn">'+esc(errMsg(d))+'</div><button class="btn" onclick="load()">Thử lại</button>'; return; }
-    ROWS=d.rows; AT=d.at; render();
+    ROWS=d.rows; AT=d.at; render(); if(d.errors&&d.errors.length){ ERRS=d.errors; showSync(); }
   }).catch(function(){ $('main').innerHTML='<div class="warn">Không kết nối được máy chủ.</div><button class="btn" onclick="load()">Thử lại</button>'; });
 }
 
@@ -172,7 +175,7 @@ function render(){
     +'<select id="ft"><option value="">Mọi tòa</option>'+tl.map(function(t){return '<option'+(t===FT?' selected':'')+'>'+esc(t)+'</option>';}).join('')+'</select>'
     +'<select id="ff"><option value="">Tất cả</option><option value="warn"'+(FF==='warn'?' selected':'')+'>⚠️ Sắp/quá hạn</option><option value="empty"'+(FF==='empty'?' selected':'')+'>Dòng trống</option><option value="nn"'+(FF==='nn'?' selected':'')+'>Khách NN</option><option value="vn"'+(FF==='vn'?' selected':'')+'>Khách VN</option></select></div>'
     +'<div class="bar"><button class="btn gh sm" onclick="load()">🔄 Tải lại</button><button class="btn gh sm" onclick="exportX()">⬇️ Xuất Excel</button><button class="btn gh sm" onclick="VIEW=\'out\';render()">📋 Khách đã trả phòng</button></div>'
-    +'<div class="sum" id="sum"></div><div id="list"></div><p class="hint">Dữ liệu đọc lúc '+esc(AT)+'. Lưu trên app = ghi thẳng vào file QUAN LY KHACH HANG.xlsm (có bản sao lưu). <b>Đừng mở file trong Excel và sửa cùng lúc.</b></p>';
+    +'<div class="sum" id="sum"></div><div id="list"></div><p class="hint">Dữ liệu đọc lúc '+esc(AT)+'. Bấm Lưu là xong ngay; máy chủ tự ghi vào file QUAN LY KHACH HANG.xlsm ở chế độ nền (có bản sao lưu) — xem nút trạng thái góc trên. <b>Đừng mở file trong Excel và sửa cùng lúc.</b></p>';
   $('q').oninput=function(){FQ=this.value;list();}; $('ft').onchange=function(){FT=this.value;list();}; $('ff').onchange=function(){FF=this.value;list();};
   list();
 }
@@ -277,16 +280,46 @@ function closeSheet(force){
 function saveG(){
   var ch=changes(), n=Object.keys(ch).length; if(!n||!CUR) return;
   if(!CUR.ten && !ch.ten) return toast('Nhập tên khách trước');
-  var r=CUR; busy(true,'Đang ghi '+n+' thay đổi vào file…');
-  luxApi('khsave',{pw:pw(),row:r.row,expect:{ma:r.ma,ten:r.ten},fields:ch},true).then(function(d){
-    busy(false);
-    if(!d||!d.ok){ if(d&&d.err==='changed'){ alert(errMsg(d)); closeSheet(true); load(); return; } return toast(errMsg(d),5000); }
-    // cập nhật tại chỗ (giá trị hiển thị giống file)
+  var r=CUR, b=$('saveBtn'); b.disabled=true; b.textContent='Đang lưu…';
+  luxApi('khqueue',{pw:pw(),type:'save',row:r.row,expect:{ma:r.ma,ten:r.ten},fields:ch},true).then(function(d){
+    if(!d||!d.ok){ b.disabled=false; b.textContent='💾 Lưu'; return toast(errMsg(d),5000); }
     FIELDS.forEach(function(f){ var k=f[0]; if(!(k in ch)) return; r[k]= f[2]==='m'? money(ch[k]) : ch[k]; });
-    toast('✓ Đã lưu vào file'+(d.backupId?' (đã sao lưu bản trước)':''));
-    openG(r.row);
-  }).catch(function(){ busy(false); toast('Không kết nối được máy chủ — chưa lưu',5000); });
+    toast('✓ Đã lưu');
+    PENDING++; kick(); openG(r.row);
+  }).catch(function(){ b.disabled=false; b.textContent='💾 Lưu'; toast('Không kết nối được máy chủ — chưa lưu',5000); });
 }
+/* ---------- GHI NỀN VÀO FILE ---------- */
+var PENDING=0, APPLYING=false, AGAIN=false, ERRS=[], LASTOK='';
+function kick(){
+  if(APPLYING){ AGAIN=true; showSync(); return; }
+  APPLYING=true; AGAIN=false; showSync();
+  luxApi('khapply',{pw:pw()},true,true).then(function(d){
+    APPLYING=false;
+    if(d&&d.ok){ if(d.applied||d.failed){ PENDING=Math.max(0,PENDING-(d.applied||0)-(d.failed||0)); }
+      ERRS=d.errors||[]; if(!AGAIN) PENDING=0; LASTOK=new Date().toTimeString().slice(0,5);
+      if(d.failed) toast('⚠️ '+d.failed+' thay đổi không ghi được vào file — bấm nút đỏ góc trên để xem',6000); }
+    else if(d&&d.err==='busy'){ AGAIN=true; }
+    else { toast('Chưa ghi được vào file ('+errMsg(d)+') — sẽ thử lại',5000); setTimeout(kick,15000); }
+    if(AGAIN){ setTimeout(kick,1500); } showSync();
+  }).catch(function(){ APPLYING=false; showSync(); setTimeout(kick,15000); });
+}
+function showSync(){
+  var el=$('sync'); el.className='sync show ';
+  if(APPLYING||PENDING>0||AGAIN){ el.className+='w'; el.textContent='⏳ Đang ghi vào file…'; return; }
+  if(ERRS.length){ el.className+='err'; el.textContent='⚠️ '+ERRS.length+' thay đổi lỗi'; return; }
+  if(LASTOK){ el.className+='ok'; el.textContent='✓ Đã ghi vào file '+LASTOK; return; }
+  el.className='sync';
+}
+function syncClick(){
+  if(!ERRS.length) return;
+  $('mBox').innerHTML='<h3>⚠️ Thay đổi chưa ghi được</h3><div class="hint">Các thay đổi dưới đây KHÔNG được ghi vào file (thường do dòng đã bị đổi ở nơi khác). Tải lại danh sách rồi sửa lại.</div>'
+    +ERRS.map(function(e){ return '<div class="olist"><b>'+esc(e.type==='out'?'OUT ':'Sửa ')+esc(e.ten||'(dòng trống)')+'</b> · '+esc(e.ma||'')+' · dòng '+e.row+'<div class="muted">'+esc(e.msg||'')+'</div>'
+      +(e.fields?'<div class="muted" style="font-size:.78rem">'+esc(Object.keys(e.fields).map(function(k){var f=FIELDS.find(function(x){return x[0]===k;});return (f?f[1]:k)+': '+e.fields[k];}).join(' · '))+'</div>':'')+'</div>'; }).join('')
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button class="btn gh" style="flex:1" onclick="closeM()">Đóng</button><button class="btn" style="flex:1" onclick="clearErr()">Đã hiểu — tải lại</button></div>';
+  $('modal').classList.add('show');
+}
+function clearErr(){ closeM(); luxApi('khclearerr',{pw:pw()},true).then(function(){ ERRS=[]; showSync(); load(); }); }
+window.addEventListener('pagehide',function(){ if(PENDING>0&&!APPLYING) luxApi('khapply',{pw:pw()},true,true); });
 function askOut(){
   var r=CUR, same=ROWS.filter(function(x){return x.ma===r.ma && x.ten && x.row!==r.row;});
   $('mBox').innerHTML='<h3>🚪 '+esc(r.ten)+' trả phòng?</h3><div class="muted">Phòng '+esc(r.ma)+(same.length?' · còn '+same.length+' khách khác trong phòng':' · là khách cuối cùng của phòng')+'</div>'
@@ -298,15 +331,15 @@ function askOut(){
 function closeM(){ $('modal').classList.remove('show'); }
 function doOut(){
   var r=CUR, note=$('o_note').value.trim(), op=$('o_open').checked; closeM();
-  busy(true,'Đang lưu khách vào danh sách đã trả phòng và xoá dòng trong file…');
-  luxApi('khout',{pw:pw(),row:r.row,guest:r,note:note,openUnit:op},true).then(function(d){
-    busy(false);
-    if(!d||!d.ok){ if(d&&d.err==='changed'){ alert(errMsg(d)); closeSheet(true); load(); return; } return toast(errMsg(d),5000); }
+  var snap=JSON.parse(JSON.stringify(r));
+  luxApi('khqueue',{pw:pw(),type:'out',row:r.row,guest:snap,note:note,openUnit:op},true).then(function(d){
+    if(!d||!d.ok) return toast(errMsg(d),5000);
     var keep={row:r.row,phong:r.phong,toa:r.toa,ma:r.ma,dcu:r.dcu,dmoi:r.dmoi,khac:r.khac,gc:r.gc,gdien:r.gdien};
     FIELDS.forEach(function(f){ if(!(f[0] in keep)) r[f[0]]=''; }); Object.assign(r,keep);
     closeSheet(true); list();
-    toast('✓ '+(d.unitOpened?'Đã OUT và mở căn '+d.unitOpened+' trên catalog':op?'Đã OUT (không tìm thấy căn trên catalog để mở)':'Đã OUT'),4500);
-  }).catch(function(){ busy(false); toast('Không kết nối được máy chủ — chưa OUT',5000); });
+    toast('✓ Đã OUT '+snap.ten+(op?' · căn sẽ được mở trên catalog':''),3500);
+    PENDING++; kick();
+  }).catch(function(){ toast('Không kết nối được máy chủ — chưa OUT',5000); });
 }
 
 /* ---------- XUẤT EXCEL & DS ĐÃ OUT ---------- */
