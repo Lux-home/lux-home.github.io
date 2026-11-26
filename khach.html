@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>LUXHOME · Quản lý khách thuê</title>
+<title>LUXHOME · Thông tin khách thuê</title>
 <meta name="theme-color" content="#0e7ba8">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -81,8 +81,8 @@
 </head>
 <body>
 <div class="top">
-  <a class="back" href="index.html">← Trang chính</a>
-  <div class="brand">LUXHOME<small>QUẢN LÝ KHÁCH THUÊ</small></div>
+  <a class="back" href="checkinout.html">← Checkin-check out</a>
+  <div class="brand">LUXHOME<small>THÔNG TIN KHÁCH THUÊ</small></div>
 </div>
 <div class="wrap" id="main"><p class="muted">Đang tải…</p></div>
 
@@ -135,7 +135,7 @@ function errMsg(d){ var e=d&&d.err; return e==='badpw'?'Sai mật khẩu hoặc 
 
 /* ---------- ĐĂNG NHẬP ---------- */
 function showLogin(msg){
-  $('main').innerHTML='<div class="login"><h2>🔐 Admin</h2><div class="muted">Nhập mật khẩu Admin để quản lý khách thuê</div>'
+  $('main').innerHTML='<div class="login"><h2>🔐 Admin</h2><div class="muted">Nhập mật khẩu Admin để xem / sửa thông tin khách thuê</div>'
     +'<input id="lp" type="password" placeholder="Mật khẩu Admin" autocomplete="current-password"><button class="btn" id="lb">Đăng nhập</button>'
     +(msg?'<div style="color:var(--red);font-weight:700;margin-top:10px">'+esc(msg)+'</div>':'')+'</div>';
   var go=function(){var v=$('lp').value.trim(); if(!v)return; $('lb').disabled=true; $('lb').textContent='Đang kiểm tra…';

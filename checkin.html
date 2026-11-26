@@ -95,7 +95,7 @@
 </head>
 <body>
 <div class="top">
-  <a class="back" id="backLink" href="index.html">← Trang chính</a>
+  <a class="back" id="backLink" href="checkinout.html">← Checkin-check out</a>
   <div class="brand">LUXHOME<small>CẬP NHẬT KHÁCH CHECK-IN</small></div>
   <div class="who" id="who"></div>
 </div>
@@ -261,7 +261,7 @@ var QS=new URLSearchParams(location.search);
 var TOK=QS.get('tok')||'';
 var PW=''; try{ if(!TOK) PW=localStorage.getItem('ck_pw')||''; }catch(e){}
 var ME=null, curTab='', PARSED=[], CURDOT=null;
-if(TOK) document.getElementById('backLink').href='nv.html';
+if(TOK) document.getElementById('backLink').href='checkinout.html?tok='+encodeURIComponent(TOK);
 var MODE=QS.get('mode')||'';
 if(MODE==='tt'){
   document.title='LUXHOME · Kiểm tra thanh toán đợt 1';
