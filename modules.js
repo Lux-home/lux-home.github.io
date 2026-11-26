@@ -12,7 +12,7 @@ window.LUX_MODULES = [
   { k:"thongbao", ic:"📢", nm:"Thông báo cư dân",      en:"Resident notices",      ds:"Báo cư dân theo toà",    url:"thongbao.html", staff:true },
   { k:"phanquyen", ic:"🧑‍💼", nm:"Phân quyền trợ lý",    en:"Assistant permissions", ds:"Quyền app phụ · Nhật ký nhân viên", url:"phanquyen.html", staff:false },
   { k:"noibo",    ic:"🔁", nm:"Hoạt động định kỳ",     en:"Periodic activities",   ds:"Vệ sinh, PCCC…",         url:"noibo.html",    staff:true },
-  { k:"hopdong",  ic:"📄", nm:"Hợp đồng PDF",          en:"Contracts & annexes",   ds:"Tạo HĐ/PLHĐ",            url:"hopdong.html",  staff:true },
+  { k:"hopdong",  ic:"📄", nm:"Tạo mới + lưu trữ HĐ", en:"Create & store contracts", ds:"Tạo HĐ/PLHĐ · lưu trữ",            url:"hopdong.html",  staff:true },
   { k:"checkinout", ic:"🛎️", nm:"Check in - Check out", en:"Check-in / check-out", ds:"Check-in · Chỉnh sửa thông tin khách thuê", url:"checkinout.html", staff:true },
 ];
 // Mã quyền cũ (trước khi gộp) -> mã mới, để nhân viên đã được cấp quyền cũ vẫn thấy mục mới
