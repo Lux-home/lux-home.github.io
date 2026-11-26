@@ -17,6 +17,7 @@ const QLKH_SHEET  = 'DANH SACH LUU TRU';
 const QLKH_BACKUP = 'LUXHOME BACKUP QLKH';
 const QLKH_MIME   = 'application/vnd.ms-excel.sheet.macroEnabled.12';
 const OUT_LOG_NAME = 'LUXHOME - KHÁCH ĐÃ TRẢ PHÒNG';
+let KH_TARGET = QLKH_ID;   // file đang ghi (hàm thử đổi sang bản sao)
 
 // Trường app  ->  cột trong sheet (theo dòng tiêu đề 8 của file)
 const KF = {
@@ -108,8 +109,8 @@ function maybeBackup_(name) {
  */
 function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
   opt = opt || {}; const fill = opt.fill || null;
-  const meta = JSON.parse(drive_('/drive/v3/files/' + QLKH_ID + '?fields=name,modifiedTime&supportsAllDrives=true').getContentText());
-  const res = drive_('/drive/v3/files/' + QLKH_ID + '?alt=media&supportsAllDrives=true');
+  const meta = JSON.parse(drive_('/drive/v3/files/' + KH_TARGET + '?fields=name,modifiedTime&supportsAllDrives=true').getContentText());
+  const res = drive_('/drive/v3/files/' + KH_TARGET + '?alt=media&supportsAllDrives=true');
   if (res.getResponseCode() !== 200) throw new Error('Không tải được file trên Drive (HTTP ' + res.getResponseCode() + ')');
   const blob = res.getBlob(); blob.setContentType('application/zip');
   const parts = Utilities.unzip(blob), byName = {}, order = [];
@@ -247,14 +248,14 @@ function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
     : wb.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
 
   // --- sao lưu rồi ghi
-  const backupId = maybeBackup_(meta.name);
+  const backupId = KH_TARGET === QLKH_ID ? maybeBackup_(meta.name) : null;
   const blobs = [], first = '[Content_Types].xml';
   [first].concat(order.filter(n => n !== first)).forEach(n => {
     if (!byName[n]) return;
     blobs.push(changed[n] != null ? Utilities.newBlob(Utilities.newBlob(changed[n]).getBytes(), 'application/xml', n) : byName[n]);
   });
   const zip = Utilities.zip(blobs, meta.name);
-  const up = drive_('/upload/drive/v3/files/' + QLKH_ID + '?uploadType=media&supportsAllDrives=true', { method: 'patch', contentType: QLKH_MIME, payload: zip.getBytes() });
+  const up = drive_('/upload/drive/v3/files/' + KH_TARGET + '?uploadType=media&supportsAllDrives=true', { method: 'patch', contentType: QLKH_MIME, payload: zip.getBytes() });
   if (up.getResponseCode() !== 200) throw new Error('Ghi file lên Drive không được (HTTP ' + up.getResponseCode() + ')');
   return { ok: true, backupId: backupId };
 }
@@ -324,4 +325,28 @@ function khOutList_() {
 function thuDocKhach() {
   const r = khList_();
   Logger.log(r.ok ? ('Đọc được ' + r.rows.length + ' dòng. Dòng đầu: ' + JSON.stringify(r.rows[0])) : JSON.stringify(r));
+}
+
+/* Chạy tay: thử GHI trên BẢN SAO của file (file thật không bị đụng), xong tự xoá bản sao. */
+function thuGhiBanSao() {
+  const cp = JSON.parse(drive_('/drive/v3/files/' + QLKH_ID + '/copy?supportsAllDrives=true&fields=id', { method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ name: 'THU_GHI_APP_XOA_DUOC.xlsm' }) }).getContentText());
+  KH_TARGET = cp.id;
+  try {
+    const L = khList_(), g = L.rows.find(r => r.ten && r.row > 8), e = L.rows.find(r => !r.ten && r.row > 8);
+    Logger.log('Thử sửa dòng ' + g.row + ' (' + g.ma + ' · ' + g.ten + ')');
+    Logger.log('Sai tên -> ' + JSON.stringify(khSave_({ row: g.row, expect: { ma: g.ma, ten: 'SAI' }, fields: { gc: 'x' } })));
+    Logger.log('Sửa -> ' + JSON.stringify(khSave_({ row: g.row, expect: { ma: g.ma, ten: g.ten }, fields: { gc: 'THU GHI APP', dmoi: '12345', lt: '31/12/2027', tp: '7.000.000' } })));
+    const sh = SpreadsheetApp.openById(KH_TARGET).getSheetByName(QLKH_SHEET);
+    Logger.log('Đọc lại bản sao: AG=' + sh.getRange('AG' + g.row).getDisplayValue() + ' AE=' + sh.getRange('AE' + g.row).getDisplayValue() +
+      ' N=' + sh.getRange('N' + g.row).getDisplayValue() + ' P=' + sh.getRange('P' + g.row).getValue() + ' AN=' + sh.getRange('AN' + g.row).getFormula());
+    const r2 = xlsmEditRow_(g.row, { ma: g.ma, ten: g.ten }, (() => { const o = {}; for (let c = 5; c <= 29; c++) o[colName_(c)] = ''; return o; })(), {}, { fill: 'yellow', skipFormula: true });
+    Logger.log('OUT -> ' + JSON.stringify(r2) + ' · tên sau OUT="' + SpreadsheetApp.openById(KH_TARGET).getSheetByName(QLKH_SHEET).getRange('E' + g.row).getDisplayValue() + '"');
+    const vba = Utilities.unzip(Object.assign(DriveApp.getFileById(KH_TARGET).getBlob(), {}).setContentType('application/zip')).some(b => b.getName() === 'xl/vbaProject.bin');
+    Logger.log('Macro VBA còn nguyên: ' + vba);
+  } finally {
+    KH_TARGET = QLKH_ID;
+    drive_('/drive/v3/files/' + cp.id + '?supportsAllDrives=true', { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }) });
+    Logger.log('Đã chuyển bản sao vào thùng rác.');
+  }
 }
