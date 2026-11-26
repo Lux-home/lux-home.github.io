@@ -226,6 +226,7 @@ function xlsmSession_() {
       const ref = colName_(col) + rowNum, sa = ' s="' + xfFor(base, kind, fillOf(col)) + '"';
       v = String(v == null ? '' : v).trim();
       if (v === '') return '<c r="' + ref + '"' + sa + '/>';
+      if (kind === 'formula') return '<c r="' + ref + '"' + sa + '><f>' + xEsc_(v.replace(/^=/, '')) + '</f></c>';
       if (kind === 'date') { const se = serial(v); if (se != null) return '<c r="' + ref + '"' + sa + '><v>' + se + '</v></c>'; }
       if (kind === 'num') { let n = v.replace(/[,\s]/g, ''); if (/^\d{1,3}(\.\d{3})+$/.test(n)) n = n.replace(/\./g, ''); if (/^-?\d+(\.\d+)?$/.test(n)) return '<c r="' + ref + '"' + sa + '><v>' + n + '</v></c>'; }
       const t = xEsc_(v);
@@ -254,6 +255,29 @@ function xlsmSession_() {
     return { ok: true };
   }
 
+  /** Các dòng khách có số liệu lệch vào cột kỳ tính tiền Y..AC (không phải ngày / AA không phải công thức). */
+  function scanShifted() {
+    const out = [];
+    const sdA = s.indexOf('<sheetData'), sdB = s.indexOf('>', sdA) + 1, sdE = s.indexOf('</sheetData>');
+    s.slice(sdB, sdE).replace(/<row\b[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g, rx => {
+      const n = +(rx.match(/ r="(\d+)"/) || [])[1]; if (n <= 8) return rx;
+      const cs = parseRow(rx);
+      if (!String(cellVal(cs[colNum_('E')])).trim()) return rx;
+      const info = {}; let bad = false, adText = false;
+      ['Y', 'Z', 'AA', 'AB', 'AC', 'AD'].forEach(L => {
+        const c = cs[colNum_(L)], v = c ? cellVal(c) : '';
+        const isD = !!c && c.t === '' && /^-?\d+(\.\d+)?$/.test(v) && isDateFmt(+((xfs[+c.s] || '').match(/ numFmtId="(\d+)"/) || [0, 0])[1]);
+        info[L] = v;
+        if (['Y', 'Z', 'AB', 'AC'].indexOf(L) >= 0 && v !== '' && !isD) bad = true;          // kỳ tính tiền phải là ngày
+        if (L === 'AD' && c && v !== '' && (c.t === 's' || c.t === 'inlineStr' || c.t === 'str')) adText = true;   // chỉ số điện cũ phải là số
+      });
+      info.adText = adText;
+      if (bad) out.push({ row: n, ma: cellVal(cs[colNum_('D')]), ten: cellVal(cs[colNum_('E')]), old: info });
+      return rx;
+    });
+    return out;
+  }
+
   /** Sao lưu (nếu cần) rồi ghi file lên Drive 1 lần. */
   function commit() {
     if (!dirty) return { ok: true, nothing: true };
@@ -274,7 +298,7 @@ function xlsmSession_() {
     if (up.getResponseCode() !== 200) throw new Error('Ghi file lên Drive không được (HTTP ' + up.getResponseCode() + ')');
     return { ok: true, backupId: backupId };
   }
-  return { edit: edit, commit: commit };
+  return { edit: edit, commit: commit, scanShifted: scanShifted };
 }
 /** Sửa 1 dòng và ghi ngay (dùng cho hàm thử). */
 function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
@@ -410,4 +434,37 @@ function thuGhiBanSao() {
     drive_('/drive/v3/files/' + cp.id + '?supportsAllDrives=true', { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }) });
     Logger.log('Đã chuyển bản sao vào thùng rác.');
   }
+}
+
+/**
+ * SỬA HÀNG LOẠT (chạy tay 1 lần): các dòng khách bị dán lệch số liệu DS Check-in vào cột Y..AC.
+ *  - chép giá trị cũ sang bảng "LUXHOME - SỬA CỘT TIỀN THUÊ" (không mất thông tin hoa hồng…)
+ *  - xoá trắng Y, Z, AB, AC (+ AD nếu đang chứa chữ/tiền dán lệch); đặt lại công thức AA = (Z-Y+1)/30
+ *  - luôn lưu bản sao file trước khi ghi
+ *  xem trước: suaCotTienThue(true)
+ */
+function suaCotTienThue(chiXem) {
+  const lock = LockService.getScriptLock(); lock.waitLock(60000);
+  try {
+    if (khPending_().length) khApply_();
+    const S = xlsmSession_(), list = S.scanShifted();
+    Logger.log('Tìm thấy ' + list.length + ' dòng lệch cột. Ví dụ: ' + JSON.stringify(list.slice(0, 3)));
+    if (chiXem === true || !list.length) return list.length;
+    const ss = SpreadsheetApp.create('LUXHOME - SỬA CỘT TIỀN THUÊ (Y–AC) ' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'));
+    const sh = ss.getSheets()[0];
+    const rows = [['Dòng', 'Mã phòng', 'Tên khách', 'Y (cũ)', 'Z (cũ)', 'AA (cũ)', 'AB (cũ)', 'AC (cũ)', 'AD (cũ)', 'Đã xoá AD?']]
+      .concat(list.map(x => [x.row, x.ma, x.ten, x.old.Y, x.old.Z, x.old.AA, x.old.AB, x.old.AC, x.old.AD, x.old.adText ? 'Có' : ''].map(v => "'" + String(v))));
+    sh.getRange(1, 1, rows.length, 10).setValues(rows); sh.setFrozenRows(1);
+    let ok = 0;
+    list.forEach(x => {
+      const setV = { Y: '', Z: '', AB: '', AC: '', AA: '=(Z' + x.row + '-Y' + x.row + '+1)/30' }, kinds = { Y: 'date', Z: 'date', AB: 'date', AC: 'date', AA: 'formula' };
+      if (x.old.adText) { setV.AD = ''; kinds.AD = 'num'; }
+      const r = S.edit(x.row, { ma: x.ma, ten: x.ten }, setV, kinds, { skipFormula: true });
+      if (r.ok) ok++;
+    });
+    PropertiesService.getScriptProperties().setProperty('kh_lastbk', '0');   // bắt buộc sao lưu lần này
+    const c = S.commit();
+    Logger.log('Đã sửa ' + ok + '/' + list.length + ' dòng. Bản sao file: ' + c.backupId + ' · Bảng giá trị cũ: ' + ss.getUrl());
+    return ok;
+  } finally { lock.releaseLock(); }
 }
