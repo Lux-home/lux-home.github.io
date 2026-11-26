@@ -14,7 +14,7 @@ window.LUX_MODULES = [
   { k:"nvadmin",  ic:"🧑‍💼", nm:"Quản lý quyền app phụ", en:"Staff app permissions", ds:"Phân quyền app phụ",     url:"nvadmin.html",  staff:false },
   { k:"noibo",    ic:"🔁", nm:"Hoạt động định kỳ",     en:"Periodic activities",   ds:"Vệ sinh, PCCC…",         url:"noibo.html",    staff:true },
   { k:"hopdong",  ic:"📄", nm:"Hợp đồng PDF",          en:"Contracts & annexes",   ds:"Tạo HĐ/PLHĐ",            url:"hopdong.html",  staff:true },
-  { k:"checkinout", ic:"🛎️", nm:"Check in - Check out", en:"Check-in / check-out", ds:"Check-in · Thông tin khách thuê", url:"checkinout.html", staff:true },
+  { k:"checkinout", ic:"🛎️", nm:"Check in - Check out", en:"Check-in / check-out", ds:"Check-in · Chỉnh sửa thông tin khách thuê", url:"checkinout.html", staff:true },
 ];
 // Mã quyền cũ (trước khi gộp) -> mã mới, để nhân viên đã được cấp quyền cũ vẫn thấy mục mới
 window.LUX_PERM_ALIAS = { catalog:"quanlycanho", canho:"quanlycanho", bill:"quanlythanhtoan", congno:"quanlythanhtoan", checkin:"checkinout", khach:"checkinout" };
