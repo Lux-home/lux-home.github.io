@@ -1,7 +1,7 @@
 /**
  * LUXHOME — KHO HỢP ĐỒNG (cùng dự án với canho-api.gs …)
  * Mục 3 "Hợp đồng PDF" (check-in) nạp file → app tải file PDF gốc lên Drive:
- *   LUXHOME - HỢP ĐỒNG / <Tòa> / <yyyy-mm tháng check-in> / <Phòng> / <tên file>.pdf
+ *   LUXHOME - HỢP ĐỒNG / <Tòa>-Tháng <m>-<yyyy> (tháng check-in) / P<phòng> / <tên file>.pdf   (vd T121-Tháng 11-2026 / P301)
  * Ô "Tạo mới + lưu trữ HĐ" → "Lưu HĐ + PL" duyệt / tìm / mở các file này.
  */
 const HD_ROOT_NAME = 'LUXHOME - HỢP ĐỒNG';
@@ -45,9 +45,10 @@ function hdSession_(p) {
   if (!who) return { ok: false, err: 'noperm', msg: 'Không có quyền lưu hợp đồng' };
   const toa = hdClean_(p.toa).toUpperCase(), thang = hdClean_(p.thang), phong = hdClean_(p.phong).toUpperCase(), name = hdClean_(p.name);
   if (!toa || !/^\d{4}-\d{2}$/.test(thang) || !phong || !name) return { ok: false, err: 'need', msg: 'Thiếu tòa / tháng / phòng / tên file' };
-  const f = hdChild_(hdChild_(hdChild_(hdRoot_(), toa), thang), phong);
+  const tm = thang.split('-'), lv1 = toa + '-Tháng ' + (+tm[1]) + '-' + tm[0], lv2 = /^P/.test(phong) ? phong : 'P' + phong;
+  const f = hdChild_(hdChild_(hdRoot_(), lv1), lv2);
   const ex = f.getFilesByName(name);
-  while (ex.hasNext()) { const x = ex.next(); if (!x.isTrashed() && (!p.size || x.getSize() === +p.size)) return { ok: true, exists: true, id: x.getId(), path: toa + '/' + thang + '/' + phong }; }
+  while (ex.hasNext()) { const x = ex.next(); if (!x.isTrashed() && (!p.size || x.getSize() === +p.size)) return { ok: true, exists: true, id: x.getId(), path: lv1 + ' / ' + lv2 }; }
   const res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true', {
     method: 'post', contentType: 'application/json; charset=UTF-8', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'X-Upload-Content-Type': 'application/pdf', 'X-Upload-Content-Length': String(p.size || ''),
@@ -56,10 +57,10 @@ function hdSession_(p) {
   });
   const loc = res.getAllHeaders()['Location'] || res.getAllHeaders()['location'];
   if (res.getResponseCode() !== 200 || !loc) return { ok: false, err: 'session', msg: res.getContentText().slice(0, 200) };
-  if (!who.owner) { try { nkAppend_(who.ma, who.ten, 'Lưu hợp đồng PDF', toa + '/' + thang + '/' + phong + ' · ' + name, 'checkin.html', p.devname); } catch (e) {} }
-  return { ok: true, url: loc, path: toa + '/' + thang + '/' + phong };
+  if (!who.owner) { try { nkAppend_(who.ma, who.ten, 'Lưu hợp đồng PDF', lv1 + ' / ' + lv2 + ' · ' + name, 'checkin.html', p.devname); } catch (e) {} }
+  return { ok: true, url: loc, path: lv1 + ' / ' + lv2 };
 }
-/** Duyệt kho: path = [] (tòa) | [tòa] (tháng) | [tòa, tháng] (phòng) | [tòa, tháng, phòng] (file) */
+/** Duyệt kho: path = [] (Tòa-Tháng) | [Tòa-Tháng] (phòng) | [Tòa-Tháng, phòng] (file) */
 function hdList_(p) {
   const who = hdAuth_(p, ['hopdong']);
   if (!who) return { ok: false, err: 'noperm', msg: 'Chưa được cấp quyền Tạo mới + lưu trữ HĐ' };
@@ -69,7 +70,12 @@ function hdList_(p) {
   const folders = [], files = [];
   const fi = f.getFolders(); while (fi.hasNext()) { const x = fi.next(); folders.push({ name: x.getName(), id: x.getId() }); }
   const fl = f.getFiles(); while (fl.hasNext()) { const x = fl.next(); if (!x.isTrashed()) files.push({ name: x.getName(), id: x.getId(), size: x.getSize(), at: Utilities.formatDate(x.getDateCreated(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm') }); }
-  folders.sort((a, b) => path.length === 1 ? b.name.localeCompare(a.name) : a.name.localeCompare(b.name, 'vi', { numeric: true }));
+  // cấp 1 "T121-Tháng 11-2026": xếp theo tòa, rồi tháng mới nhất trước
+  const key = n => { const m = String(n).match(/^(.*)-Tháng (\d+)-(\d{4})$/); return m ? [m[1], +m[3] * 100 + (+m[2])] : [n, 0]; };
+  folders.sort((a, b) => {
+    if (path.length) return a.name.localeCompare(b.name, 'vi', { numeric: true });
+    const x = key(a.name), y = key(b.name); return x[0] === y[0] ? y[1] - x[1] : x[0].localeCompare(y[0], 'vi', { numeric: true });
+  });
   files.sort((a, b) => a.name.localeCompare(b.name));
   return { ok: true, path: path, folders: folders, files: files };
 }
@@ -84,7 +90,7 @@ function hdSearch_(p) {
     const x = it.next(), chain = [];
     let par = x.getParents(), ok = false;
     for (let d = 0; d < 4 && par.hasNext(); d++) { const pf = par.next(); if (pf.getId() === rootId) { ok = true; break; } chain.unshift(pf.getName()); par = pf.getParents(); }
-    if (ok) out.push({ name: x.getName(), id: x.getId(), size: x.getSize(), path: chain.join('/'), at: Utilities.formatDate(x.getDateCreated(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy') });
+    if (ok) out.push({ name: x.getName(), id: x.getId(), size: x.getSize(), path: chain.join(' / '), at: Utilities.formatDate(x.getDateCreated(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy') });
   }
   return { ok: true, files: out };
 }
