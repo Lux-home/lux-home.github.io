@@ -118,8 +118,8 @@
     <!-- GỬI DANH SÁCH -->
     <div id="v_gui" style="display:none">
       <div class="napTab">
-        <button class="napB" data-n="le" onclick="napChon('le')"><b>1</b>👤 Khách lẻ</button>
-        <button class="napB" data-n="pdf" onclick="napChon('pdf')"><b>2</b>📑 Hợp đồng PDF</button>
+        <button class="napB" data-n="le" onclick="napChon('le')"><b>1</b>👤 Bổ sung khách ở thêm</button>
+        <button class="napB" data-n="pdf" onclick="napChon('pdf')"><b>2</b>📑 Hợp đồng checkin PDF</button>
       </div>
       <div class="card napP" id="napExcel" style="display:none">
         <div class="lb">Nạp theo file Excel DS Check-in</div>
@@ -145,7 +145,7 @@
         <p class="hint">Đúng định dạng file DS Check-in: cột A (STT) → AC (Ngày nhập cảnh). Dòng có số căn hộ ở cột B là khách chính; dòng trống cột B là người ở cùng.</p>
       </div>
       <div class="card napP" id="napPdf" style="display:none">
-        <div class="lb">Nạp theo danh sách hợp đồng PDF</div>
+        <div class="lb">Hợp đồng checkin PDF</div>
         <div id="pdfLoi"></div>
         <input type="file" id="hdFile" accept="application/pdf,.pdf" multiple style="display:none" onchange="hdChon(this.files)">
         <button class="btn big" onclick="document.getElementById('hdFile').click()">📑 Chọn hợp đồng PDF (bản quét)</button>
@@ -506,7 +506,7 @@ function docFile(f){
   if(!f) return;
   napLoi('excelLoi',[]);
   if(!/\.(xlsx|xlsm|xls)$/i.test(f.name)){
-    napLoi('excelLoi',['⛔ "'+f.name+'" không phải file Excel. Mục 1 chỉ nhận file DS Check-in dạng .xlsx'+(/\.pdf$/i.test(f.name)?' — file hợp đồng PDF hãy dùng mục Hợp đồng PDF.':/\.(jpe?g|png|heic)$/i.test(f.name)?' — ảnh giấy tờ hãy dùng mục 2 (Khách lẻ).':'.')]);
+    napLoi('excelLoi',['⛔ "'+f.name+'" không phải file Excel. Mục 1 chỉ nhận file DS Check-in dạng .xlsx'+(/\.pdf$/i.test(f.name)?' — file hợp đồng PDF hãy dùng mục Hợp đồng checkin PDF.':/\.(jpe?g|png|heic)$/i.test(f.name)?' — ảnh giấy tờ hãy dùng mục 2 (Khách lẻ).':'.')]);
     document.getElementById('fFile').value=''; return;
   }
   toast('Đang đọc file…');
@@ -924,10 +924,10 @@ function kpThemFile(list){
     var f={ ten:file.name||'anh.jpg', st:'doc', loai:'', kq:null, text:'', qr:'', id:'' };
     KP.files.push(f);
     if(!/^image\/|^application\/pdf$/.test(file.type||'') && !/\.(jpe?g|png|webp|pdf)$/i.test(f.ten)){
-      f.st='loi'; f.err='Sai định dạng — mục Khách lẻ chỉ nhận ảnh chụp giấy tờ (JPG/PNG) hoặc visa điện tử PDF'+(/\.xls/i.test(f.ten)?'. Mục này không nhận file Excel.':'');
+      f.st='loi'; f.err='Sai định dạng — mục Bổ sung khách ở thêm chỉ nhận ảnh chụp giấy tờ (JPG/PNG) hoặc visa điện tử PDF'+(/\.xls/i.test(f.ten)?'. Mục này không nhận file Excel.':'');
       kpVeFiles(); kpTinh(); return;
     }
-    if(file.type==='application/pdf' && file.size>8*1024*1024){ f.st='loi'; f.err='PDF quá lớn — nếu là hợp đồng nhiều trang hãy dùng mục Hợp đồng PDF'; kpVeFiles(); kpTinh(); return; }
+    if(file.type==='application/pdf' && file.size>8*1024*1024){ f.st='loi'; f.err='PDF quá lớn — nếu là hợp đồng nhiều trang hãy dùng mục Hợp đồng checkin PDF'; kpVeFiles(); kpTinh(); return; }
     kpVeFiles();
     kpNen(file).then(function(z){
       return kpQRDoc(z.canvas).then(function(qr){
@@ -1223,7 +1223,7 @@ function hdChon(list){
   var files=[].slice.call(list||[]); document.getElementById('hdFile').value='';
   var loi=[];
   files.forEach(function(f){
-    if(!/\.pdf$/i.test(f.name) && f.type!=='application/pdf'){ loi.push('⛔ "'+f.name+'" không phải file PDF — mục Hợp đồng PDF chỉ nhận hợp đồng dạng PDF'+(/\.xls/i.test(f.name)?' (không nhận file Excel)':/\.(jpe?g|png|heic)$/i.test(f.name)?' (ảnh giấy tờ hãy dùng mục Khách lẻ)':'')); return; }
+    if(!/\.pdf$/i.test(f.name) && f.type!=='application/pdf'){ loi.push('⛔ "'+f.name+'" không phải file PDF — mục Hợp đồng checkin PDF chỉ nhận hợp đồng dạng PDF'+(/\.xls/i.test(f.name)?' (không nhận file Excel)':/\.(jpe?g|png|heic)$/i.test(f.name)?' (ảnh giấy tờ hãy dùng mục Bổ sung khách ở thêm)':'')); return; }
     if(!hdTenFile(f.name).room) loi.push('⚠️ Tên file "'+f.name+'" sai định dạng — cần dạng P301_T121_17.11-16.2.27_-_MôiGiới.pdf; app vẫn đọc nhưng phải gõ tay mã phòng và ngày HĐ.');
     var _h={ id:++HD_SEQ, file:f.name, st:'cho', xong:0, tong:0, f:f, fobj:f }; HD.push(_h);
     var _t=hdTenFile(f.name); if(_t.room) hdLuu(_h, _t.room, _t.start);   // tự lưu PDF gốc lên Drive
