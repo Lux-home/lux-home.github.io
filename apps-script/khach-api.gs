@@ -45,33 +45,39 @@ function isHdrTen_(c) { c = String(c == null ? '' : c).trim(); return c.charAt(0
 function cmp_(s) { return String(s == null ? '' : s).replace(/[\s ]+/g, ' ').trim().toUpperCase(); }
 
 /* ======================= ĐỌC DANH SÁCH ======================= */
-function khSheet_() {
-  const sh = SpreadsheetApp.openById(QLKH_ID).getSheetByName(QLKH_SHEET);
-  if (!sh) throw new Error('Không mở được sheet ' + QLKH_SHEET);
-  return sh;
-}
 function khList_() {
-  const rng = khSheet_().getDataRange();
-  const v = rng.getDisplayValues(), raw = rng.getValues();
-  // ô ngày thật -> luôn trả dd/MM/yyyy (tránh nhầm định dạng ngày kiểu Mỹ khi hiển thị)
-  for (let i = 0; i < raw.length; i++) for (let j = 0; j < raw[i].length; j++)
-    if (raw[i][j] instanceof Date) v[i][j] = Utilities.formatDate(raw[i][j], 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy');
-  let hr = -1;
-  for (let i = 0; i < Math.min(v.length, 20); i++) if (v[i].some(isHdrTen_)) { hr = i; break; }
-  if (hr < 0) throw new Error('Không thấy dòng tiêu đề "Tên khách"');
-  const H = v[hr].map(norm_);
-  for (const L in K_CHECK) if (H[colNum_(L) - 1] !== K_CHECK[L]) return { ok: false, err: 'layout', msg: 'Cột ' + L + ' của file không đúng mẫu — không đọc để tránh sai.' };
-  const rows = [];
-  for (let r = hr + 1; r < v.length; r++) {
-    const row = v[r], o = { row: r + 1 };
-    for (const k in KF) o[k] = String(row[colNum_(KF[k]) - 1] || '').trim();
-    if (!o.ma && !o.ten && !o.toa) continue;
-    // cột công thức (giá trị đã tính) — chỉ để xem
-    o.sodien = String(row[colNum_('AI') - 1] || ''); o.tiendien = String(row[colNum_('AJ') - 1] || '');
-    o.tiennuoc = String(row[colNum_('AK') - 1] || ''); o.tiendv = String(row[colNum_('AL') - 1] || '');
-    o.tienthue = String(row[colNum_('AM') - 1] || ''); o.tong = String(row[colNum_('AN') - 1] || '');
+  const X = xlsmOpen_(), s = X.s;
+  // định dạng ngày theo style
+  const st = X.get('xl/styles.xml'), fmtCode = {};
+  const nfM = st.match(/<numFmts count="(\d+)">([\s\S]*?)<\/numFmts>/);
+  if (nfM) nfM[2].replace(/<numFmt numFmtId="(\d+)" formatCode="([^"]*)"\/>/g, (m, id, code) => { fmtCode[id] = xUnesc_(code); return m; });
+  const xfs = (st.match(/<cellXfs count="\d+">([\s\S]*?)<\/cellXfs>/)[1].match(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g)) || [];
+  const isDate = sIdx => { const x = xfs[+sIdx] || ''; const id = +(x.match(/ numFmtId="(\d+)"/) || [0, 0])[1];
+    if ((id >= 14 && id <= 22) || (id >= 45 && id <= 47)) return true; const c = fmtCode[id]; return !!c && /[dy]/i.test(c.replace(/"[^"]*"|\[[^\]]*\]/g, '')) && !/[#0]/.test(c); };
+  const show = c => {
+    if (!c) return '';
+    const v = X.cellVal(c);
+    if (c.t === '' && v !== '' && /^-?\d+(\.\d+)?$/.test(v) && isDate(c.s)) {
+      const d = new Date(Date.UTC(1899, 11, 30) + Math.round(+v) * 86400000);
+      return ('0' + d.getUTCDate()).slice(-2) + '/' + ('0' + (d.getUTCMonth() + 1)).slice(-2) + '/' + d.getUTCFullYear();
+    }
+    return /^-?\d+\.0+$/.test(v) ? v.replace(/\.0+$/, '') : v;
+  };
+  const rows = [], all = {};
+  const sdA = s.indexOf('<sheetData'), sdB = s.indexOf('>', sdA) + 1, sdE = s.indexOf('</sheetData>');
+  s.slice(sdB, sdE).replace(/<row\b[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g, r => { const n = +(r.match(/ r="(\d+)"/) || [])[1]; all[n] = r; return r; });
+  let hr = 0;
+  Object.keys(all).map(Number).sort((a, b) => a - b).some(n => { if (n > 20) return true; const cs = X.parseRow(all[n]); if (Object.keys(cs).some(k => isHdrTen_(X.cellVal(cs[k])))) { hr = n; return true; } return false; });
+  if (!hr) throw new Error('Không thấy dòng tiêu đề "Tên khách"');
+  const hc = X.parseRow(all[hr]);
+  for (const L in K_CHECK) if (norm_(X.cellVal(hc[colNum_(L)])) !== K_CHECK[L]) return { ok: false, err: 'layout', msg: 'Cột ' + L + ' của file không đúng mẫu — không đọc để tránh sai.' };
+  Object.keys(all).map(Number).sort((a, b) => a - b).forEach(n => {
+    if (n <= hr) return;
+    const cs = X.parseRow(all[n]), o = { row: n };
+    for (const k in KF) o[k] = String(show(cs[colNum_(KF[k])])).trim();
+    if (!o.ma && !o.ten && !o.toa) return;
     rows.push(o);
-  }
+  });
   return { ok: true, rows: rows, at: Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'HH:mm dd/MM/yyyy') };
 }
 
@@ -107,8 +113,7 @@ function maybeBackup_(name) {
  *  kinds   : { 'L': 'date' | 'num' | 'text' }
  *  opt     : { fill: 'yellow' — tô màu các ô A..AH của dòng, skipFormula: true — bỏ qua ô công thức thay vì báo lỗi }
  */
-function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
-  opt = opt || {}; const fill = opt.fill || null;
+function xlsmOpen_() {
   const meta = JSON.parse(drive_('/drive/v3/files/' + KH_TARGET + '?fields=name,modifiedTime&supportsAllDrives=true').getContentText());
   const res = drive_('/drive/v3/files/' + KH_TARGET + '?alt=media&supportsAllDrives=true');
   if (res.getResponseCode() !== 200) throw new Error('Không tải được file trên Drive (HTTP ' + res.getResponseCode() + ')');
@@ -116,18 +121,12 @@ function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
   const parts = Utilities.unzip(blob), byName = {}, order = [];
   parts.forEach(b => { byName[b.getName()] = b; order.push(b.getName()); });
   const get = n => byName[n] ? byName[n].getDataAsString('UTF-8') : null;
-  const changed = {};
-
-  // --- tìm sheet
   const wb = get('xl/workbook.xml'), rels = get('xl/_rels/workbook.xml.rels');
   let rid = null, tgt = null;
   wb.replace(/<sheet\b[^>]*>/g, t => { const nm = (t.match(/ name="([^"]*)"/) || [])[1]; if (nm != null && xUnesc_(nm) === QLKH_SHEET) rid = (t.match(/ r:id="([^"]*)"/) || [])[1]; return t; });
   if (!rid) throw new Error('Không thấy sheet ' + QLKH_SHEET);
   rels.replace(/<Relationship\b[^>]*>/g, t => { if ((t.match(/ Id="([^"]*)"/) || [])[1] === rid) tgt = (t.match(/ Target="([^"]*)"/) || [])[1]; return t; });
   const sheetPath = tgt.charAt(0) === '/' ? tgt.slice(1) : 'xl/' + tgt.replace(/^\.\//, '');
-  let s = get(sheetPath);
-
-  // --- shared strings (để đọc giá trị kiểm tra)
   const sst = [];
   (get('xl/sharedStrings.xml') || '').replace(/<si>([\s\S]*?)<\/si>/g, (m, si) => { let t = ''; si.replace(/<t(?:\s[^>]*)?>([\s\S]*?)<\/t>/g, (a, b) => { t += b; return a; }); sst.push(xUnesc_(t)); return m; });
   const cellVal = c => {
@@ -146,6 +145,15 @@ function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
     return out;
   };
   const rowRe = r => new RegExp('<row\\b[^>]*? r="' + r + '"[^>]*?(?:\\/>|>[\\s\\S]*?<\\/row>)');
+  return { meta, byName, order, get, wb, sheetPath, s: get(sheetPath), cellVal, parseRow, rowRe };
+}
+
+function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
+  opt = opt || {}; const fill = opt.fill || null;
+  const X = xlsmOpen_(), meta = X.meta, byName = X.byName, order = X.order, get = X.get, wb = X.wb, sheetPath = X.sheetPath;
+  const cellVal = X.cellVal, parseRow = X.parseRow, rowRe = X.rowRe;
+  let s = X.s;
+  const changed = {};
 
   // --- kiểm tra cấu trúc (dòng tiêu đề)
   let hdr = null;
@@ -337,11 +345,11 @@ function thuGhiBanSao() {
     Logger.log('Thử sửa dòng ' + g.row + ' (' + g.ma + ' · ' + g.ten + ')');
     Logger.log('Sai tên -> ' + JSON.stringify(khSave_({ row: g.row, expect: { ma: g.ma, ten: 'SAI' }, fields: { gc: 'x' } })));
     Logger.log('Sửa -> ' + JSON.stringify(khSave_({ row: g.row, expect: { ma: g.ma, ten: g.ten }, fields: { gc: 'THU GHI APP', dmoi: '12345', lt: '31/12/2027', tp: '7.000.000' } })));
-    const sh = SpreadsheetApp.openById(KH_TARGET).getSheetByName(QLKH_SHEET);
-    Logger.log('Đọc lại bản sao: AG=' + sh.getRange('AG' + g.row).getDisplayValue() + ' AE=' + sh.getRange('AE' + g.row).getDisplayValue() +
-      ' N=' + sh.getRange('N' + g.row).getDisplayValue() + ' P=' + sh.getRange('P' + g.row).getValue() + ' AN=' + sh.getRange('AN' + g.row).getFormula());
+    const g2 = khList_().rows.find(r => r.row === g.row);
+    Logger.log('Đọc lại bản sao: ghi chú=' + g2.gc + ' điện mới=' + g2.dmoi + ' hạn lưu trú=' + g2.lt + ' tiền phòng=' + g2.tp);
     const r2 = xlsmEditRow_(g.row, { ma: g.ma, ten: g.ten }, (() => { const o = {}; for (let c = 5; c <= 29; c++) o[colName_(c)] = ''; return o; })(), {}, { fill: 'yellow', skipFormula: true });
-    Logger.log('OUT -> ' + JSON.stringify(r2) + ' · tên sau OUT="' + SpreadsheetApp.openById(KH_TARGET).getSheetByName(QLKH_SHEET).getRange('E' + g.row).getDisplayValue() + '"');
+    const g3 = khList_().rows.find(r => r.row === g.row);
+    Logger.log('OUT -> ' + JSON.stringify(r2) + ' · sau OUT: tên="' + (g3 ? g3.ten : '(dòng trống)') + '" mã phòng=' + (g3 ? g3.ma : '') + ' điện mới=' + (g3 ? g3.dmoi : ''));
     const vba = Utilities.unzip(Object.assign(DriveApp.getFileById(KH_TARGET).getBlob(), {}).setContentType('application/zip')).some(b => b.getName() === 'xl/vbaProject.bin');
     Logger.log('Macro VBA còn nguyên: ' + vba);
   } finally {
