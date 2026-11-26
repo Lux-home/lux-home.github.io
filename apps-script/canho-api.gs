@@ -53,6 +53,7 @@ function handle_(a, p) {
   if (a === 'hdget')     return hdGet_(p);
   if (a === 'tdlist')    return tdList_(p);
   if (a === 'tdsave')    return tdSave_(p);
+  if (a === 'tdmail')    return tdMailCfg_(p);
   // nhân viên (token app phụ) — chỉ xem / gửi đề xuất, chủ duyệt
   if (!role && p.tok && ['khlist', 'khpropose', 'khmyreqs', 'khexportget'].indexOf(a) >= 0) return staffRoute_(a, p);
   if (!role) return { ok: false, err: 'badpw' };

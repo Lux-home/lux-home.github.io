@@ -157,3 +157,64 @@ function tdSave_(p) {
   });
   return { ok: true, n: cnt };
 }
+
+/* ======================= EMAIL BÁO CÁO HẰNG NGÀY: THANH TOÁN ĐỢT 1 =======================
+ * Giống email "Hạn visa / lưu trú": danh sách người nhận + các giờ gửi trong ngày (mặc định 07:00).
+ * Trình kích hoạt chạy mỗi 15 phút (tdTick) và gửi khi tới giờ đã đặt (mỗi giờ 1 lần/ngày).
+ */
+function tdCfg_() {
+  const P = PropertiesService.getScriptProperties();
+  let em = []; try { em = JSON.parse(P.getProperty('td_mail') || 'null'); } catch (e) {}
+  if (!em) em = [Session.getEffectiveUser().getEmail()].filter(String);
+  let tm = []; try { tm = JSON.parse(P.getProperty('td_times') || 'null'); } catch (e) {}
+  if (!tm || !tm.length) tm = ['07:00'];
+  return { emails: em, times: tm, trigger: ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'tdTick') };
+}
+function tdMailCfg_(p) {
+  const who = hdAuth_(p, []);
+  if (!who || !who.owner) return { ok: false, err: 'noperm' };
+  const P = PropertiesService.getScriptProperties();
+  if (p.emails) P.setProperty('td_mail', JSON.stringify([].concat(p.emails).map(s => String(s).trim()).filter(s => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s)).slice(0, 30)));
+  if (p.times) P.setProperty('td_times', JSON.stringify([].concat(p.times).map(s => String(s).trim()).filter(s => /^\d{2}:\d{2}$/.test(s)).sort().slice(0, 12)));
+  if (p.test) { const r = tdSendReport_(true); return Object.assign({ ok: true, sent: r }, tdCfg_()); }
+  return Object.assign({ ok: true }, tdCfg_());
+}
+/** Chạy 1 lần trong trình soạn thảo: tạo trình kích hoạt 15 phút + gửi email thử. */
+function tdCaiDatEmail() {
+  if (!ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'tdTick'))
+    ScriptApp.newTrigger('tdTick').timeBased().everyMinutes(15).create();
+  Logger.log(tdSendReport_(true));
+}
+function tdTick() {
+  const P = PropertiesService.getScriptProperties(), cfg = tdCfg_();
+  const now = new Date(), tz = 'Asia/Ho_Chi_Minh', day = Utilities.formatDate(now, tz, 'yyyy-MM-dd'), hm = Utilities.formatDate(now, tz, 'HH:mm');
+  let sent = {}; try { sent = JSON.parse(P.getProperty('td_sent') || '{}'); } catch (e) {}
+  if (sent.day !== day) sent = { day: day, t: [] };
+  const due = cfg.times.filter(t => t <= hm && sent.t.indexOf(t) < 0);
+  if (!due.length) return;
+  sent.t = sent.t.concat(due); P.setProperty('td_sent', JSON.stringify(sent));
+  tdSendReport_(false);
+}
+function tdSendReport_(force) {
+  const cfg = tdCfg_(); if (!cfg.emails.length) return 'Chưa có email nhận';
+  const sh = tdSheet_(), n = sh.getLastRow();
+  const rows = n > 1 ? sh.getRange(2, 1, n - 1, TD_HDR.length).getDisplayValues() : [];
+  const R = rows.map(r => ({ file: r[0], room: r[1], start: r[4], at: r[5], by: r[6], st: r[7] || 'Chưa kiểm tra', detail: r[8], checked: r[9] }));
+  const sai = R.filter(x => /^Chưa đúng/.test(x.st)), chua = R.filter(x => x.st === 'Chưa kiểm tra'), tam = R.filter(x => /^Tạm/.test(x.st));
+  const tong = sai.length + chua.length + tam.length;
+  if (!tong && !force) return 'Không có hợp đồng cần báo';
+  const e = s => String(s || '').replace(/[&<>]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+  const ngayNap = s => { const m = String(s).match(/^(\d{2})\/(\d{2})\/(\d{4})/); return m ? Math.floor((Date.now() - new Date(+m[3], +m[2] - 1, +m[1])) / 864e5) : ''; };
+  const bang = (ds, mau, cotCT) => '<table style="border-collapse:collapse;font-size:13px;width:100%"><tr style="background:#f1f5f9">'
+    + '<th style="text-align:left;padding:5px;border:1px solid #ddd">Phòng</th><th style="text-align:left;padding:5px;border:1px solid #ddd">Ngày vào</th><th style="text-align:left;padding:5px;border:1px solid #ddd">Nạp lúc / bởi</th><th style="text-align:left;padding:5px;border:1px solid #ddd">' + cotCT + '</th></tr>'
+    + ds.map(x => '<tr><td style="padding:5px;border:1px solid #ddd;font-weight:bold;color:' + mau + '">' + e(x.room) + '</td><td style="padding:5px;border:1px solid #ddd">' + e(x.start) + '</td><td style="padding:5px;border:1px solid #ddd">' + e(x.at) + (x.by ? ' · ' + e(x.by) : '') + '</td><td style="padding:5px;border:1px solid #ddd">'
+      + (cotCT === 'Đã chờ' ? (ngayNap(x.at) !== '' ? ngayNap(x.at) + ' ngày' : '') : e(x.detail)) + '</td></tr>').join('') + '</table>';
+  let h = '<div style="font-family:Arial,sans-serif;max-width:760px"><h2 style="color:#b8860b;margin:0 0 4px">LUXHOME · Theo dõi thanh toán đợt 1 khi check-in</h2>'
+    + '<p style="margin:0 0 12px;color:#555">' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm') + ' — ' + (tong ? '<b>' + tong + '</b> hợp đồng chưa đạt kiểm tra' : '✅ Tất cả hợp đồng đã đạt') + '</p>';
+  if (sai.length) h += '<h3 style="color:#b91c1c">⛔ Thanh toán chưa đúng (' + sai.length + ')</h3>' + bang(sai, '#b91c1c', 'Lý do');
+  if (chua.length) h += '<h3 style="color:#b45309">⚠️ Chưa qua bước kiểm tra thanh toán đợt 1 (' + chua.length + ')</h3>' + bang(chua, '#b45309', 'Đã chờ');
+  if (tam.length) h += '<h3 style="color:#a16207">⚠️ Tạm đạt theo bill, chưa đối chiếu sao kê (' + tam.length + ')</h3>' + bang(tam, '#a16207', 'Chi tiết');
+  h += '<p style="margin-top:14px"><a href="https://lux-home.github.io/checkin.html?mode=tt">Mở app → Kiểm tra thanh toán đợt 1 khi checkin</a></p></div>';
+  MailApp.sendEmail({ to: cfg.emails.join(','), subject: 'LUXHOME · Thanh toán đợt 1: ' + (tong ? sai.length + ' chưa đúng, ' + chua.length + ' chưa kiểm tra' + (tam.length ? ', ' + tam.length + ' tạm đạt' : '') : 'tất cả đạt'), htmlBody: h, name: 'LUXHOME' });
+  return 'Đã gửi tới ' + cfg.emails.join(', ');
+}
