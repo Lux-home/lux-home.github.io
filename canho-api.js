@@ -1,6 +1,6 @@
 // ===== MÁY CHỦ "QUẢN LÝ CĂN HỘ" (Apps Script riêng — xem apps-script/HUONG-DAN.md) =====
 // Dán URL .../exec của máy chủ vào đây. Để trống = các trang dùng cách cũ (đọc Sheet công khai).
-window.LUX_CANHO_API = "";
+window.LUX_CANHO_API = "https://script.google.com/macros/s/AKfycbzaTUFKx22skc9TsRs1dXl8cKMgeBrDCsPBihN3bMtJ9hLvVecgnC7G0925BWYqbQp5gw/exec";
 
 // Gọi máy chủ. GET cho lệnh đọc, POST (JSON dạng text/plain, không bị chặn CORS) cho lệnh ghi / tải ảnh.
 window.luxApi = function (a, params, post) {
