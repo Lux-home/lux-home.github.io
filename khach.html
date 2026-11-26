@@ -230,12 +230,11 @@ function origVal(r,k,ty){ var v=r[k]==null?'':String(r[k]).trim();
   if(ty==='m') return digits(v);
   if(ty==='n') return v.replace(/,/g,'');
   return v; }
+var INIT={};   // giá trị ban đầu của từng ô nhập (chỉ ô người dùng thật sự sửa mới tính là thay đổi)
+function snapInit(){ INIT={}; FIELDS.forEach(function(f){ var c=curVal(f[0],f[2]); if(c!==null) INIT[f[0]]=c; }); }
 function changes(){
-  var r=CUR, out={};
-  FIELDS.forEach(function(f){ var k=f[0], ty=f[2]; var c=curVal(k,ty); if(c===null) return;
-    var o=origVal(r,k,ty);
-    if(ty==='d' && o.charAt(0)==='\u0000' && c==='') return;   // ô ngày đang chứa chữ (vd "-") và người dùng không đụng tới
-    if(c!==o) out[k]=c; });
+  var out={};
+  FIELDS.forEach(function(f){ var k=f[0], c=curVal(k,f[2]); if(c===null||!(k in INIT)) return; if(c!==INIT[k]) out[k]=c; });
   return out;
 }
 function markChanges(){ var ch=changes(); FIELDS.forEach(function(f){ var w=$('w_'+f[0]); if(w) w.classList.toggle('chg', f[0] in ch); });
@@ -265,12 +264,12 @@ function openG(row){
       +(gp===3?'<div class="calc" id="calcBox"></div><div class="f full hint" style="margin:0">Tính giống công thức trong file (cột AI–AN). Cột công thức trong file KHÔNG bị sửa.</div>':'')+'</div></details>';
   });
   if(r.ten) html+='<div style="margin-top:14px"><button class="btn red" style="width:100%" onclick="askOut()">🚪 Khách trả phòng (OUT)</button>'
-    +'<div class="hint" style="margin-top:6px">Lưu thông tin khách vào danh sách "Khách đã trả phòng", rồi xoá trắng dòng này trong file (tô vàng) — giữ mã phòng và chỉ số điện cho khách sau.</div></div>';
+    +'<div class="hint" style="margin-top:6px">Lưu thông tin khách vào danh sách "Khách đã trả phòng", rồi xoá trắng thông tin khách trong file và tô ĐỎ ô Tên khách — giữ mã phòng và chỉ số điện cho khách sau.</div></div>';
   $('sBody').innerHTML=html;
   $('sAct').innerHTML='<button class="btn gh" onclick="closeSheet()">Đóng</button><button class="btn" id="saveBtn" onclick="saveG()" disabled>💾 Lưu</button>';
   FIELDS.forEach(function(f){ var e=$('e_'+f[0]); if(!e) return; var h=function(){ if(f[2]==='m'){ var p=e.selectionStart, L=e.value.length; e.value=money(e.value); } markChanges(); };
     e.addEventListener('input',h); e.addEventListener('change',h); });
-  markChanges();
+  snapInit(); markChanges();
   $('sheet').classList.add('show'); $('sheet').scrollTop=0;
 }
 function closeSheet(force){

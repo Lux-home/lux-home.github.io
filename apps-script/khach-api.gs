@@ -9,7 +9,7 @@
  *         chỉ đụng các ô được sửa của đúng 1 dòng; KHÔNG bao giờ ghi vào cột công thức (AI..AN).
  *  - Trước khi ghi: tự lưu bản sao vào thư mục "LUXHOME BACKUP QLKH" (tối đa 1 bản / 30 phút).
  *  - Khách trả phòng (OUT): lưu thông tin khách vào bảng "LUXHOME - KHÁCH ĐÃ TRẢ PHÒNG",
- *    rồi xoá trắng thông tin khách của dòng (E..AC), tô vàng — giống quy tắc nút Duyệt check-in.
+ *    rồi xoá trắng thông tin khách của dòng (E..AC) và tô ĐỎ ô Tên khách.
  */
 
 const QLKH_ID     = '1olOswDQsPC8CAsaUiitbAePTeZm83ugV';
@@ -168,7 +168,7 @@ function xlsmSession_() {
   let st = get('xl/styles.xml'), stDirty = false;
   const xfsM = st.match(/<cellXfs count="(\d+)">([\s\S]*?)<\/cellXfs>/);
   const xfs = xfsM[2].match(/<xf\b[^>]*?(?:\/>|>[\s\S]*?<\/xf>)/g), added = [], xcache = {};
-  let YELLOW = null, DATEFMT = 0, maxId = 163; const fmtCode = {};
+  let DATEFMT = 0, maxId = 163; const fmtCode = {}, FILLS = {};
   const nfM = st.match(/<numFmts count="(\d+)">([\s\S]*?)<\/numFmts>/);
   if (nfM) nfM[2].replace(/<numFmt numFmtId="(\d+)" formatCode="([^"]*)"\/>/g, (m, id, code) => { fmtCode[id] = xUnesc_(code); if (+id > maxId) maxId = +id; if (xUnesc_(code) === 'dd/mm/yyyy') DATEFMT = +id; return m; });
   const dateFmt = () => {
@@ -178,12 +178,13 @@ function xlsmSession_() {
     st = nfM ? st.replace(nfM[0], '<numFmts count="' + (+nfM[1] + 1) + '">' + nfM[2] + nf + '</numFmts>') : st.replace('<fonts', '<numFmts count="1">' + nf + '</numFmts><fonts');
     return DATEFMT;
   };
-  const yellow = () => {
-    if (YELLOW != null) return YELLOW;
+  const RGB = { yellow: 'FFFFEB9C', red: 'FFFF0000' };
+  const fillId = color => {
+    if (FILLS[color] != null) return FILLS[color];
     const fm = st.match(/<fills count="(\d+)">([\s\S]*?)<\/fills>/);
-    YELLOW = +fm[1]; stDirty = true;
-    st = st.replace(fm[0], '<fills count="' + (YELLOW + 1) + '">' + fm[2] + '<fill><patternFill patternType="solid"><fgColor rgb="FFFFEB9C"/><bgColor indexed="64"/></patternFill></fill></fills>');
-    return YELLOW;
+    FILLS[color] = +fm[1]; stDirty = true;
+    st = st.replace(fm[0], '<fills count="' + (FILLS[color] + 1) + '">' + fm[2] + '<fill><patternFill patternType="solid"><fgColor rgb="' + RGB[color] + '"/><bgColor indexed="64"/></patternFill></fill></fills>');
+    return FILLS[color];
   };
   const isDateFmt = id => { id = +id; if ((id >= 14 && id <= 22) || (id >= 45 && id <= 47)) return true; const c = fmtCode[id]; return !!c && /[dy]/i.test(c.replace(/"[^"]*"|\[[^\]]*\]/g, '')) && !/[#0]/.test(c); };
   const xfFor = (base, kind, fill) => {
@@ -200,7 +201,7 @@ function xlsmSession_() {
       x = / applyNumberFormat="/.test(x) ? x.replace(/ applyNumberFormat="\d"/, ' applyNumberFormat="1"') : x.replace('<xf ', '<xf applyNumberFormat="1" ');
     }
     if (fill) {
-      const Y = yellow();
+      const Y = fillId(fill);
       x = / fillId="/.test(x) ? x.replace(/ fillId="\d+"/, ' fillId="' + Y + '"') : x.replace('<xf ', '<xf fillId="' + Y + '" ');
       x = / applyFill="/.test(x) ? x.replace(/ applyFill="\d"/, ' applyFill="1"') : x.replace('<xf ', '<xf applyFill="1" ');
     }
@@ -219,9 +220,10 @@ function xlsmSession_() {
     if ((expect.ma != null && cmp_(expect.ma) !== curMa) || (expect.ten != null && cmp_(expect.ten) !== curTen)) {
       return { ok: false, err: 'changed', msg: 'Dòng ' + rowNum + ' trong file đã thay đổi (hiện là: ' + (curMa || '—') + ' · ' + (curTen || 'trống') + '). Tải lại danh sách rồi sửa lại.' };
     }
-    const fill = opt.fill === 'yellow';
+    const rowFill = opt.fill || null, colFill = opt.colFill || {};   // colFill: { E: 'red' } — tô màu riêng từng ô
+    const fillOf = col => colFill[colName_(col)] || rowFill;
     const newCell = (col, v, base, kind) => {
-      const ref = colName_(col) + rowNum, sa = ' s="' + xfFor(base, kind, fill) + '"';
+      const ref = colName_(col) + rowNum, sa = ' s="' + xfFor(base, kind, fillOf(col)) + '"';
       v = String(v == null ? '' : v).trim();
       if (v === '') return '<c r="' + ref + '"' + sa + '/>';
       if (kind === 'date') { const se = serial(v); if (se != null) return '<c r="' + ref + '"' + sa + '><v>' + se + '</v></c>'; }
@@ -238,14 +240,14 @@ function xlsmSession_() {
       if (old && /<f[ >]/.test(old.xml)) { if (opt.skipFormula) continue; return { ok: false, err: 'formula', msg: 'Ô ' + L + rowNum + ' là công thức — không ghi đè' }; }
       byCol[c] = newCell(c, setV[L], old ? old.s : '0', kinds[L] || 'text');
     }
-    if (fill) {
-      for (let c = 1; c <= colNum_('AH'); c++) {
-        if (setV[colName_(c)] != null) continue;
-        const old = cells[c];
-        if (!old) { byCol[c] = '<c r="' + colName_(c) + rowNum + '" s="' + xfFor('0', 'keep', true) + '"/>'; continue; }
-        byCol[c] = / s="\d+"/.test(old.xml) ? old.xml.replace(/ s="\d+"/, ' s="' + xfFor(old.s, 'keep', true) + '"') : old.xml.replace('<c ', '<c s="' + xfFor('0', 'keep', true) + '" ');
-      }
-    }
+    const paint = (c, color) => {
+      if (setV[colName_(c)] != null && !/<f[ >]/.test((cells[c] || {}).xml || '')) return;   // ô vừa ghi đã có màu
+      const old = cells[c];
+      if (!old) { byCol[c] = '<c r="' + colName_(c) + rowNum + '" s="' + xfFor('0', 'keep', color) + '"/>'; return; }
+      byCol[c] = / s="\d+"/.test(old.xml) ? old.xml.replace(/ s="\d+"/, ' s="' + xfFor(old.s, 'keep', color) + '"') : old.xml.replace('<c ', '<c s="' + xfFor('0', 'keep', color) + '" ');
+    };
+    if (rowFill) for (let c = 1; c <= colNum_('AH'); c++) paint(c, rowFill);
+    Object.keys(colFill).forEach(L => paint(colNum_(L), colFill[L]));
     const tag = rowXml.match(/^<row\b[^>]*?(?=\/?>)/)[0].replace(/ spans="[^"]*"/, '');
     const newRow = tag + '>' + Object.keys(byCol).map(Number).sort((a, b) => a - b).map(c => byCol[c]).join('') + '</row>';
     s = s.replace(rowXml, () => newRow); dirty = true;
@@ -330,7 +332,7 @@ function khApply_() {
   const S = xlsmSession_(), done = [], errs = khErrors_(), after = [];
   items.forEach(it => {
     const sp = it.type === 'out' ? outSpec_() : editSpec_(it.fields);
-    const r = S.edit(it.row, it.expect, sp.setV, sp.kinds, it.type === 'out' ? { fill: 'yellow', skipFormula: true } : {});
+    const r = S.edit(it.row, it.expect, sp.setV, sp.kinds, it.type === 'out' ? { colFill: { E: 'red' }, skipFormula: true } : {});
     if (r.ok) { done.push(it); if (it.type === 'out') after.push(it); }
     else errs.unshift({ t: it.t, row: it.row, ma: (it.expect || {}).ma || '', ten: (it.expect || {}).ten || '', type: it.type, msg: r.msg || r.err, fields: it.fields || null });
   });
@@ -398,7 +400,7 @@ function thuGhiBanSao() {
     Logger.log('Sửa -> ' + JSON.stringify(xlsmEditRow_(g.row, { ma: g.ma, ten: g.ten }, sp.setV, sp.kinds, {})));
     const g2 = khList_().rows.find(r => r.row === g.row);
     Logger.log('Đọc lại bản sao: ghi chú=' + g2.gc + ' điện mới=' + g2.dmoi + ' hạn lưu trú=' + g2.lt + ' tiền phòng=' + g2.tp);
-    const r2 = xlsmEditRow_(g.row, { ma: g.ma, ten: g.ten }, (() => { const o = {}; for (let c = 5; c <= 29; c++) o[colName_(c)] = ''; return o; })(), {}, { fill: 'yellow', skipFormula: true });
+    const os = outSpec_(), r2 = xlsmEditRow_(g.row, { ma: g.ma, ten: g.ten }, os.setV, os.kinds, { colFill: { E: 'red' }, skipFormula: true });
     const g3 = khList_().rows.find(r => r.row === g.row);
     Logger.log('OUT -> ' + JSON.stringify(r2) + ' · sau OUT: tên="' + (g3 ? g3.ten : '(dòng trống)') + '" mã phòng=' + (g3 ? g3.ma : '') + ' điện mới=' + (g3 ? g3.dmoi : ''));
     const vba = Utilities.unzip(Object.assign(DriveApp.getFileById(KH_TARGET).getBlob(), {}).setContentType('application/zip')).some(b => b.getName() === 'xl/vbaProject.bin');
