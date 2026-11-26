@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Lưu HĐ + PL</title>
+<meta name="theme-color" content="#0e7ba8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LUXHOME">
+<style>
+  :root{ --bg:#eef3f4; --card:#fff; --fg:#13242a; --muted:#5f727a; --line:#e2eaec; --cyan:#0e7ba8; --cyan2:#28c3dd; --red:#b91c1c; }
+  @media (prefers-color-scheme:dark){:root{ --bg:#0c1518; --card:#13222a; --fg:#e8f1f3; --muted:#90a4ac; --line:#20333c; }}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",system-ui,sans-serif;line-height:1.4}
+  .top{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 16px}
+  .top a.back{display:inline-block;background:rgba(255,255,255,.22);color:#fff;text-decoration:none;font-weight:800;font-size:1.05rem;padding:9px 16px;border-radius:999px;margin-bottom:10px}
+  .brand{font-size:1.4rem;font-weight:800;letter-spacing:1px;color:#ffd977}
+  .brand small{display:block;font-size:.72rem;font-weight:600;letter-spacing:2px;color:#eafbff;margin-top:2px}
+  .wrap{max-width:820px;margin:0 auto;padding:14px 12px 60px}
+  input{padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--fg);width:100%}
+  .btn{border:0;border-radius:11px;padding:11px 14px;font:inherit;font-weight:800;cursor:pointer;color:#fff;background:var(--cyan)}
+  .crumb{display:flex;flex-wrap:wrap;gap:4px;align-items:center;margin:12px 0;font-weight:700}
+  .crumb a{color:var(--cyan);text-decoration:none;background:var(--card);border:1px solid var(--line);border-radius:999px;padding:5px 11px}
+  .crumb span{color:var(--muted)}
+  .it{display:flex;align-items:center;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:13px;padding:12px;margin-bottom:8px;cursor:pointer}
+  .it:active{transform:scale(.99)}
+  .it .ic{font-size:1.5rem;flex:0 0 auto}
+  .it .nm{font-weight:800;word-break:break-word} .it .sub{font-size:.8rem;color:var(--muted)}
+  .it .go{margin-left:auto;color:var(--muted);font-size:1.2rem}
+  .muted{color:var(--muted)} .hint{color:var(--muted);font-size:.82rem}
+  .warn{background:#fdf3e1;color:#b45309;border-radius:12px;padding:12px;font-weight:700}
+  .login{max-width:380px;margin:40px auto;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;text-align:center}
+  .login h2{margin:0 0 6px;color:var(--cyan)} .login input{margin:12px 0} .login .btn{width:100%}
+  .busy{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:95;display:none;align-items:center;justify-content:center;color:#fff;font-weight:800}
+  .busy.show{display:flex}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" id="backLink" href="hopdong.html">← Tạo mới + lưu trữ HĐ</a>
+  <div class="brand">LUXHOME<small>LƯU HĐ + PL · KHO HỢP ĐỒNG</small></div>
+</div>
+<div class="wrap" id="main"><p class="muted">Đang tải…</p></div>
+<div class="busy" id="busy">⏳ Đang mở file…</div>
+
+<script src="canho-api.js"></script>
+<script>
+var PWKEY="luxAdminPw", TOK=(new URLSearchParams(location.search)).get('tok')||'', PATH=[], Q='';
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function pw(){try{return localStorage.getItem(PWKEY)||'';}catch(e){return '';}}
+function auth(o){ o=o||{}; if(TOK){ var ua=navigator.userAgent||''; o.tok=TOK; try{o.dev=localStorage.getItem('nv_devid')||'';}catch(e){} o.devname=/iPhone/.test(ua)?'iPhone':/Android/.test(ua)?'Android':(navigator.platform||'Máy'); } else o.pw=pw(); return o; }
+if(TOK) $('backLink').href='hopdong.html?tok='+encodeURIComponent(TOK);
+var LABEL=['Tòa','Tháng check-in','Phòng','Hợp đồng'];
+function kb(n){ return n>1048576?(n/1048576).toFixed(1)+' MB':Math.round(n/1024)+' KB'; }
+function thangVN(s){ var m=String(s).match(/^(\d{4})-(\d{2})$/); return m?'Tháng '+(+m[2])+'/'+m[1]:s; }
+
+function showLogin(msg){
+  $('main').innerHTML='<div class="login"><h2>🔐 Admin</h2><div class="muted">Nhập mật khẩu Admin để xem kho hợp đồng</div><input id="lp" type="password" placeholder="Mật khẩu Admin"><button class="btn" id="lb">Đăng nhập</button>'+(msg?'<div style="color:var(--red);font-weight:700;margin-top:10px">'+esc(msg)+'</div>':'')+'</div>';
+  var go=function(){ var v=$('lp').value.trim(); if(!v) return; luxApi('login',{pw:v}).then(function(d){ if(d&&d.ok&&d.role==='admin'){ try{localStorage.setItem(PWKEY,v);}catch(e){} load(); } else showLogin('Sai mật khẩu Admin'); }).catch(function(){ showLogin('Không kết nối được máy chủ'); }); };
+  $('lb').onclick=go; $('lp').onkeydown=function(e){ if(e.key==='Enter') go(); };
+}
+function head(){
+  return '<input id="q" placeholder="🔎 Tìm theo tên file: phòng (P301), tòa (T121), môi giới…" value="'+esc(Q)+'">'
+    +'<div class="crumb"><a href="javascript:void 0" onclick="go(0)">📁 Kho HĐ</a>'+PATH.map(function(p,i){ return '<span>›</span><a href="javascript:void 0" onclick="go('+(i+1)+')">'+esc(i===1?thangVN(p):p)+'</a>'; }).join('')+'</div>';
+}
+function bindQ(){ var t; $('q').oninput=function(){ var v=this.value; clearTimeout(t); t=setTimeout(function(){ Q=v.trim(); if(Q.length>=2) search(); else if(!Q) load(); },500); }; }
+function go(n){ PATH=PATH.slice(0,n); Q=''; load(); }
+function open1(name){ PATH.push(name); load(); }
+function load(){
+  if(!TOK && !pw()) return showLogin();
+  $('main').innerHTML=head()+'<p class="muted">Đang tải…</p>'; bindQ();
+  luxApi('hdlist',auth({path:PATH}),true).then(function(d){
+    if(!d||!d.ok){ if(d&&d.err==='noperm'&&!TOK){ try{localStorage.removeItem(PWKEY);}catch(e){} return showLogin('Đăng nhập lại'); }
+      $('main').innerHTML=head()+'<div class="warn">'+esc((d&&d.msg)||'Không tải được kho')+'</div>'; bindQ(); return; }
+    var lv=PATH.length, html=head();
+    if(!d.folders.length && !d.files.length) html+='<p class="muted">'+(lv?'Thư mục trống.':'Kho chưa có hợp đồng nào. Hợp đồng nạp ở Check in → mục 3 Hợp đồng PDF sẽ tự lưu vào đây.')+'</p>';
+    html+=d.folders.map(function(f){ return '<div class="it" onclick="open1(\''+esc(f.name).replace(/'/g,"\\'")+'\')"><div class="ic">📁</div><div><div class="nm">'+esc(lv===1?thangVN(f.name):f.name)+'</div><div class="sub">'+LABEL[lv]+'</div></div><div class="go">›</div></div>'; }).join('');
+    html+=d.files.map(fileRow).join('');
+    html+='<p class="hint">Cấu trúc: Tòa → Tháng check-in → Phòng. File PDF gốc tự lưu khi nạp hợp đồng ở mục 3 (Check in - Check out).</p>';
+    $('main').innerHTML=html; bindQ();
+  }).catch(function(){ $('main').innerHTML=head()+'<div class="warn">Không kết nối được máy chủ.</div>'; bindQ(); });
+}
+function fileRow(f){ return '<div class="it" onclick="openFile(\''+f.id+'\')"><div class="ic">📄</div><div style="min-width:0"><div class="nm">'+esc(f.name)+'</div><div class="sub">'+(f.path?esc(f.path)+' · ':'')+kb(f.size)+(f.at?' · lưu '+esc(f.at):'')+'</div></div><div class="go">›</div></div>'; }
+function search(){
+  $('main').innerHTML=head()+'<p class="muted">Đang tìm…</p>'; bindQ(); $('q').focus();
+  luxApi('hdsearch',auth({q:Q}),true).then(function(d){
+    var html=head()+(d&&d.ok&&d.files.length?d.files.map(fileRow).join(''):'<p class="muted">Không thấy hợp đồng nào khớp "'+esc(Q)+'".</p>');
+    $('main').innerHTML=html; bindQ(); var q=$('q'); q.focus(); q.setSelectionRange(q.value.length,q.value.length);
+  }).catch(function(){ $('main').innerHTML=head()+'<div class="warn">Không kết nối được máy chủ.</div>'; bindQ(); });
+}
+function openFile(id){
+  var w=null; try{ w=window.open('','_blank'); if(w) w.document.write('<p style="font-family:sans-serif;padding:20px">⏳ Đang mở hợp đồng…</p>'); }catch(e){}
+  $('busy').classList.add('show');
+  luxApi('hdget',auth({id:id}),true).then(function(d){
+    $('busy').classList.remove('show');
+    if(!d||!d.ok){ if(w) w.close(); alert((d&&d.msg)||'Không mở được file'); return; }
+    var bin=atob(d.data), u=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+    var url=URL.createObjectURL(new Blob([u],{type:'application/pdf'}));
+    if(w){ w.location.href=url; } else { var a=document.createElement('a'); a.href=url; a.download=d.name; document.body.appendChild(a); a.click(); a.remove(); }
+  }).catch(function(){ $('busy').classList.remove('show'); if(w) w.close(); alert('Không kết nối được máy chủ'); });
+}
+load();
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+</script>
+</body>
+</html>

@@ -1226,7 +1226,8 @@ function hdChon(list){
   files.forEach(function(f){
     if(!/\.pdf$/i.test(f.name) && f.type!=='application/pdf'){ loi.push('⛔ "'+f.name+'" không phải file PDF — mục 3 chỉ nhận hợp đồng dạng PDF'+(/\.xls/i.test(f.name)?' (file Excel hãy dùng mục 1)':/\.(jpe?g|png|heic)$/i.test(f.name)?' (ảnh giấy tờ hãy dùng mục 2)':'')); return; }
     if(!hdTenFile(f.name).room) loi.push('⚠️ Tên file "'+f.name+'" sai định dạng — cần dạng P301_T121_17.11-16.2.27_-_MôiGiới.pdf; app vẫn đọc nhưng phải gõ tay mã phòng và ngày HĐ.');
-    HD.push({ id:++HD_SEQ, file:f.name, st:'cho', xong:0, tong:0, f:f });
+    var _h={ id:++HD_SEQ, file:f.name, st:'cho', xong:0, tong:0, f:f, fobj:f }; HD.push(_h);
+    var _t=hdTenFile(f.name); if(_t.room) hdLuu(_h, _t.room, _t.start);   // tự lưu PDF gốc lên Drive
   });
   napLoi('pdfLoi', loi);
   hdVe(); hdChay();
@@ -1277,7 +1278,7 @@ function hdDocFile(h){
 function hdVe(){
   var el=document.getElementById('hdList');
   el.innerHTML=HD.map(function(h,i){
-    var head='<div class="hdH"><b>📑 '+esc(h.file)+'</b><button class="btn o kpX" onclick="hdBo('+i+')">✕</button></div>';
+    var head='<div class="hdH"><b>📑 '+esc(h.file)+'</b><button class="btn o kpX" onclick="hdBo('+i+')">✕</button></div>'+hdLuuTag(h);
     if(h.st==='cho') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang chờ…</div></div>';
     if(h.st==='doc') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang đọc trang '+h.xong+'/'+(h.tong||'?')+'… (mỗi trang ~5–10 giây)</div><div class="hdBar"><i style="width:'+(h.tong?Math.round(h.xong*100/h.tong):3)+'%"></i></div></div>';
     if(h.st==='loi') return '<div class="hdC">'+head+'<div class="err">❌ '+esc(h.err)+'</div></div>';
@@ -1334,8 +1335,37 @@ function hdThem(i){
   if(red.length && !confirm('Hợp đồng '+h.file+' có '+red.length+' lỗi:\n\n'+red.join('\n')+'\n\nVẫn đưa vào danh sách gửi?')) return;
   var rows=hdRows(h).map(function(r){ r=chuanHoa(r); r._hd=h.id; return r; });
   PARSED=(PARSED||[]).filter(function(r){ return r._hd!==h.id; }).concat(rows);
-  h.daThem=true; hdVe(); hienThu(PARSED);
+  h.daThem=true; if(!h.luu || h.luu.st==='loi') hdLuu(h, h.room, h.start); hdVe(); hienThu(PARSED);
   toast('✅ Đã đưa '+rows.length+' khách phòng '+h.room+' vào danh sách gửi');
+}
+/* ===== TỰ LƯU HỢP ĐỒNG PDF VÀO KHO: LUXHOME - HỢP ĐỒNG / Tòa / yyyy-mm (tháng check-in) / Phòng ===== */
+function hdLuuTag(h){
+  var l=h.luu; if(!l) return h.fobj?'<div class="muted" style="font-size:.8rem">☁️ Chưa lưu vào kho HĐ — nhập mã phòng + ngày vào rồi bấm Đưa vào danh sách gửi để lưu</div>':'';
+  if(l.st==='dang') return '<div class="muted" style="font-size:.8rem">☁️ Đang lưu vào kho HĐ… '+(l.p||0)+'%</div>';
+  if(l.st==='ok') return '<div style="font-size:.8rem;color:#15803d;font-weight:700">☁️ Đã lưu: '+esc(l.path)+(l.exists?' (đã có sẵn)':'')+'</div>';
+  return '<div style="font-size:.8rem;color:#b91c1c;font-weight:700">☁️ Chưa lưu được vào kho HĐ: '+esc(l.err||'lỗi')+' <a href="javascript:void 0" onclick="hdLuuLai('+h.id+')">thử lại</a></div>';
+}
+function hdLuuLai(id){ var h=HD.filter(function(x){return x.id===id;})[0]; if(h) hdLuu(h, h.room||hdTenFile(h.file).room, h.start||hdTenFile(h.file).start); }
+function hdLuu(h, room, start){
+  if(!window.luxApi||!window.LUX_CANHO_API||!h.fobj) return;
+  var m=String(room||'').toUpperCase().match(/^(.+)-(T?\w+)$/), d=String(start||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if(!m||!d){ return; }
+  var f=h.fobj, toa=m[2], phong=m[1], thang=d[3]+'-'+('0'+d[2]).slice(-2);
+  h.luu={st:'dang',p:0}; hdVe();
+  var a={name:f.name, toa:toa, thang:thang, phong:phong, size:f.size, origin:location.origin};
+  if(TOK){ a.tok=TOK; a.dev=devId(); a.devname=devName(); } else a.ckpw=PW;
+  luxApi('hdsession',a,true).then(function(r){
+    if(!r||!r.ok) throw new Error((r&&r.msg)||(r&&r.err)||'lỗi máy chủ');
+    if(r.exists){ h.luu={st:'ok',path:r.path,exists:true}; hdVe(); return; }
+    return new Promise(function(res,rej){
+      var x=new XMLHttpRequest(); x.open('PUT',r.url); x.setRequestHeader('Content-Type','application/pdf');
+      x.upload.onprogress=function(e){ if(e.lengthComputable){ h.luu.p=Math.round(e.loaded*100/e.total); var el=document.getElementById('hdList'); if(el&&h.luu.p%10===0) hdVe(); } };
+      var sent=false; x.upload.onload=function(){ sent=true; };
+      x.onload=function(){ (x.status>=200&&x.status<300)?res():rej(new Error('HTTP '+x.status)); };
+      x.onerror=function(){ sent?res():rej(new Error('mạng')); };
+      x.send(f);
+    }).then(function(){ h.luu={st:'ok',path:r.path}; hdVe(); });
+  }).catch(function(e){ h.luu={st:'loi',err:String(e&&e.message||e)}; hdVe(); });
 }
 function hdBills(){ var a=[]; HD.forEach(function(h){ if(h.daThem) (h.ck||[]).forEach(function(c){ a.push({ room:h.room, so:c.so, ngay:c.ngay||'', nd:c.nd||'', coc:!!c.coc, file:c.file||'' }); }); }); return a; }
 function hdGiay(){ var a=[]; HD.forEach(function(h){ if(h.daThem) a=a.concat((h.giay||[]).map(function(g){ return { id:g.id, loai:h.room+' · '+g.loai, ten:g.ten }; })); }); return a; }

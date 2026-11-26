@@ -46,6 +46,11 @@ function handle_(a, p) {
   if (a === 'ping') return { ok: true, v: 1 };
   if (a === 'login') return role ? { ok: true, role: role } : { ok: false, err: 'badpw' };
   if (a === 'nvlog') return nvLog_(p);   // nhân viên ghi nhật ký (xác minh bằng token app phụ)
+  // kho hợp đồng: tự xác thực (Admin / mật khẩu duyệt check-in / token nhân viên)
+  if (a === 'hdsession') return hdSession_(p);
+  if (a === 'hdlist')    return hdList_(p);
+  if (a === 'hdsearch')  return hdSearch_(p);
+  if (a === 'hdget')     return hdGet_(p);
   // nhân viên (token app phụ) — chỉ xem / gửi đề xuất, chủ duyệt
   if (!role && p.tok && ['khlist', 'khpropose', 'khmyreqs', 'khexportget'].indexOf(a) >= 0) return staffRoute_(a, p);
   if (!role) return { ok: false, err: 'badpw' };
