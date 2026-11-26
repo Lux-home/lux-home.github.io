@@ -288,6 +288,7 @@
 
 <div class="toast" id="toast"></div>
 
+<script src="canho-api.js"></script>
 <script>
 // ---- Dữ liệu mẫu / sample data (giá trị song ngữ) ----
 const SEED = [
@@ -306,6 +307,19 @@ const EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1
 function sheetUrl(){return "https://docs.google.com/spreadsheets/d/"+SHEET_ID+
   "/gviz/tq?tqx=out:csv&sheet="+encodeURIComponent(SHEET_NAME)+"&t="+Date.now();}
 async function fetchSheet(showToast){
+  // 0) Máy chủ Quản lý căn hộ (Sheet KHÔNG cần công khai) — cần mật khẩu đã đăng nhập
+  if(window.LUX_CANHO_API){
+    try{
+      const o=await luxApi("list",{pw:sessionPw()});
+      if(o&&o.ok&&o.rows){
+        const d=rowsToData(o.rows);
+        DATA=d;isCustom=false;rebuild(); if(showToast)toast("Đã cập nhật "+d.length+" căn / units"); return true;
+      }
+      if(o&&o.err==="badpw"){ try{sessionStorage.removeItem("luxRole");sessionStorage.removeItem("luxPw");}catch(e){} location.reload(); return false; }
+    }catch(e){}
+    if(showToast)toast("Chưa tải được dữ liệu / Load failed");
+    return false;
+  }
   // 1) Ưu tiên MÁY CHỦ đọc trực tiếp (không trễ cache — khóa/mở hiện ngay)
   try{
     const t=await (await fetch(EXEC+"?catlist=1&callback=cb&t="+Date.now())).text();
@@ -733,19 +747,28 @@ function showStaffBanner(){
   });
 }
 
+function sessionPw(){ try{ return sessionStorage.getItem("luxPw")||""; }catch(e){ return ""; } }
+// Có máy chủ: kiểm tra mật khẩu TẠI MÁY CHỦ (mật khẩu không còn nằm trong Sheet công khai)
+function serverRole(v){
+  return Promise.race([
+    luxApi("login",{pw:v}).then(d=> d&&d.ok ? (d.role==="guest"?"khach":"nhanvien") : null).catch(()=>undefined),
+    new Promise(r=>setTimeout(()=>r(undefined),12000))
+  ]);
+}
 async function initGate(){
+  const API=!!window.LUX_CANHO_API;
   // Mở thẳng từ app bằng link: #k=<mật khẩu> (admin hoặc mã tuần) — tự vào, không cần gõ
   try{
     var _h=(location.hash||"").replace(/^#/,"");
     var _m=_h.match(/(?:^|&)k=([^&]+)/);
     if(_m){
       var _kv=decodeURIComponent(_m[1]);
-      var _role=(_kv===STAFF_MASTER)?"nhanvien":(_kv===weekCode()?"khach":null);
-      if(_role){ try{sessionStorage.setItem("luxRole",_role);}catch(e){} try{history.replaceState(null,"",location.pathname);}catch(e){} luxStart(_role); return; }
+      var _role=API ? await serverRole(_kv) : ((_kv===STAFF_MASTER)?"nhanvien":(_kv===weekCode()?"khach":null));
+      if(_role){ try{sessionStorage.setItem("luxRole",_role);sessionStorage.setItem("luxPw",_kv);}catch(e){} try{history.replaceState(null,"",location.pathname);}catch(e){} luxStart(_role); return; }
     }
   }catch(e){}
   let savedRole=null; try{ savedRole=sessionStorage.getItem("luxRole"); }catch(e){}
-  if(savedRole){ luxStart(savedRole); return; }
+  if(savedRole && (!API || sessionPw())){ luxStart(savedRole); return; }
   const g=document.createElement("div"); g.id="luxGate";
   g.innerHTML='<div class="lg-box">'
     +'<div class="lg-logo">LUXHOME</div>'
@@ -759,13 +782,19 @@ async function initGate(){
     +'<div class="lg-note">Liên hệ chủ nhà để nhận mật khẩu / Contact us for the password</div>'
     +'</div>';
   document.body.appendChild(g);
-  let codes=null; loadCodes().then(m=>{codes=m;});   // tải trước cho nhanh
+  let codes=null; if(!API) loadCodes().then(m=>{codes=m;});   // tải trước cho nhanh (chỉ khi chưa có máy chủ)
   const tryP=async()=>{
     if(window._luxLoaded) return;
     const el=document.getElementById("luxPass"); if(!el) return;
     const v=el.value.trim(); if(!v) return;
     let role=null;
-    if(v===STAFF_MASTER) role="nhanvien";
+    if(API){
+      const b=document.getElementById("luxBtn"); const bt=b.textContent; b.disabled=true; b.textContent="…";
+      role=await serverRole(v); b.disabled=false; b.textContent=bt;
+      if(role===undefined){ const e=document.getElementById("luxErr"); e.textContent="Lỗi kết nối, thử lại / Connection error, try again"; e.style.display="block"; return; }
+      if(role){ try{sessionStorage.setItem("luxPw",v);}catch(e){} }
+    }
+    else if(v===STAFF_MASTER) role="nhanvien";
     else if(v===weekCode()) role="khach";
     else if(codes && codes.has(v)) role=codes.get(v);
     else{
@@ -774,7 +803,7 @@ async function initGate(){
       if(m){ codes=m; if(codes.has(v)) role=codes.get(v); }
     }
     if(role){ try{sessionStorage.setItem("luxRole",role);}catch(e){} g.remove(); luxStart(role); }
-    else{ document.getElementById("luxErr").style.display="block"; }
+    else{ const e=document.getElementById("luxErr"); e.textContent="Sai mật khẩu / Wrong password"; e.style.display="block"; }
   };
   g.querySelector("#luxForm").addEventListener("submit",function(e){ e.preventDefault(); tryP(); });
   g.querySelector("#luxBtn").addEventListener("click",function(e){ e.preventDefault(); tryP(); });

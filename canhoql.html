@@ -1,0 +1,440 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Cập nhật căn hộ</title>
+<meta name="theme-color" content="#0e7ba8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LUXHOME">
+<style>
+  :root{ --bg:#eef3f4; --card:#fff; --fg:#13242a; --muted:#5f727a; --line:#e2eaec; --cyan:#0e7ba8; --cyan2:#28c3dd;
+    --ok:#15803d; --okbg:#e7f6ec; --lock:#b91c1c; --lockbg:#fdeaea; --soon:#b45309; --soonbg:#fdf3e1; --gold:#b7791f; }
+  @media (prefers-color-scheme:dark){:root{ --bg:#0c1518; --card:#13222a; --fg:#e8f1f3; --muted:#90a4ac; --line:#20333c; --okbg:#133222; --lockbg:#2a1414; --soonbg:#2b2112; }}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",system-ui,sans-serif;line-height:1.4}
+  .top{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 0}
+  .top a.back{display:inline-block;background:rgba(255,255,255,.22);color:#fff;text-decoration:none;font-weight:800;font-size:1.05rem;padding:9px 16px;border-radius:999px;margin-bottom:10px}
+  .brand{font-size:1.4rem;font-weight:800;letter-spacing:1px;color:#ffd977}
+  .brand small{display:block;font-size:.72rem;font-weight:600;letter-spacing:2px;color:#eafbff;margin-top:2px}
+  .tabs{display:flex;gap:4px;margin-top:12px}
+  .tabs button{flex:1;border:0;background:rgba(255,255,255,.16);color:#fff;font:inherit;font-weight:800;padding:11px 6px;border-radius:12px 12px 0 0;cursor:pointer}
+  .tabs button.on{background:var(--bg);color:var(--cyan)}
+  .wrap{max-width:760px;margin:0 auto;padding:14px 12px 60px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  input,select,textarea{padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--fg);width:100%}
+  textarea{min-height:76px;resize:vertical}
+  .bar input{flex:1 1 170px;width:auto} .bar select{flex:1 1 120px;width:auto}
+  .btn{border:0;border-radius:11px;padding:11px 14px;font:inherit;font-weight:800;cursor:pointer;color:#fff;background:var(--cyan);white-space:nowrap}
+  .btn.gh{background:transparent;color:var(--cyan);border:1.5px solid var(--cyan)}
+  .btn.red{background:var(--lock)} .btn.ok{background:var(--ok)}
+  .btn:disabled{opacity:.45;cursor:default}
+  .sum{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:10px;font-size:.8rem}
+  .sum span{background:var(--card);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-weight:700}
+  .card{display:flex;gap:11px;align-items:center;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:9px;margin-bottom:8px;cursor:pointer}
+  .card:active{transform:scale(.99)}
+  .th{width:62px;height:62px;border-radius:10px;background:linear-gradient(135deg,var(--cyan2),var(--cyan));flex:0 0 auto;overflow:hidden;display:flex;align-items:center;justify-content:center;font-size:1.5rem;color:#fff}
+  .th img{width:100%;height:100%;object-fit:cover}
+  .ma{font-weight:800;font-size:1.02rem}
+  .sub{color:var(--muted);font-size:.82rem}
+  .badge{display:inline-block;font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:999px;margin-top:3px}
+  .b-ok{background:var(--okbg);color:var(--ok)} .b-lock{background:var(--lockbg);color:var(--lock)} .b-soon{background:var(--soonbg);color:var(--soon)} .b-oth{background:rgba(135,149,160,.18);color:var(--muted)}
+  .muted{color:var(--muted)} .hint{color:var(--muted);font-size:.82rem;margin:2px 0 10px}
+  /* màn hình sửa */
+  .sheet{position:fixed;inset:0;background:var(--bg);z-index:40;overflow:auto;display:none;-webkit-overflow-scrolling:touch}
+  .sheet.show{display:block}
+  .shead{position:sticky;top:0;z-index:2;background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 12px) 14px 12px;display:flex;align-items:center;gap:10px}
+  .shead b{font-size:1.1rem;flex:1}
+  .shead button{border:0;background:rgba(255,255,255,.22);color:#fff;font:inherit;font-weight:800;padding:8px 14px;border-radius:999px;cursor:pointer}
+  .form{max-width:760px;margin:0 auto;padding:14px 12px 80px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .f{display:flex;flex-direction:column;gap:4px} .f.full{grid-column:1/-1}
+  .f label{font-size:.78rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.3px}
+  .maprev{font-weight:800;font-size:1.1rem;color:var(--cyan);padding:10px 0}
+  .sec{font-weight:800;margin:20px 0 8px;display:flex;align-items:center;gap:8px}
+  .sec .ln{flex:1;height:1px;background:var(--line)}
+  .gal{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px}
+  .gi{position:relative;aspect-ratio:1;border-radius:11px;overflow:hidden;background:#0e7ba8;border:2px solid transparent;cursor:pointer}
+  .gi.cov{border-color:#f2b134}
+  .gi img{width:100%;height:100%;object-fit:cover;display:block}
+  .gi .vid{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:2rem;color:#fff;background:rgba(0,0,0,.25)}
+  .gi .star{position:absolute;top:4px;left:4px;background:#f2b134;color:#3a2600;font-size:.66rem;font-weight:800;padding:2px 6px;border-radius:999px}
+  .up{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}
+  .prog{height:8px;background:var(--line);border-radius:99px;overflow:hidden;margin:6px 0;display:none}
+  .prog i{display:block;height:100%;width:0;background:var(--ok);transition:width .2s}
+  .act{position:fixed;left:0;right:0;bottom:0;background:var(--card);border-top:1px solid var(--line);padding:10px 12px calc(env(safe-area-inset-bottom,0px) + 10px);display:flex;gap:8px;justify-content:center;z-index:45}
+  .act .btn{flex:1;max-width:360px}
+  .menu{position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:70;display:none;align-items:flex-end;justify-content:center}
+  .menu.show{display:flex}
+  .menu .box{background:var(--card);width:100%;max-width:520px;border-radius:18px 18px 0 0;padding:14px 14px calc(env(safe-area-inset-bottom,0px) + 14px)}
+  .menu .box img{width:100%;max-height:50vh;object-fit:contain;border-radius:10px;background:#000}
+  .menu .box .btn{width:100%;margin-top:8px}
+  .login{max-width:380px;margin:40px auto;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;text-align:center}
+  .login h2{margin:0 0 6px;color:var(--cyan)}
+  .login input{margin:12px 0}
+  .login .btn{width:100%}
+  .pwrow{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:8px;display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .pwrow .full{grid-column:1/-1;display:flex;gap:8px}
+  .pwrow .full .btn{flex:1}
+  .toast{position:fixed;left:50%;bottom:86px;transform:translateX(-50%);background:#13242a;color:#fff;padding:11px 16px;border-radius:12px;font-weight:700;font-size:.9rem;box-shadow:0 8px 28px rgba(0,0,0,.3);opacity:0;transition:opacity .2s;z-index:90;max-width:92%;pointer-events:none}
+  .toast.show{opacity:1}
+  .warn{background:var(--soonbg);color:var(--soon);border-radius:12px;padding:12px;font-weight:700;margin-bottom:12px}
+  @media (max-width:420px){ .grid{grid-template-columns:1fr} }
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="quanlycanho.html">← Quản lý căn hộ</a>
+  <div class="brand">LUXHOME<small>CẬP NHẬT CĂN HỘ</small></div>
+  <div class="tabs" id="tabs" style="display:none">
+    <button data-t="units" class="on">🏢 Căn hộ</button>
+    <button data-t="toas">🏬 Tòa nhà</button>
+    <button data-t="pws">🔑 Mật khẩu</button>
+  </div>
+</div>
+
+<div class="wrap" id="main"><p class="muted">Đang tải…</p></div>
+
+<!-- Màn hình sửa căn / tòa -->
+<div class="sheet" id="sheet">
+  <div class="shead"><button onclick="closeSheet()">✕</button><b id="sTitle">Căn hộ</b></div>
+  <div class="form" id="sBody"></div>
+  <div class="act" id="sAct"></div>
+</div>
+
+<!-- Menu ảnh -->
+<div class="menu" id="menu" onclick="if(event.target===this)closeMenu()"><div class="box" id="menuBox"></div></div>
+
+<input type="file" id="fPick" accept="image/*,video/*" multiple style="display:none">
+<input type="file" id="fFacade" accept="image/*" style="display:none">
+<div class="toast" id="toast"></div>
+
+<script src="canho-api.js"></script>
+<script>
+var PWKEY="luxAdminPw";
+var D={units:[],toas:[],rooms:[],opts:{tt:[],loai:[],khu:[]},hasEn:false};
+var TAB="units", CUR=null, FILES=[], COVER="";
+var STATUS_DEF=["Đang có sẵn","Dự kiến có","Căn hộ mẫu","Đang Khóa"];
+var MAX_VIDEO=500*1024*1024;
+
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d');}
+function toast(m,ms){var t=$('toast');t.textContent=m;t.classList.add('show');clearTimeout(t._h);t._h=setTimeout(function(){t.classList.remove('show');},ms||2600);}
+function pw(){try{return localStorage.getItem(PWKEY)||'';}catch(e){return '';}}
+function kind(t){var n=norm(t); if(n.indexOf('khoa')>=0)return'lock'; if(n.indexOf('du kien')>=0||n.indexOf('dukien')>=0)return'soon'; if(n.indexOf('co san')>=0)return'ok'; return'oth';}
+function badge(t){var k=kind(t);return '<span class="badge b-'+k+'">'+esc(t||'—')+'</span>';}
+function money(s){var d=String(s||'').replace(/[^\d]/g,''); return d?Number(d).toLocaleString('vi-VN'):'';}
+function driveId(s){s=String(s||'').trim();if(!s)return'';var m=s.match(/\/folders\/([\w-]{10,})/)||s.match(/\/d\/([\w-]{10,})/)||s.match(/[?&]id=([\w-]{10,})/);if(m)return m[1];return /^[\w-]{20,}$/.test(s)?s:'';}
+function thumb(id,w){return id?'https://drive.google.com/thumbnail?id='+id+'&sz=w'+(w||200):'';}
+function errMsg(d){
+  var e=d&&d.err;
+  return e==='badpw'?'Sai mật khẩu hoặc đã bị tắt':e==='noperm'?'Chỉ Admin được sửa':e==='exists'?(d.msg||'Mã đã tồn tại'):e==='busy'?'Máy chủ đang bận, thử lại':e==='notfound'?'Không tìm thấy':e==='lastadmin'?'Không thể tắt/xóa mật khẩu Admin cuối cùng':e==='dup'?'Mật khẩu này đã có':(d&&d.msg)||'Lỗi, thử lại';
+}
+
+/* ---------- ĐĂNG NHẬP ---------- */
+function showLogin(msg){
+  $('tabs').style.display='none';
+  $('main').innerHTML='<div class="login"><h2>🔐 Admin</h2><div class="muted">Nhập mật khẩu Admin để cập nhật căn hộ</div>'
+    +'<input id="lp" type="password" placeholder="Mật khẩu Admin" autocomplete="current-password">'
+    +'<button class="btn" id="lb">Đăng nhập</button>'
+    +(msg?'<div style="color:var(--lock);font-weight:700;margin-top:10px">'+esc(msg)+'</div>':'')+'</div>';
+  var go=function(){var v=$('lp').value.trim(); if(!v)return; $('lb').disabled=true; $('lb').textContent='Đang kiểm tra…';
+    luxApi('login',{pw:v}).then(function(d){
+      if(d&&d.ok&&d.role==='admin'){ try{localStorage.setItem(PWKEY,v);}catch(e){} start(); }
+      else showLogin(d&&d.ok?'Mật khẩu này không phải Admin':'Sai mật khẩu');
+    }).catch(function(){showLogin('Không kết nối được máy chủ');});};
+  $('lb').onclick=go; $('lp').onkeydown=function(e){if(e.key==='Enter')go();}; $('lp').focus();
+}
+function start(){
+  if(!window.LUX_CANHO_API){ $('main').innerHTML='<div class="warn">Chưa kết nối máy chủ Quản lý căn hộ. Làm theo hướng dẫn cài đặt rồi dán URL vào canho-api.js.</div>'; return; }
+  if(!pw()) return showLogin();
+  $('main').innerHTML='<p class="muted">Đang tải danh mục…</p>';
+  load().then(function(){ $('tabs').style.display='flex'; renderTab(); });
+}
+function load(){
+  return luxApi('list',{pw:pw()}).then(function(d){
+    if(!d||!d.ok){ if(d&&d.err==='badpw'){ try{localStorage.removeItem(PWKEY);}catch(e){} showLogin('Mật khẩu đã đổi, đăng nhập lại'); } else $('main').innerHTML='<div class="warn">'+esc(errMsg(d))+'</div>'; throw 0; }
+    if(d.role!=='admin'){ try{localStorage.removeItem(PWKEY);}catch(e){} showLogin('Chỉ Admin được vào trang này'); throw 0; }
+    D=d; if(!D.opts.tt||!D.opts.tt.length) D.opts.tt=STATUS_DEF;
+  }).catch(function(e){ if(e!==0){ $('main').innerHTML='<div class="warn">Không kết nối được máy chủ. Kiểm tra mạng rồi mở lại.</div>'; } throw 0; });
+}
+document.querySelectorAll('#tabs button').forEach(function(b){ b.onclick=function(){
+  document.querySelectorAll('#tabs button').forEach(function(x){x.classList.toggle('on',x===b);}); TAB=b.dataset.t; renderTab(); };});
+function renderTab(){ if(TAB==='units')renderUnits(); else if(TAB==='toas')renderToas(); else renderPws(); }
+
+/* ---------- DANH SÁCH CĂN ---------- */
+var FQ='',FT='',FS='';
+function renderUnits(){
+  var toaOpts=D.toas.map(function(t){return t.ma;}); D.units.forEach(function(u){ if(u.toa&&toaOpts.indexOf(u.toa)<0) toaOpts.push(u.toa); }); toaOpts.sort();
+  $('main').innerHTML='<div class="bar"><input id="q" placeholder="🔎 Tìm mã căn / tòa…" value="'+esc(FQ)+'">'
+    +'<select id="ft"><option value="">Mọi tòa</option>'+toaOpts.map(function(t){return '<option'+(t===FT?' selected':'')+'>'+esc(t)+'</option>';}).join('')+'</select>'
+    +'<select id="fs"><option value="">Mọi tình trạng</option>'+D.opts.tt.map(function(t){return '<option'+(t===FS?' selected':'')+'>'+esc(t)+'</option>';}).join('')+'</select>'
+    +'<button class="btn ok" onclick="openUnit(null)">＋ Thêm căn</button></div>'
+    +'<div class="sum" id="sum"></div><div id="list"></div>';
+  $('q').oninput=function(){FQ=this.value;listUnits();}; $('ft').onchange=function(){FT=this.value;listUnits();}; $('fs').onchange=function(){FS=this.value;listUnits();};
+  listUnits();
+}
+function listUnits(){
+  var q=norm(FQ);
+  var L=D.units.filter(function(u){ if(FT&&u.toa!==FT)return false; if(FS&&u.tt!==FS)return false; if(q&&norm(u.ma+' '+u.toa+' '+u.so+' '+u.loai+' '+u.khu).indexOf(q)<0)return false; return true; });
+  var c={ok:0,soon:0,lock:0,oth:0}; D.units.forEach(function(u){c[kind(u.tt)]++;});
+  $('sum').innerHTML='<span>Tổng '+D.units.length+'</span><span style="color:var(--ok)">Có sẵn '+c.ok+'</span><span style="color:var(--soon)">Dự kiến '+c.soon+'</span><span style="color:var(--lock)">Khóa '+c.lock+'</span><span>Khác '+c.oth+'</span><span>Đang lọc: '+L.length+'</span>';
+  var more=L.length>200; if(more) L=L.slice(0,200);
+  $('list').innerHTML=L.length? L.map(function(u){
+    var id=driveId(u.anhdd);
+    return '<div class="card" onclick="openUnit(\''+esc(u.ma)+'\')"><div class="th">'+(id?'<img loading="lazy" referrerpolicy="no-referrer" src="'+thumb(id,160)+'" onerror="this.remove()">':'🏠')+'</div>'
+      +'<div style="flex:1;min-width:0"><div class="ma">'+esc(u.ma)+'</div><div class="sub">'+esc([u.loai,u.khu].filter(Boolean).join(' · '))+(u.gia?' · '+money(u.gia)+' đ':'')+'</div>'+badge(u.tt)+'</div><div class="muted" style="font-size:1.3rem">›</div></div>';
+  }).join('')+(more?'<p class="muted">Chỉ hiện 200 căn đầu — dùng ô tìm / lọc để thu hẹp.</p>':'') : '<p class="muted">Không có căn phù hợp.</p>';
+}
+
+/* ---------- SỬA / THÊM CĂN ---------- */
+function opts(list,val,blank){ var a=list.slice(); if(val&&a.indexOf(val)<0)a.unshift(val);
+  return (blank?'<option value="">'+blank+'</option>':'')+a.map(function(x){return '<option'+(x===val?' selected':'')+'>'+esc(x)+'</option>';}).join(''); }
+function openUnit(ma){
+  var u=ma?D.units.find(function(x){return x.ma===ma;}):null; CUR=u?Object.assign({},u):null;
+  var x=u||{tt:'Đang Khóa'};
+  var toaList=D.toas.map(function(t){return t.ma;});
+  $('sTitle').textContent=u?('Căn '+u.ma):'Thêm căn hộ mới';
+  $('sBody').innerHTML='<div class="grid">'
+    +'<div class="f"><label>Mã tòa</label><select id="e_toa">'+opts(toaList,x.toa,'— Chọn tòa —')+'</select></div>'
+    +'<div class="f"><label>Số căn hộ</label><input id="e_so" list="dlRooms" value="'+esc(x.so)+'" autocapitalize="characters"><datalist id="dlRooms">'+D.rooms.map(function(r){return '<option value="'+esc(r)+'">';}).join('')+'</datalist></div>'
+    +'<div class="f full"><label>Mã căn hộ (tự tạo)</label><div class="maprev" id="e_ma">—</div></div>'
+    +'<div class="f"><label>Tình trạng</label><select id="e_tt">'+opts(D.opts.tt,x.tt)+'</select></div>'
+    +'<div class="f" id="w_ngay"><label>Ngày dự kiến có</label><input id="e_ngay" value="'+esc(x.ngay)+'" placeholder="dd/mm/yyyy"></div>'
+    +'<div class="f"><label>Loại căn</label><input id="e_loai" list="dlLoai" value="'+esc(x.loai)+'"><datalist id="dlLoai">'+D.opts.loai.map(function(r){return '<option value="'+esc(r)+'">';}).join('')+'</datalist></div>'
+    +'<div class="f"><label>Khu vực</label><input id="e_khu" list="dlKhu" value="'+esc(x.khu)+'"><datalist id="dlKhu">'+D.opts.khu.map(function(r){return '<option value="'+esc(r)+'">';}).join('')+'</datalist></div>'
+    +'<div class="f"><label>Giá thuê (đ/tháng)</label><input id="e_gia" inputmode="numeric" value="'+esc(money(x.gia))+'"></div>'
+    +'<div class="f"><label>Điện (đ/kWh)</label><input id="e_dien" inputmode="numeric" value="'+esc(money(x.dien))+'"></div>'
+    +'<div class="f"><label>Nước (đ/người/tháng)</label><input id="e_nuoc" inputmode="numeric" value="'+esc(money(x.nuoc))+'"></div>'
+    +'<div class="f"><label>Dịch vụ (đ/người/tháng)</label><input id="e_dv" inputmode="numeric" value="'+esc(money(x.dv))+'"></div>'
+    +'<div class="f full"><label>Nội thất / mô tả ngắn</label><textarea id="e_nt">'+esc(x.nt)+'</textarea></div>'
+    +(D.hasEn?'<div class="f full"><label>Mô tả tiếng Anh</label><textarea id="e_ntEn">'+esc(x.ntEn)+'</textarea></div>':'')
+    +'</div>'
+    +(u?'<div class="sec">📷 Ảnh &amp; video <span class="ln"></span></div>'
+      +'<div class="hint">Bấm vào ảnh để đặt làm <b>ảnh đại diện</b> hoặc xóa. Ảnh được tự thu nhỏ trước khi tải lên cho nhanh.</div>'
+      +'<div class="up"><button class="btn" onclick="$(\'fPick\').click()">⬆️ Tải ảnh / video lên</button></div>'
+      +'<div class="prog" id="prog"><i></i></div><div class="sub" id="progT"></div>'
+      +'<div class="gal" id="gal"><p class="muted">Đang tải ảnh…</p></div>'
+      +'<div class="sec">⚠️ Khác <span class="ln"></span></div>'
+      +'<button class="btn gh" style="color:var(--lock);border-color:var(--lock)" onclick="delUnit()">🗑️ Xóa căn này khỏi danh mục</button>'
+      +'<div class="hint" style="margin-top:6px">Chỉ xóa dòng trong danh mục; thư mục ảnh trên Drive vẫn được giữ.</div>'
+      :'<div class="hint" style="margin-top:14px">Lưu căn xong sẽ tải được ảnh &amp; video.</div>');
+  $('sAct').innerHTML='<button class="btn" id="saveBtn" onclick="saveUnit()">💾 Lưu</button>';
+  var upd=function(){ var t=$('e_toa').value.trim().toUpperCase(), s=$('e_so').value.trim().toUpperCase(); $('e_ma').textContent=(t&&s)?(s+t):'—';
+    $('w_ngay').style.display=kind($('e_tt').value)==='soon'?'':'none'; };
+  $('e_toa').onchange=upd; $('e_so').oninput=upd; $('e_tt').onchange=upd; upd();
+  ['e_gia','e_dien','e_nuoc','e_dv'].forEach(function(id){ $(id).oninput=function(){ var p=this.value; this.value=money(p); }; });
+  $('sheet').classList.add('show'); $('sheet').scrollTop=0;
+  if(u) loadFiles();
+}
+function closeSheet(){ $('sheet').classList.remove('show'); CUR=null; if(TAB==='units') listUnits(); else renderTab(); }
+function val(id){ var e=$(id); return e?e.value.trim():''; }
+function saveUnit(){
+  var unit={toa:val('e_toa'),so:val('e_so'),tt:val('e_tt'),ngay:val('e_ngay'),loai:val('e_loai'),khu:val('e_khu'),
+    gia:val('e_gia'),dien:val('e_dien'),nuoc:val('e_nuoc'),dv:val('e_dv'),nt:val('e_nt')};
+  if(D.hasEn) unit.ntEn=val('e_ntEn');
+  if(!unit.toa||!unit.so) return toast('Chọn Mã tòa và nhập Số căn hộ');
+  var b=$('saveBtn'); b.disabled=true; b.textContent='Đang lưu…';
+  luxApi('save',{pw:pw(),unit:unit,orig:CUR?CUR.ma:''},true).then(function(d){
+    b.disabled=false; b.textContent='💾 Lưu';
+    if(!d||!d.ok) return toast(errMsg(d));
+    var nu=d.unit, isNew=!CUR;
+    var i=CUR?D.units.findIndex(function(x){return x.ma===CUR.ma;}):-1;
+    if(i>=0) D.units[i]=nu; else D.units.push(nu);
+    if(D.rooms.indexOf(unit.so.toUpperCase())<0) D.rooms.push(unit.so.toUpperCase());
+    toast('✓ Đã lưu '+nu.ma);
+    if(isNew) openUnit(nu.ma); else { CUR=Object.assign({},nu); $('sTitle').textContent='Căn '+nu.ma; }
+  }).catch(function(){ b.disabled=false; b.textContent='💾 Lưu'; toast('Không kết nối được máy chủ'); });
+}
+function delUnit(){
+  if(!CUR) return;
+  if(!confirm('Xóa căn '+CUR.ma+' khỏi danh mục?\n(Ảnh trên Drive vẫn giữ lại)')) return;
+  var ma=CUR.ma;
+  luxApi('delunit',{pw:pw(),ma:ma},true).then(function(d){
+    if(!d||!d.ok) return toast(errMsg(d));
+    D.units=D.units.filter(function(x){return x.ma!==ma;}); toast('Đã xóa '+ma); closeSheet();
+  }).catch(function(){toast('Không kết nối được máy chủ');});
+}
+
+/* ---------- ẢNH / VIDEO ---------- */
+function loadFiles(){
+  if(!CUR) return; var ma=CUR.ma;
+  luxApi('files',{pw:pw(),ma:ma}).then(function(d){
+    if(!CUR||CUR.ma!==ma) return;
+    if(!d||!d.ok){ $('gal').innerHTML='<p class="muted">'+esc(errMsg(d))+'</p>'; return; }
+    FILES=d.files||[]; COVER=d.cover||''; renderGal();
+  }).catch(function(){ $('gal').innerHTML='<p class="muted">Không tải được danh sách ảnh.</p>'; });
+}
+function renderGal(){
+  if(!FILES.length){ $('gal').innerHTML='<p class="muted">Chưa có ảnh nào.</p>'; return; }
+  $('gal').innerHTML=FILES.map(function(f,i){
+    var isV=/^video\//.test(f.mime);
+    return '<div class="gi'+(f.id===COVER?' cov':'')+'" onclick="fileMenu('+i+')"><img loading="lazy" referrerpolicy="no-referrer" src="'+f.thumb+'" onerror="this.style.display=\'none\'">'
+      +(isV?'<div class="vid">▶</div>':'')+(f.id===COVER?'<span class="star">★ Đại diện</span>':'')+'</div>';
+  }).join('');
+}
+function fileMenu(i){
+  var f=FILES[i], isV=/^video\//.test(f.mime);
+  $('menuBox').innerHTML=(isV?'<div class="maprev">🎬 '+esc(f.name)+'</div>':'<img referrerpolicy="no-referrer" src="'+thumb(f.id,1000)+'">')
+    +(!isV&&f.id!==COVER?'<button class="btn" onclick="setCover('+i+')">★ Đặt làm ảnh đại diện</button>':'')
+    +'<a class="btn gh" style="display:block;text-align:center;text-decoration:none;margin-top:8px" href="'+f.url+'" target="_blank" rel="noopener">Mở xem đầy đủ</a>'
+    +'<button class="btn red" onclick="delFile('+i+')">🗑️ Xóa '+(isV?'video':'ảnh')+' này</button>'
+    +'<button class="btn gh" onclick="closeMenu()">Đóng</button>';
+  $('menu').classList.add('show');
+}
+function closeMenu(){ $('menu').classList.remove('show'); }
+function setCover(i){
+  var f=FILES[i]; closeMenu();
+  luxApi('setcover',{pw:pw(),ma:CUR.ma,id:f.id},true).then(function(d){
+    if(!d||!d.ok) return toast(errMsg(d));
+    COVER=f.id; CUR.anhdd=f.id; var u=D.units.find(function(x){return x.ma===CUR.ma;}); if(u)u.anhdd=f.id; renderGal(); toast('✓ Đã đặt ảnh đại diện');
+  }).catch(function(){toast('Không kết nối được máy chủ');});
+}
+function delFile(i){
+  var f=FILES[i]; if(!confirm('Xóa '+f.name+'?\n(File vào Thùng rác Drive, khôi phục được trong 30 ngày)')) return; closeMenu();
+  luxApi('delfile',{pw:pw(),ma:CUR.ma,id:f.id},true).then(function(d){
+    if(!d||!d.ok) return toast(errMsg(d));
+    FILES.splice(i,1); if(COVER===f.id){COVER='';CUR.anhdd='';var u=D.units.find(function(x){return x.ma===CUR.ma;}); if(u)u.anhdd='';} renderGal(); toast('Đã xóa');
+  }).catch(function(){toast('Không kết nối được máy chủ');});
+}
+function prog(p,txt){ var b=$('prog'); if(!b) return; b.style.display=p==null?'none':'block'; b.firstChild.style.width=(p||0)+'%'; $('progT').textContent=txt||''; }
+// Thu nhỏ ảnh (cạnh dài tối đa 2000px, JPEG) -> base64
+function shrink(file){
+  return new Promise(function(res,rej){
+    var url=URL.createObjectURL(file), img=new Image();
+    img.onload=function(){
+      var M=2000, w=img.naturalWidth, h=img.naturalHeight, k=Math.min(1,M/Math.max(w,h));
+      var c=document.createElement('canvas'); c.width=Math.round(w*k); c.height=Math.round(h*k);
+      c.getContext('2d').drawImage(img,0,0,c.width,c.height); URL.revokeObjectURL(url);
+      var data=c.toDataURL('image/jpeg',0.85); res(data.slice(data.indexOf(',')+1));
+    };
+    img.onerror=function(){ URL.revokeObjectURL(url); rej(new Error('img')); };
+    img.src=url;
+  });
+}
+function readB64(file){ return new Promise(function(res,rej){ var r=new FileReader(); r.onload=function(){var s=r.result;res(s.slice(s.indexOf(',')+1));}; r.onerror=rej; r.readAsDataURL(file); }); }
+function upVideo(f,onp){
+  return luxApi('videosession',{pw:pw(),ma:CUR.ma,name:f.name||('video_'+Date.now()+'.mp4'),mime:f.type||'video/mp4',size:f.size,origin:location.origin},true).then(function(d){
+    if(!d||!d.ok) throw new Error(errMsg(d));
+    return new Promise(function(res,rej){
+      var x=new XMLHttpRequest(); x.open('PUT',d.url);
+      x.setRequestHeader('Content-Type',f.type||'video/mp4');
+      x.upload.onprogress=function(e){ if(e.lengthComputable) onp(e.loaded/e.total); };
+      var sent=false; x.upload.onload=function(){sent=true;};
+      x.onload=function(){ (x.status>=200&&x.status<300)?res():rej(new Error('HTTP '+x.status)); };
+      x.onerror=function(){ sent?res():rej(new Error('net')); };   // tải xong nhưng trình duyệt chặn đọc phản hồi -> coi như xong, danh sách sẽ xác nhận
+      x.send(f);
+    });
+  });
+}
+$('fPick').onchange=async function(){
+  var fs=Array.prototype.slice.call(this.files||[]); this.value=''; if(!fs.length||!CUR) return;
+  var ma=CUR.ma, ok=0, bad=[];
+  for(var i=0;i<fs.length;i++){
+    var f=fs[i], tag='('+(i+1)+'/'+fs.length+') '+f.name;
+    try{
+      if(/^video\//.test(f.type)){
+        if(f.size>MAX_VIDEO){ bad.push(f.name+' (quá 500MB)'); continue; }
+        prog(0,'Đang tải video '+tag);
+        await upVideo(f,function(p){ prog(Math.round(p*100),'Đang tải video '+tag+' — '+Math.round(p*100)+'%'); });
+      } else {
+        prog(Math.round(i/fs.length*100),'Đang tải ảnh '+tag);
+        var data; try{ data=await shrink(f); }catch(e){ data=await readB64(f); }
+        var d=await luxApi('upload',{pw:pw(),ma:ma,name:(f.name||'anh').replace(/\.\w+$/,'')+'.jpg',mime:'image/jpeg',data:data},true);
+        if(!d||!d.ok) throw new Error(errMsg(d));
+      }
+      ok++;
+    }catch(e){ bad.push(f.name+' ('+(e.message||'lỗi')+')'); }
+  }
+  prog(null);
+  toast('✓ Đã tải '+ok+'/'+fs.length+(bad.length?' — lỗi: '+bad.join(', '):''), bad.length?7000:2600);
+  if(CUR&&CUR.ma===ma){ loadFiles(); luxApi('list',{pw:pw()}).then(function(d){ if(d&&d.ok){ D.units=d.units; var u=D.units.find(function(x){return x.ma===ma;}); if(u&&CUR&&CUR.ma===ma){CUR.anh=u.anh;CUR.anhdd=u.anhdd;} } }); }
+};
+
+/* ---------- TÒA NHÀ ---------- */
+var CTOA=null;
+function renderToas(){
+  var cnt={}; D.units.forEach(function(u){cnt[u.toa]=(cnt[u.toa]||0)+1;});
+  $('main').innerHTML='<div class="bar"><div class="hint" style="flex:1;margin:0">Địa chỉ, bản đồ và ảnh mặt tiền dùng chung cho mọi căn trong tòa.</div><button class="btn ok" onclick="openToa(null)">＋ Thêm tòa</button></div>'
+    +D.toas.map(function(t){ var id=driveId(t.facade);
+      return '<div class="card" onclick="openToa(\''+esc(t.ma)+'\')"><div class="th">'+(id?'<img loading="lazy" referrerpolicy="no-referrer" src="'+thumb(id,160)+'" onerror="this.remove()">':'🏬')+'</div>'
+        +'<div style="flex:1;min-width:0"><div class="ma">Tòa '+esc(t.ma)+'</div><div class="sub">'+esc(t.diachi||'Chưa có địa chỉ')+'</div><div class="sub">'+(cnt[t.ma]||0)+' căn'+(t.map?' · 📍 có bản đồ':' · ⚠️ chưa có bản đồ')+'</div></div><div class="muted" style="font-size:1.3rem">›</div></div>';
+    }).join('');
+}
+function openToa(ma){
+  var t=ma?D.toas.find(function(x){return x.ma===ma;}):null; CTOA=t; var x=t||{};
+  var id=driveId(x.facade);
+  $('sTitle').textContent=t?('Tòa '+t.ma):'Thêm tòa mới';
+  $('sBody').innerHTML='<div class="grid">'
+    +'<div class="f full"><label>Mã tòa</label><input id="t_ma" value="'+esc(x.ma)+'" autocapitalize="characters" placeholder="VD: T08"></div>'
+    +'<div class="f full"><label>Địa chỉ</label><input id="t_dc" value="'+esc(x.diachi)+'"></div>'
+    +'<div class="f full"><label>Link Google Map</label><input id="t_map" value="'+esc(x.map)+'" placeholder="Dán link chia sẻ từ Google Maps"></div>'
+    +'</div>'
+    +(t?'<div class="sec">🏬 Ảnh mặt tiền <span class="ln"></span></div>'
+      +(id?'<img referrerpolicy="no-referrer" src="'+thumb(id,800)+'" style="width:100%;border-radius:12px;max-height:280px;object-fit:cover">':'<p class="muted">Chưa có ảnh mặt tiền.</p>')
+      +'<div class="up"><button class="btn" onclick="$(\'fFacade\').click()">⬆️ '+(id?'Đổi':'Tải')+' ảnh mặt tiền</button></div><div class="prog" id="prog"><i></i></div><div class="sub" id="progT"></div>'
+      +(x.map?'<a class="btn gh" style="display:inline-block;text-decoration:none;margin-top:6px" target="_blank" rel="noopener" href="'+esc(x.map)+'">📍 Mở thử bản đồ</a>':'')
+      :'');
+  $('sAct').innerHTML='<button class="btn" id="saveBtn" onclick="saveToa()">💾 Lưu</button>';
+  $('sheet').classList.add('show'); $('sheet').scrollTop=0;
+}
+function saveToa(){
+  var toa={ma:val('t_ma').toUpperCase(),diachi:val('t_dc'),map:val('t_map')}; if(!toa.ma) return toast('Nhập mã tòa');
+  var b=$('saveBtn'); b.disabled=true; b.textContent='Đang lưu…';
+  luxApi('savetoa',{pw:pw(),toa:toa,orig:CTOA?CTOA.ma:''},true).then(function(d){
+    b.disabled=false; b.textContent='💾 Lưu';
+    if(!d||!d.ok) return toast(errMsg(d));
+    toast('✓ Đã lưu tòa '+toa.ma);
+    return load().then(function(){ openToa(toa.ma); });
+  }).catch(function(){ b.disabled=false; b.textContent='💾 Lưu'; });
+}
+$('fFacade').onchange=async function(){
+  var f=this.files&&this.files[0]; this.value=''; if(!f||!CTOA) return; var ma=CTOA.ma;
+  prog(30,'Đang tải ảnh mặt tiền…');
+  try{
+    var data; try{data=await shrink(f);}catch(e){data=await readB64(f);}
+    var d=await luxApi('uploadfacade',{pw:pw(),toa:ma,name:'mattien_'+ma+'.jpg',mime:'image/jpeg',data:data},true);
+    prog(null); if(!d||!d.ok) return toast(errMsg(d));
+    toast('✓ Đã cập nhật ảnh mặt tiền'); await load(); openToa(ma);
+  }catch(e){ prog(null); toast('Không tải được ảnh'); }
+};
+
+/* ---------- MẬT KHẨU ---------- */
+var PWS=[];
+function renderPws(){
+  $('main').innerHTML='<p class="muted">Đang tải…</p>';
+  luxApi('pwlist',{pw:pw()}).then(function(d){
+    if(!d||!d.ok){ $('main').innerHTML='<div class="warn">'+esc(errMsg(d))+'</div>'; return; }
+    PWS=d.items;
+    $('main').innerHTML='<div class="hint">Mật khẩu xem catalog và đăng nhập trang này. <b>Admin</b>: sửa được dữ liệu · <b>Nhân viên</b>: xem catalog + mã khách tuần · <b>Khách hàng</b>: chỉ xem catalog.<br>Mã khách tuần này (tự đổi mỗi thứ Hai): <b>'+esc(d.week)+'</b></div>'
+      +PWS.map(function(p,i){ return pwRow(p,i); }).join('')
+      +'<button class="btn ok" onclick="addPw()">＋ Thêm mật khẩu</button>';
+  }).catch(function(){ $('main').innerHTML='<div class="warn">Không kết nối được máy chủ.</div>'; });
+}
+function pwRow(p,i){
+  var L=['Admin','Nhân viên','Khách hàng']; var T=['Bật','Tắt'];
+  return '<div class="pwrow"><select id="pl'+i+'">'+opts(L,p.loai)+'</select><select id="pt'+i+'">'+opts(T,p.tt||'Bật')+'</select>'
+    +'<input id="pp'+i+'" value="'+esc(p.pw)+'" placeholder="Mật khẩu" autocomplete="off"><input id="pn'+i+'" value="'+esc(p.note)+'" placeholder="Ghi chú (tên…)">'
+    +'<div class="full"><button class="btn" onclick="savePw('+i+')">💾 Lưu</button>'+(p.row?'<button class="btn gh" style="color:var(--lock);border-color:var(--lock)" onclick="savePw('+i+',1)">🗑️ Xóa</button>':'')+'</div></div>';
+}
+function addPw(){ PWS.push({row:0,loai:'Khách hàng',pw:'',tt:'Bật',note:''}); var m=$('main'); var btn=m.querySelector('.btn.ok'); var div=document.createElement('div'); div.innerHTML=pwRow(PWS[PWS.length-1],PWS.length-1); m.insertBefore(div.firstChild,btn); }
+function savePw(i,del){
+  var p=PWS[i]; var it={row:p.row,loai:$('pl'+i).value,tt:$('pt'+i).value,pw:$('pp'+i).value.trim(),note:$('pn'+i).value.trim(),del:del?1:0};
+  if(del&&!confirm('Xóa mật khẩu '+p.pw+'?')) return;
+  if(!it.pw) return toast('Nhập mật khẩu');
+  luxApi('pwsave',{pw:pw(),item:it},true).then(function(d){
+    if(!d||!d.ok) return toast(errMsg(d));
+    // nếu vừa đổi chính mật khẩu đang dùng -> cập nhật trên máy
+    if(!del && p.pw===pw() && it.pw!==p.pw){ try{localStorage.setItem(PWKEY,it.pw);}catch(e){} }
+    toast(del?'Đã xóa':'✓ Đã lưu (có hiệu lực trong ~1 phút)'); renderPws();
+  }).catch(function(){toast('Không kết nối được máy chủ');});
+}
+
+start();
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+</script>
+</body>
+</html>

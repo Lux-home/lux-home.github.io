@@ -48,6 +48,12 @@
       <div class="ds">Mở khi khách OUT · Khóa khi khách IN</div></div>
     <div class="go">›</div>
   </a>
+  <a class="item" id="lnkEdit" href="canhoql.html">
+    <div class="ic">✏️</div>
+    <div><div class="nm">Cập nhật căn hộ</div><div class="en">Edit units, photos &amp; buildings</div>
+      <div class="ds">Thêm/sửa căn, tải ảnh &amp; video, tòa nhà, mật khẩu (Admin)</div></div>
+    <div class="go">›</div>
+  </a>
 </div>
 <script>
 // Mở từ app nhân viên (nv.html gắn ?tok=...) -> nút quay lại về app nhân viên, giữ tok khi sang trang con
@@ -56,6 +62,7 @@
   if (/[?&]tok=/.test(qs)) {
     document.getElementById('backLink').href = 'nv.html';
     document.getElementById('backLink').textContent = '← App nhân viên';
+    document.getElementById('lnkEdit').style.display = 'none';   // nhân viên: chỉ xem + gửi, không sửa dữ liệu gốc
   }
   document.getElementById('lnkCanho').href = 'canho.html' + qs;
 })();
