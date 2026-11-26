@@ -3,7 +3,7 @@
 Đăng nhập Google bằng **tài khoản đang sở hữu Sheet "KHO ẢNH CĂN HỘ - CSKH" và thư mục "KHO ẢNH CĂN HỘ"**.
 
 1. Mở https://script.google.com → **Dự án mới**. Đặt tên: `LUXHOME Căn hộ API`.
-2. Xóa hết mã có sẵn trong `Code.gs`, dán toàn bộ nội dung file `apps-script/canho-api.gs` → bấm 💾 Lưu.
+2. Xóa hết mã có sẵn trong `Code.gs`, dán nội dung `apps-script/canho-api.gs` rồi NỐI TIẾP bên dưới nội dung `apps-script/khach-api.gs` (cùng 1 file) → bấm 💾 Lưu.
 3. Ở thanh trên, chọn hàm **capQuyen** → bấm **Chạy** → **Xem xét quyền** → chọn tài khoản → *Nâng cao* → *Đi tới LUXHOME Căn hộ API* → **Cho phép**.
 4. **Triển khai → Tùy chọn triển khai mới** → bánh răng ⚙ → **Ứng dụng web**:
    - Thực thi với tư cách: **Tôi**

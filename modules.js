@@ -7,6 +7,7 @@
 // Mục chưa xây xong thì KHÔNG đưa vào đây (để ở danh sách "Sắp có" trong index.html).
 window.LUX_MODULES = [
   { k:"quanlycanho", ic:"🏢", nm:"Quản lý căn hộ",     en:"Apartment management",  ds:"Danh mục · Khóa/Mở căn", url:"quanlycanho.html", staff:true },
+  { k:"khach",    ic:"👥", nm:"Quản lý khách thuê",   en:"Tenants",               ds:"Sửa khách · OUT · Xuất Excel", url:"khach.html", staff:false },
   { k:"luutru",   ic:"🛂", nm:"Lưu trú & hạn visa",    en:"Residence & visa",      ds:"Nhắc gia hạn lưu trú",   url:"luutru.html",   staff:true },
   { k:"quanlythanhtoan", ic:"💳", nm:"Quản lý thanh toán", en:"Payment management", ds:"Gửi hóa đơn · Theo dõi thanh toán", url:"quanlythanhtoan.html", staff:true },
   { k:"thongbao", ic:"📢", nm:"Thông báo cư dân",      en:"Resident notices",      ds:"Báo cư dân theo toà",    url:"thongbao.html", staff:true },

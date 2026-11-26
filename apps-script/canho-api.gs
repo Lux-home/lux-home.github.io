@@ -63,11 +63,17 @@ function handle_(a, p) {
   if (a === 'uploadfacade') return withLock_(() => uploadFacade_(p));
   if (a === 'pwlist')       return pwList_();
   if (a === 'pwsave')       return withLock_(() => pwSave_(p.item || {}));
+  // ---- khách thuê (file QUAN LY KHACH HANG.xlsm) — chỉ Admin
+  if (a === 'khlist')       return khList_();
+  if (a === 'khsave')       return withLock_(() => khSave_(p));
+  if (a === 'khout')        return withLock_(() => khOut_(p));
+  if (a === 'khexport')     return khExport_();
+  if (a === 'khoutlist')    return khOutList_();
   return { ok: false, err: 'unknown' };
 }
 function withLock_(fn) {
   const lock = LockService.getScriptLock();
-  if (!lock.tryLock(20000)) return { ok: false, err: 'busy' };
+  if (!lock.tryLock(30000)) return { ok: false, err: 'busy' };
   try { return fn(); } finally { lock.releaseLock(); }
 }
 
