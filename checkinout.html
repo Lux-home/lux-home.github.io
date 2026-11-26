@@ -45,10 +45,11 @@
   <a class="item" id="lnkKhach" href="khach.html">
     <div class="ic">👥</div>
     <div><div class="nm">Chỉnh sửa thông tin khách thuê</div><div class="en">Edit tenant information</div>
-      <div class="ds">Sửa thông tin khách · khách trả phòng (OUT) · Xuất Excel (Admin)</div></div>
+      <div class="ds">Sửa khách · trả phòng (OUT) · xuất Excel — nhân viên gửi đề xuất, chủ duyệt <b id="propBadge" style="display:none;background:#b91c1c;color:#fff;border-radius:999px;padding:1px 8px;margin-left:4px"></b></div></div>
     <div class="go">›</div>
   </a>
 </div>
+<script src="canho-api.js"></script>
 <script>
 // Mở từ app nhân viên (nv.html gắn ?tok=...) -> nút quay lại về app nhân viên, giữ tok khi sang trang con
 (function(){
@@ -56,10 +57,13 @@
   if (/[?&]tok=/.test(qs)) {
     document.getElementById('backLink').href = 'nv.html';
     document.getElementById('backLink').textContent = '← App nhân viên';
-    document.getElementById('lnkKhach').style.display = 'none';   // nhân viên: không sửa dữ liệu khách gốc
   }
   document.getElementById('lnkCheckin').href = 'checkin.html' + qs;
+  document.getElementById('lnkKhach').href = 'khach.html' + qs;
 })();
+// chủ: hiện số đề xuất chờ duyệt
+(function(){ if(/[?&]tok=/.test(location.search)) return; var pw=''; try{ pw=localStorage.getItem('luxAdminPw')||''; }catch(e){}
+  if(!pw||!window.luxApi) return; luxApi('khpropcount',{pw:pw}).then(function(d){ if(d&&d.ok&&d.n){ var b=document.getElementById('propBadge'); b.textContent=d.n+' chờ duyệt'; b.style.display='inline-block'; } }).catch(function(){}); })();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
 </script>
 </body>

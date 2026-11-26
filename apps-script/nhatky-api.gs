@@ -22,16 +22,20 @@ function nkSheet_() {
 /** Hỏi máy chủ chính: token này là nhân viên nào (nhớ 30 phút). */
 function nvWho_(tok, dev, devname) {
   tok = String(tok || ''); if (!tok) return null;
-  const cache = CacheService.getScriptCache(), key = 'nvw_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, tok + '|' + dev));
+  const cache = CacheService.getScriptCache(), key = 'nvw2_' + Utilities.base64EncodeWebSafe(Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, tok + '|' + dev));
   const hit = cache.get(key); if (hit) return hit === '-' ? null : JSON.parse(hit);
   let who = null;
   try {
     const t = UrlFetchApp.fetch(MAIN_EXEC + '?nvme=1&callback=cb&tok=' + encodeURIComponent(tok) + '&dev=' + encodeURIComponent(dev || '') + '&devname=' + encodeURIComponent(devname || ''), { muteHttpExceptions: true }).getContentText();
     const d = JSON.parse(t.slice(t.indexOf('(') + 1, t.lastIndexOf(')')));
-    if (d && d.ok && !d.admin) who = { ma: d.ma, ten: d.ten || d.ma };
+    if (d && d.ok && !d.admin) who = { ma: d.ma, ten: d.ten || d.ma, perms: d.perms || [] };
   } catch (e) {}
   cache.put(key, who ? JSON.stringify(who) : '-', who ? 1800 : 60);
   return who;
+}
+function nkAppend_(ma, ten, type, detail, page, dev) {
+  const clip = (s, n) => String(s == null ? '' : s).replace(/[\r\n]+/g, ' ').slice(0, n);
+  nkSheet_().appendRow([Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm:ss'), ma, ten, clip(type, 60), "'" + clip(detail, 500), clip(page, 40), clip(dev, 60)]);
 }
 function nvLog_(p) {
   const who = nvWho_(p.tok, p.dev, p.devname);

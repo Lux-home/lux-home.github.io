@@ -46,6 +46,8 @@ function handle_(a, p) {
   if (a === 'ping') return { ok: true, v: 1 };
   if (a === 'login') return role ? { ok: true, role: role } : { ok: false, err: 'badpw' };
   if (a === 'nvlog') return nvLog_(p);   // nhân viên ghi nhật ký (xác minh bằng token app phụ)
+  // nhân viên (token app phụ) — chỉ xem / gửi đề xuất, chủ duyệt
+  if (!role && p.tok && ['khlist', 'khpropose', 'khmyreqs', 'khexportget'].indexOf(a) >= 0) return staffRoute_(a, p);
   if (!role) return { ok: false, err: 'badpw' };
 
   // ---- đọc (mọi vai trò đã đăng nhập) ----
@@ -66,7 +68,10 @@ function handle_(a, p) {
   if (a === 'pwlist')       return pwList_();
   if (a === 'pwsave')       return withLock_(() => pwSave_(p.item || {}));
   // ---- khách thuê (file QUAN LY KHACH HANG.xlsm) — chỉ Admin
-  if (a === 'khlist')       { if (khPending_().length) withLock_(() => khApply_()); return Object.assign(khList_(), { errors: khErrors_() }); }
+  if (a === 'khlist')       { if (khPending_().length) withLock_(() => khApply_()); return Object.assign(khList_(), { errors: khErrors_(), pend: kpPendingByRow_() }); }
+  if (a === 'khproplist')   return kpList_();
+  if (a === 'khpropcount')  return kpCount_();
+  if (a === 'khdecide')     return kpDecide_(p);
   if (a === 'khqueue')      return khQueue_(p);
   if (a === 'khapply')      return withLock_(() => khApply_());
   if (a === 'khstatus')     return khStatus_();

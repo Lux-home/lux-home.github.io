@@ -341,7 +341,7 @@ function khQueue_(p) {
   }
   const key = KQ_PREFIX + item.t + '_' + Math.random().toString(36).slice(2, 7);
   PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(item));
-  return { ok: true, id: key, pending: khPending_().length };
+  return { ok: true, id: key, t: item.t, pending: khPending_().length };
 }
 function khPending_() {
   const all = PropertiesService.getScriptProperties().getProperties();
