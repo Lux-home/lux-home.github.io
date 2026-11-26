@@ -162,8 +162,29 @@ function tdSave_(p) {
  * Giống email "Hạn visa / lưu trú": danh sách người nhận + các giờ gửi trong ngày (mặc định 07:00).
  * Trình kích hoạt chạy mỗi 15 phút (tdTick) và gửi khi tới giờ đã đặt (mỗi giờ 1 lần/ngày).
  */
+/** Lấy danh sách email + giờ gửi của email cảnh báo Lưu trú / visa (máy chủ chính) — dùng chung 1 nơi quản lý.
+ *  Cần thuộc tính dự án lt_cfg_pw (Cài đặt dự án → Thuộc tính tập lệnh), KHÔNG ghi trong mã. */
+function tdLuuTruCfg_() {
+  const P = PropertiesService.getScriptProperties(), C = CacheService.getScriptCache(), k = 'td_lt_cfg'; let v = C.get(k);
+  if (v) return JSON.parse(v);
+  const pw = P.getProperty('lt_cfg_pw'), out = {};
+  if (pw) try {
+    ['get', 'getsched'].forEach(a => {
+      const t = UrlFetchApp.fetch(MAIN_EXEC + '?cfg=' + a + '&pw=' + encodeURIComponent(pw), { muteHttpExceptions: true }).getContentText();
+      const d = JSON.parse(t.replace(/^[^(]*\(/, '').replace(/\);?\s*$/, ''));
+      if (d && d.ok) { if (d.emails) out.emails = d.emails; if (d.times) out.times = d.times; }
+    });
+  } catch (e) {}
+  if (out.emails || out.times) { C.put(k, JSON.stringify(out), 600); P.setProperty('td_lt_last', JSON.stringify(out)); return out; }
+  try { return JSON.parse(P.getProperty('td_lt_last') || '{}'); } catch (e) { return {}; }
+}
 function tdCfg_() {
   const P = PropertiesService.getScriptProperties();
+  if (P.getProperty('td_follow') !== '0') {   // mặc định: theo email + giờ của báo cáo Lưu trú / visa
+    const lt = tdLuuTruCfg_();
+    return { follow: true, linked: !!lt.emails, emails: lt.emails || [Session.getEffectiveUser().getEmail()], times: (lt.times && lt.times.length) ? lt.times : ['07:00', '21:00'],
+      trigger: ScriptApp.getProjectTriggers().some(t => t.getHandlerFunction() === 'tdTick') };
+  }
   let em = []; try { em = JSON.parse(P.getProperty('td_mail') || 'null'); } catch (e) {}
   if (!em) em = [Session.getEffectiveUser().getEmail()].filter(String);
   let tm = []; try { tm = JSON.parse(P.getProperty('td_times') || 'null'); } catch (e) {}
@@ -174,6 +195,7 @@ function tdMailCfg_(p) {
   const who = hdAuth_(p, []);
   if (!who || !who.owner) return { ok: false, err: 'noperm' };
   const P = PropertiesService.getScriptProperties();
+  if (p.follow != null) P.setProperty('td_follow', p.follow ? '1' : '0');
   if (p.emails) P.setProperty('td_mail', JSON.stringify([].concat(p.emails).map(s => String(s).trim()).filter(s => /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(s)).slice(0, 30)));
   if (p.times) P.setProperty('td_times', JSON.stringify([].concat(p.times).map(s => String(s).trim()).filter(s => /^\d{2}:\d{2}$/.test(s)).sort().slice(0, 12)));
   if (p.test) { const r = tdSendReport_(true); return Object.assign({ ok: true, sent: r }, tdCfg_()); }

@@ -1411,7 +1411,12 @@ function tdMailTai(x){ var el=document.getElementById('tdMail'); if(!el) return;
   luxApi('tdmail',tdAuth({}),true).then(function(d){ if(!d||!d.ok){ el.innerHTML='<div class="kpW r">'+esc((d&&d.err)||'Lỗi')+'</div>'; return; } TDM=d; tdMailVe(d.sent); }).catch(function(){ el.innerHTML='<div class="kpW r">Không kết nối được</div>'; }); }
 function tdMailVe(msg){
   var el=document.getElementById('tdMail'), chip=function(t,i,k){ return '<span style="display:inline-flex;gap:6px;align-items:center;border:1px solid var(--line);border-radius:999px;padding:3px 6px 3px 10px;margin:0 6px 6px 0;font-weight:700">'+esc(t)+'<button style="background:none;border:0;color:#b91c1c;font-weight:800;cursor:pointer" onclick="tdMailBo(\''+k+'\','+i+')">✕</button></span>'; };
-  el.innerHTML='<p class="hint" style="margin-top:0">Mỗi ngày gửi danh sách hợp đồng chưa kiểm tra / thanh toán chưa đúng tới các email dưới đây (giống email hạn visa, lưu trú). Không có hợp đồng nào cần báo thì không gửi.</p>'
+  if(TDM.follow){ el.innerHTML='<p class="hint" style="margin-top:0">Gửi cùng người nhận và cùng giờ với <b>email cảnh báo hạn lưu trú / visa</b> (đổi ở app Lưu trú → Cài đặt → Email cảnh báo). Không có hợp đồng nào cần báo thì không gửi.</p>'
+    +(TDM.linked?'':'<div class="kpW y">⚠️ Máy chủ chưa liên kết được với email Lưu trú — đang tạm gửi cho chủ</div>')
+    +'<div class="lb">Người nhận</div><div>'+TDM.emails.map(esc).join('<br>')+'</div><div class="lb" style="margin-top:6px">Giờ gửi</div><div>'+TDM.times.map(function(t){ return '🕐 '+esc(t); }).join(' · ')+'</div>'
+    +(TDM.trigger?'':'<div class="kpW y">⚠️ Lịch gửi tự động chưa bật trên máy chủ</div>')
+    +'<button class="btn o" style="margin-top:8px" onclick="tdMailLuu(1)">📨 Gửi thử ngay</button> <button class="btn o" style="margin-top:8px" onclick="TDM.follow=false;tdMailLuu()">Dùng danh sách riêng</button> <span id="tdMMsg" class="hint">'+esc(msg||'')+'</span>'; return; }
+  el.innerHTML='<p class="hint" style="margin-top:0"><a href="javascript:TDM.follow=true;tdMailLuu()">↩ Dùng chung email + giờ của báo cáo Lưu trú / visa</a><br>Mỗi ngày gửi danh sách hợp đồng chưa kiểm tra / thanh toán chưa đúng tới các email dưới đây (giống email hạn visa, lưu trú). Không có hợp đồng nào cần báo thì không gửi.</p>'
     +'<div class="lb">Người nhận</div><div>'+(TDM.emails.map(function(e,i){ return chip(e,i,'emails'); }).join('')||'<span class="muted">Chưa có</span>')+'</div>'
     +'<div class="row2"><input id="tdME" type="email" placeholder="email@..." style="flex:1 1 180px"><button class="btn" onclick="tdMailThem(\'emails\',\'tdME\')">+ Thêm email</button></div>'
     +'<div class="lb" style="margin-top:8px">Giờ gửi mỗi ngày</div><div>'+TDM.times.map(function(t,i){ return chip('🕐 '+t,i,'times'); }).join('')+'</div>'
@@ -1422,7 +1427,7 @@ function tdMailVe(msg){
 function tdMailBo(k,i){ if(TDM[k].length<=1){ toast('Cần giữ ít nhất 1 '+(k==='emails'?'email':'giờ')); return; } TDM[k].splice(i,1); tdMailLuu(); }
 function tdMailThem(k,id){ var v=(document.getElementById(id).value||'').trim(); if(!v) return; if(k==='emails'&&v.indexOf('@')<1){ toast('Email không hợp lệ'); return; } if(TDM[k].indexOf(v)<0) TDM[k].push(v); tdMailLuu(); }
 function tdMailLuu(test){ var m=document.getElementById('tdMMsg'); if(m) m.textContent=test?'Đang gửi…':'Đang lưu…';
-  luxApi('tdmail',tdAuth({emails:TDM.emails,times:TDM.times,test:test?1:0}),true).then(function(d){ if(d&&d.ok){ TDM=d; tdMailVe(test?d.sent:'✓ Đã lưu'); } else if(m) m.textContent='Lỗi: '+((d&&d.err)||''); }).catch(function(){ if(m) m.textContent='Không kết nối được'; }); }
+  luxApi('tdmail',tdAuth(TDM.follow?{follow:1,test:test?1:0}:{follow:0,emails:TDM.emails,times:TDM.times,test:test?1:0}),true).then(function(d){ if(d&&d.ok){ TDM=d; tdMailVe(test?d.sent:'✓ Đã lưu'); } else if(m) m.textContent='Lỗi: '+((d&&d.err)||''); }).catch(function(){ if(m) m.textContent='Không kết nối được'; }); }
 // mục 3 tính xong → ghi kết quả từng phòng vào bảng theo dõi (chỉ chủ)
 var TD_SIG='';
 function tdGui(KQ){
