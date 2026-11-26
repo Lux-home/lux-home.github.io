@@ -178,6 +178,7 @@
   </div>
 </div>
 
+<script src="canho-api.js"></script>
 <script>
 // Màn hình Lưu trú chạy trên server app; chỉ LẤY DỮ LIỆU từ Google qua JSONP
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
@@ -261,6 +262,7 @@ function markNhacEl(el){
     var k=el.getAttribute('data-k')||'';
     if(!ph) return;
     LSs(nkey(ph,k), String(Date.now()));
+    if(window.luxNvLog&&NVTOK) luxNvLog('Nhắc khách (lưu trú/HĐ)', ph+' · '+ten+(k?' · '+k:'')+(/wa\.me/.test(el.href||'')?' · qua WhatsApp':/zalo/.test(el.href||'')?' · qua Zalo':''), NVTOK);
     var log=[]; try{ log=JSON.parse(LSg('nhac_log')||'[]'); }catch(e){}
     log.unshift({ph:ph,ten:ten,k:k,t:Date.now()});
     if(log.length>800) log=log.slice(0,800);

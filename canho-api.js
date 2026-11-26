@@ -19,3 +19,19 @@ window.luxApi = function (a, params, post, keepalive) {
     return JSON.parse(t.slice(i, j + 1));
   });
 };
+
+// ===== NHẬT KÝ NHÂN VIÊN =====
+// Gọi sau mỗi thao tác thay đổi / gửi của NHÂN VIÊN (chỉ ghi khi trang đang chạy bằng token app phụ).
+window.luxNvLog = function (type, detail, tok) {
+  try {
+    // chỉ ghi khi trang được mở từ app nhân viên (?tok=… trên đường dẫn) — tránh ghi nhầm khi chủ dùng máy từng đăng nhập NV
+    tok = new URLSearchParams(location.search).get('tok') || '';
+    if (!tok || !window.LUX_CANHO_API) return;
+    var dev = '', ua = navigator.userAgent || '';
+    try { dev = localStorage.getItem('nv_devid') || ''; } catch (e) {}
+    var dn = (/iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : (navigator.platform || 'Máy'))
+      + (/CriOS|Chrome/.test(ua) ? ' · Chrome' : /Safari/.test(ua) ? ' · Safari' : /Edg/.test(ua) ? ' · Edge' : '');
+    window.luxApi('nvlog', { tok: tok, dev: dev, devname: dn, type: type, detail: String(detail || '').slice(0, 500),
+      page: (location.pathname.split('/').pop() || '') }, true, true).catch(function () {});
+  } catch (e) {}
+};

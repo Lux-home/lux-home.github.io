@@ -99,6 +99,7 @@
   <div id="toast" style="display:none;position:fixed;left:50%;bottom:22px;transform:translateX(-50%);background:#1f2d33;color:#fff;padding:10px 16px;border-radius:10px;font-size:.84rem;font-weight:700;z-index:60;max-width:92%;box-shadow:0 6px 24px rgba(0,0,0,.3)"></div>
 </div>
 
+<script src="canho-api.js"></script>
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 var PW='', CONTACTS=[], VACANT={}, DUPREP=[];
@@ -293,6 +294,7 @@ function up(fname, fullData, thang){
   doUpload(box2, uid, thang, fullData, true);
 }
 function doUpload(box, key, thang, fullData, ocrFlag){
+  if(window.luxNvLog&&NVTOK) luxNvLog('Tải ảnh hóa đơn', (ocrFlag?'(máy đọc mã phòng từ ảnh)':'Phòng '+key)+' · tháng '+thang, NVTOK);
   try{
     fetch(EXEC,{method:'POST',mode:'no-cors',headers:{'Content-Type':'application/x-www-form-urlencoded;charset=UTF-8'},
       body:'bill=upload&'+authQ()+'&room='+enc(key)+'&thang='+enc(thang)+'&ocr='+(ocrFlag?'1':'0')+'&img='+enc(fullData)});
@@ -416,7 +418,7 @@ function logCard(e, thang){
     +nameLine;
   box.appendChild(info);
   var act=document.createElement('div'); act.className='act'; box.appendChild(act);
-  function mk(e){ if(!guardSend(e, thang, room)) return false; markSent(thang, room); setTimeout(function(){ renderList(thang); if(reportOpen) renderReport(); },250); return true; }
+  function mk(e){ if(!guardSend(e, thang, room)) return false; markSent(thang, room); if(window.luxNvLog&&NVTOK) luxNvLog('Gửi hóa đơn', 'Phòng '+room+(c?' · '+c.ten:'')+' · tháng '+thang+(c&&c.kenh?' · qua '+c.kenh:''), NVTOK); setTimeout(function(){ renderList(thang); if(reportOpen) renderReport(); },250); return true; }
   if(vacant){ return box; }                                            // phòng trống: chỉ cảnh báo, không nút gửi
   if(c && c.sdt && c.kenh){
     var msg=buildMsg(c, thang, link);
@@ -450,7 +452,7 @@ function renderCard(box){
   if(vacant){ act.innerHTML='<span class="warn" style="color:var(--red)">Phòng đang trống — không nên gửi bill</span>'; return; }
   if(!c){ act.innerHTML='<span class="warn">'+(box._room?('⚠️ Đọc được "'+esc(box._room)+'" nhưng không khớp khách'):'⚠️ Không đọc được mã phòng')+'</span>'; return; }
   if(!c.sdt){ act.innerHTML='<span class="warn">⚠️ Chưa có SĐT</span>'; return; }
-  function mk(e){ if(!guardSend(e, thang, c.phong)) return false; markSent(thang, c.phong); setTimeout(function(){ renderCard(box); }, 300); return true; }
+  function mk(e){ if(!guardSend(e, thang, c.phong)) return false; markSent(thang, c.phong); if(window.luxNvLog&&NVTOK) luxNvLog('Gửi hóa đơn', 'Phòng '+c.phong+' · '+c.ten+' · tháng '+thang+(c.kenh?' · qua '+c.kenh:''), NVTOK); setTimeout(function(){ renderCard(box); }, 300); return true; }
   // Nút gửi: mở thẳng chat đúng khách (kèm link xem bill)
   if(c.kenh){
     var msg=buildMsg(c, thang, link);

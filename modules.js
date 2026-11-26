@@ -10,6 +10,7 @@ window.LUX_MODULES = [
   { k:"luutru",   ic:"🛂", nm:"Lưu trú & hạn visa",    en:"Residence & visa",      ds:"Nhắc gia hạn lưu trú",   url:"luutru.html",   staff:true },
   { k:"quanlythanhtoan", ic:"💳", nm:"Quản lý thanh toán", en:"Payment management", ds:"Gửi hóa đơn · Theo dõi thanh toán", url:"quanlythanhtoan.html", staff:true },
   { k:"thongbao", ic:"📢", nm:"Thông báo cư dân",      en:"Resident notices",      ds:"Báo cư dân theo toà",    url:"thongbao.html", staff:true },
+  { k:"nhatky",   ic:"📒", nm:"Nhật ký nhân viên",     en:"Staff activity log",    ds:"Ai sửa gì, lúc nào",     url:"nhatky.html",   staff:false },
   { k:"nvadmin",  ic:"🧑‍💼", nm:"Quản lý quyền app phụ", en:"Staff app permissions", ds:"Phân quyền app phụ",     url:"nvadmin.html",  staff:false },
   { k:"noibo",    ic:"🔁", nm:"Hoạt động định kỳ",     en:"Periodic activities",   ds:"Vệ sinh, PCCC…",         url:"noibo.html",    staff:true },
   { k:"hopdong",  ic:"📄", nm:"Hợp đồng PDF",          en:"Contracts & annexes",   ds:"Tạo HĐ/PLHĐ",            url:"hopdong.html",  staff:true },

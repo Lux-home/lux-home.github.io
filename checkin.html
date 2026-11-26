@@ -245,6 +245,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="canho-api.js"></script>
 <script>
 // ===== Máy chủ module Check-in (Apps Script riêng) =====
 var CK_EXEC = "https://script.google.com/macros/s/AKfycbylsYx2qOuQgp92bb5o_Q0Pg7K3I6FYfjvhlyBxUvBYgcE5yOOBth3PyniM3wgGtT4y/exec";   // máy chủ LUXHOME CHECKIN DUYET
@@ -284,7 +285,18 @@ function apiGet(qs){
 function apiPost(o){
   return fetch(CK_EXEC,{method:'POST',body:JSON.stringify(authObj(o))})
     .then(function(r){return r.text();})
-    .then(function(t){ var i=t.indexOf('{'); return JSON.parse(t.slice(i)); });
+    .then(function(t){ var i=t.indexOf('{'); var d=JSON.parse(t.slice(i)); nkCheckin(o,d); return d; });
+}
+// Nhật ký nhân viên cho các lệnh thay đổi (chỉ khi mở bằng token app phụ)
+function nkCheckin(o,d){
+  if(!TOK||!window.luxNvLog||!d||!d.ok) return;
+  try{
+    var rows=o.rows||[], who=rows.map(function(r){ return (r[3]||'')+' '+(r[4]||''); }).filter(function(x){return x.trim();});
+    if(o.act==='submit') luxNvLog(o.kind==='phu'?'Gửi khách phụ / giấy tờ':'Gửi DS check-in', (d.id?'Đợt '+d.id+' · ':'')+rows.length+' khách: '+who.slice(0,6).join(', ')+(who.length>6?'…':'')+(o.note?' · ghi chú: '+o.note:''), TOK);
+    else if(o.act==='cancel') luxNvLog('Huỷ đợt check-in', 'Đợt '+o.id, TOK);
+    else if(o.act==='addbill') luxNvLog('Thêm bill thanh toán', 'Phòng '+((o.bill||{}).room||'')+' · '+((o.bill||{}).so||'')+' đ · '+((o.bill||{}).ngay||''), TOK);
+    else if(o.act==='delbill') luxNvLog('Xoá bill thanh toán', 'Mã bill '+o.id, TOK);
+  }catch(e){}
 }
 function show(id){ ['gate','msg','app'].forEach(function(x){ document.getElementById(x).style.display = x===id?'block':'none'; }); }
 function showMsg(html){ document.getElementById('msg').innerHTML=html; show('msg'); }

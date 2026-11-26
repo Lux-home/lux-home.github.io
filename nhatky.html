@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LUXHOME · Nhật ký nhân viên</title>
+<meta name="theme-color" content="#0e7ba8">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="LUXHOME">
+<style>
+  :root{ --bg:#eef3f4; --card:#fff; --fg:#13242a; --muted:#5f727a; --line:#e2eaec; --cyan:#0e7ba8; --cyan2:#28c3dd; --red:#b91c1c; }
+  @media (prefers-color-scheme:dark){:root{ --bg:#0c1518; --card:#13222a; --fg:#e8f1f3; --muted:#90a4ac; --line:#20333c; }}
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--fg);font-family:-apple-system,"Segoe UI",Roboto,"Be Vietnam Pro",system-ui,sans-serif;line-height:1.4}
+  .top{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;padding:calc(env(safe-area-inset-top,0px) + 16px) 16px 16px}
+  .top a.back{display:inline-block;background:rgba(255,255,255,.22);color:#fff;text-decoration:none;font-weight:800;font-size:1.05rem;padding:9px 16px;border-radius:999px;margin-bottom:10px}
+  .brand{font-size:1.4rem;font-weight:800;letter-spacing:1px;color:#ffd977}
+  .brand small{display:block;font-size:.72rem;font-weight:600;letter-spacing:2px;color:#eafbff;margin-top:2px}
+  .wrap{max-width:900px;margin:0 auto;padding:14px 12px 60px}
+  .bar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+  input,select{padding:10px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--fg)}
+  .bar input{flex:1 1 180px} .bar select{flex:1 1 130px}
+  .btn{border:0;border-radius:11px;padding:10px 14px;font:inherit;font-weight:800;cursor:pointer;color:#fff;background:var(--cyan);white-space:nowrap;text-decoration:none;display:inline-block}
+  .btn.gh{background:transparent;color:var(--cyan);border:1.5px solid var(--cyan)}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px;margin-bottom:12px}
+  h3{margin:0 0 8px;font-size:1rem}
+  .tbl{width:100%;border-collapse:collapse;font-size:.86rem}
+  .tbl th,.tbl td{padding:7px 6px;border-bottom:1px solid var(--line);text-align:left;vertical-align:top}
+  .tbl th{color:var(--muted);font-size:.74rem;text-transform:uppercase;letter-spacing:.3px}
+  .tbl td.n{text-align:right;font-weight:800}
+  .scroll{overflow-x:auto}
+  .ev{display:flex;gap:10px;padding:10px 2px;border-bottom:1px solid var(--line)}
+  .ev:last-child{border-bottom:0}
+  .ev .t{flex:0 0 92px;color:var(--muted);font-size:.78rem;font-weight:700}
+  .ev .who{font-weight:800} .ev .ty{display:inline-block;font-size:.72rem;font-weight:800;padding:2px 8px;border-radius:999px;background:rgba(14,123,168,.12);color:var(--cyan);margin-left:4px}
+  .ev .d{font-size:.86rem;margin-top:2px;word-break:break-word} .ev .m{font-size:.74rem;color:var(--muted)}
+  .muted{color:var(--muted)} .hint{color:var(--muted);font-size:.82rem}
+  .login{max-width:380px;margin:40px auto;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:22px;text-align:center}
+  .login h2{margin:0 0 6px;color:var(--cyan)} .login input{margin:12px 0;width:100%} .login .btn{width:100%}
+  .kpis{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
+  .kpi{flex:1 1 120px;background:var(--card);border:1px solid var(--line);border-radius:14px;padding:10px 12px}
+  .kpi b{display:block;font-size:1.4rem} .kpi span{font-size:.76rem;color:var(--muted);font-weight:700}
+</style>
+</head>
+<body>
+<div class="top">
+  <a class="back" href="index.html">← Trang chính</a>
+  <div class="brand">LUXHOME<small>NHẬT KÝ NHÂN VIÊN</small></div>
+</div>
+<div class="wrap" id="main"><p class="muted">Đang tải…</p></div>
+
+<script src="canho-api.js"></script>
+<script>
+var PWKEY="luxAdminPw", ROWS=[], URL_SHEET='', TOTAL=0;
+var F={nv:'',ty:'',days:'7',q:''};
+function $(id){return document.getElementById(id);}
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c];});}
+function norm(s){return String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d');}
+function pw(){try{return localStorage.getItem(PWKEY)||'';}catch(e){return '';}}
+// "dd/MM/yyyy HH:mm:ss" -> Date
+function pt(s){ var m=String(s).match(/^(\d{2})\/(\d{2})\/(\d{4})\s+(\d{2}):(\d{2})/); return m?new Date(+m[3],+m[2]-1,+m[1],+m[4],+m[5]):null; }
+
+function showLogin(msg){
+  $('main').innerHTML='<div class="login"><h2>🔐 Admin</h2><div class="muted">Nhập mật khẩu Admin để xem nhật ký</div>'
+    +'<input id="lp" type="password" placeholder="Mật khẩu Admin"><button class="btn" id="lb">Đăng nhập</button>'
+    +(msg?'<div style="color:var(--red);font-weight:700;margin-top:10px">'+esc(msg)+'</div>':'')+'</div>';
+  var go=function(){var v=$('lp').value.trim(); if(!v)return; $('lb').disabled=true;
+    luxApi('login',{pw:v}).then(function(d){ if(d&&d.ok&&d.role==='admin'){ try{localStorage.setItem(PWKEY,v);}catch(e){} load(); } else showLogin(d&&d.ok?'Mật khẩu này không phải Admin':'Sai mật khẩu'); })
+    .catch(function(){showLogin('Không kết nối được máy chủ');});};
+  $('lb').onclick=go; $('lp').onkeydown=function(e){if(e.key==='Enter')go();};
+}
+function load(){
+  if(!pw()) return showLogin();
+  $('main').innerHTML='<p class="muted">Đang tải nhật ký…</p>';
+  luxApi('nvloglist',{pw:pw()}).then(function(d){
+    if(!d||!d.ok){ if(d&&(d.err==='badpw'||d.err==='noperm')){ try{localStorage.removeItem(PWKEY);}catch(e){} return showLogin(d.err==='noperm'?'Chỉ Admin được xem':'Đăng nhập lại'); }
+      $('main').innerHTML='<p class="muted">Lỗi tải nhật ký.</p>'; return; }
+    ROWS=d.rows.map(function(r){ return {t:r[0],d:pt(r[0]),ma:r[1],ten:r[2],ty:r[3],nd:r[4],pg:r[5],dev:r[6]}; });
+    URL_SHEET=d.url||''; TOTAL=d.total||ROWS.length; render();
+  }).catch(function(){ $('main').innerHTML='<p class="muted">Không kết nối được máy chủ.</p>'; });
+}
+function render(){
+  var nvs={}, tys={}; ROWS.forEach(function(r){ nvs[r.ma]=r.ten; tys[r.ty]=1; });
+  $('main').innerHTML='<div class="bar">'
+    +'<select id="fnv"><option value="">Mọi nhân viên</option>'+Object.keys(nvs).sort().map(function(m){return '<option value="'+esc(m)+'"'+(m===F.nv?' selected':'')+'>'+esc(nvs[m])+' ('+esc(m)+')</option>';}).join('')+'</select>'
+    +'<select id="fty"><option value="">Mọi loại việc</option>'+Object.keys(tys).sort().map(function(t){return '<option'+(t===F.ty?' selected':'')+'>'+esc(t)+'</option>';}).join('')+'</select>'
+    +'<select id="fd"><option value="1"'+(F.days==='1'?' selected':'')+'>Hôm nay</option><option value="7"'+(F.days==='7'?' selected':'')+'>7 ngày</option><option value="30"'+(F.days==='30'?' selected':'')+'>30 ngày</option><option value="0"'+(F.days==='0'?' selected':'')+'>Tất cả</option></select>'
+    +'<input id="fq" placeholder="🔎 Tìm phòng, tên khách, nội dung…" value="'+esc(F.q)+'"></div>'
+    +'<div class="bar"><button class="btn gh" onclick="load()">🔄 Tải lại</button>'+(URL_SHEET?'<a class="btn gh" target="_blank" rel="noopener" href="'+esc(URL_SHEET)+'">📄 Mở bảng nhật ký (Google Sheets)</a>':'')+'</div>'
+    +'<div id="out"></div>';
+  $('fnv').onchange=function(){F.nv=this.value;out();}; $('fty').onchange=function(){F.ty=this.value;out();};
+  $('fd').onchange=function(){F.days=this.value;out();}; $('fq').oninput=function(){F.q=this.value;out();};
+  out();
+}
+function out(){
+  var since=null; if(F.days!=='0'){ since=new Date(); since.setHours(0,0,0,0); since.setDate(since.getDate()-(+F.days-1)); }
+  var q=norm(F.q);
+  var L=ROWS.filter(function(r){ if(F.nv&&r.ma!==F.nv) return false; if(F.ty&&r.ty!==F.ty) return false; if(since&&(!r.d||r.d<since)) return false;
+    if(q&&norm([r.ten,r.ma,r.ty,r.nd].join(' ')).indexOf(q)<0) return false; return true; });
+  // thống kê: nhân viên × loại việc
+  var st={}, types={}, nvn={};
+  L.forEach(function(r){ st[r.ma]=st[r.ma]||{}; st[r.ma][r.ty]=(st[r.ma][r.ty]||0)+1; types[r.ty]=1; nvn[r.ma]=r.ten; });
+  var tl=Object.keys(types).sort(), ml=Object.keys(st).sort(function(a,b){ var sa=0,sb=0; for(var k in st[a]) sa+=st[a][k]; for(var k2 in st[b]) sb+=st[b][k2]; return sb-sa; });
+  var days={}; L.forEach(function(r){ if(r.d) days[r.d.toDateString()]=1; });
+  var html='<div class="kpis"><div class="kpi"><b>'+L.length+'</b><span>Lượt thao tác</span></div><div class="kpi"><b>'+ml.length+'</b><span>Nhân viên</span></div><div class="kpi"><b>'+Object.keys(days).length+'</b><span>Ngày có thao tác</span></div></div>';
+  html+='<div class="card"><h3>📊 Thống kê theo nhân viên</h3>'+(ml.length?'<div class="scroll"><table class="tbl"><tr><th>Nhân viên</th>'+tl.map(function(t){return '<th>'+esc(t)+'</th>';}).join('')+'<th>Tổng</th></tr>'
+    +ml.map(function(m){ var tot=0; return '<tr><td><b>'+esc(nvn[m])+'</b><div class="muted" style="font-size:.74rem">'+esc(m)+'</div></td>'+tl.map(function(t){ var n=st[m][t]||0; tot+=n; return '<td class="n">'+(n||'<span class="muted">·</span>')+'</td>'; }).join('')+'<td class="n">'+tot+'</td></tr>'; }).join('')
+    +'</table></div>':'<p class="muted">Không có thao tác nào trong khoảng đã chọn.</p>')+'</div>';
+  var show=L.slice(0,400);
+  html+='<div class="card"><h3>🕒 Nhật ký chi tiết'+(L.length>400?' (400 dòng mới nhất)':'')+'</h3>'
+    +(show.length?show.map(function(r){ return '<div class="ev"><div class="t">'+esc(r.t.slice(0,16))+'</div><div style="min-width:0"><span class="who">'+esc(r.ten)+'</span> <span class="muted" style="font-size:.74rem">'+esc(r.ma)+'</span><span class="ty">'+esc(r.ty)+'</span>'
+      +'<div class="d">'+esc(r.nd)+'</div><div class="m">'+esc([r.pg,r.dev].filter(Boolean).join(' · '))+'</div></div></div>'; }).join(''):'<p class="muted">Chưa có nhật ký.</p>')+'</div>'
+    +'<p class="hint">Ghi lại mọi lần nhân viên (dùng app nhân viên) khóa/mở căn, tải ảnh & gửi hóa đơn, gửi thông báo cư dân, nhắc khách lưu trú/hợp đồng, gửi/huỷ DS check-in, thêm/xoá bill. Tổng '+TOTAL+' dòng; bảng Google Sheets lưu toàn bộ.</p>';
+  $('out').innerHTML=html;
+}
+load();
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
+</script>
+</body>
+</html>

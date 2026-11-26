@@ -66,6 +66,7 @@
 </div>
 <div class="toast" id="toast"></div>
 
+<script src="canho-api.js"></script>
 <script>
 const EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 const SHEET_ID="1CqPzUBDTMwa8XY7ACdJywwbxMIgcuE9mTV7V7zdsXZ0";
@@ -179,7 +180,8 @@ function act(btn, ma, which){
   callExec(EXEC+'?catset=1&pw='+enc(PW)+'&ma='+enc(ma)+'&status='+enc(status)+'&callback=cb&t='+Date.now(),
     function(d){
       if(d&&d.ok&&d.status===status){   // chỉ coi là thành công khi máy chủ xác nhận đã ghi đúng
-        var item=DATA.find(x=>x.ma===ma); if(item) item.tt=status;
+        var item=DATA.find(x=>x.ma===ma); var _old=item?item.tt:''; if(item) item.tt=status;
+        if(window.luxNvLog) luxNvLog(which==='open'?'Mở căn':'Khóa căn', ma+': '+(_old||'?')+' → '+status);
         ovPut(ma,status);   // nhớ để lần mở lại hiện đúng ngay
         toast('✓ '+ma+' → '+(which==='open'?'Đang có sẵn':'Đang Khóa'));
         render();

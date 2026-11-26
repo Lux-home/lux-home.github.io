@@ -87,6 +87,7 @@
   </div>
 </div>
 
+<script src="canho-api.js"></script>
 <script>
 var EXEC="https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
 var PW='20252026', CONTACTS=[], CURTPL='power';
@@ -167,7 +168,7 @@ function makeList(){
       var box=document.createElement('div'); box.className='rc'+(sset[cid(c)]?' sent':'');
       var left=document.createElement('div'); left.innerHTML='<div class="nm">'+esc(c.ten)+(sset[cid(c)]?' ✓':'')+'</div><div class="mt">'+esc(c.phong)+(c.qt?' · '+esc(c.qt):'')+'</div>';
       var act=document.createElement('div'); act.className='act';
-      function mk(){ box.classList.add('sent'); markSent(cid(c)); left.querySelector('.nm').innerHTML=esc(c.ten)+' ✓'; upd(); }
+      function mk(){ box.classList.add('sent'); markSent(cid(c)); if(window.luxNvLog&&NVTOK) luxNvLog('Gửi thông báo', 'Toà '+t+' · '+c.phong+' · '+c.ten+(c.kenh?' · qua '+c.kenh:'')+' · "'+msg.slice(0,140)+(msg.length>140?'…':'')+'"', NVTOK); left.querySelector('.nm').innerHTML=esc(c.ten)+' ✓'; upd(); }
       if(c.sdt && c.kenh){
         if(c.kenh==='wa'){ var a=document.createElement('a'); a.className='wa'; a.href='https://wa.me/'+waNum(c.sdt)+'?text='+encodeURIComponent(msg); a.target='_blank'; a.rel='noopener'; a.textContent='WhatsApp'; a.onclick=mk; act.appendChild(a); }
         else if(c.kenh==='zalo'){ var z=document.createElement('button'); z.className='za'; z.textContent='Zalo'; z.onclick=function(){ cpy(msg); toast('✅ Đã copy nội dung — mở Zalo rồi bấm giữ ô chat → Dán để gửi'); window.open('https://zalo.me/'+zaloNum(c.sdt),'_blank'); mk(); }; act.appendChild(z); }

@@ -45,6 +45,7 @@ function handle_(a, p) {
   const role = roleOf_(p.pw);
   if (a === 'ping') return { ok: true, v: 1 };
   if (a === 'login') return role ? { ok: true, role: role } : { ok: false, err: 'badpw' };
+  if (a === 'nvlog') return nvLog_(p);   // nhân viên ghi nhật ký (xác minh bằng token app phụ)
   if (!role) return { ok: false, err: 'badpw' };
 
   // ---- đọc (mọi vai trò đã đăng nhập) ----
@@ -61,6 +62,7 @@ function handle_(a, p) {
   if (a === 'videosession') return withLock_(() => videoSession_(p));
   if (a === 'savetoa')      return withLock_(() => saveToa_(p.toa || {}, p.orig || ''));
   if (a === 'uploadfacade') return withLock_(() => uploadFacade_(p));
+  if (a === 'nvloglist')    return nvLogList_();
   if (a === 'pwlist')       return pwList_();
   if (a === 'pwsave')       return withLock_(() => pwSave_(p.item || {}));
   // ---- khách thuê (file QUAN LY KHACH HANG.xlsm) — chỉ Admin
