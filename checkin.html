@@ -88,7 +88,11 @@
   .napB i{font-style:normal;font-size:1.5rem;line-height:1}
   .napB b{position:absolute;top:7px;left:8px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;background:#e6f4f8;color:var(--cyan)}
   .napB:hover{box-shadow:0 4px 12px rgba(14,123,168,.14)} .napB:active{transform:scale(.97)}
-  .napB.on{background:linear-gradient(135deg,#26bdd8,#0e7ba8);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(14,123,168,.32)} .napB.on b{background:rgba(255,255,255,.25);color:#fff}
+  .napB{--c1:#26bdd8;--c2:#0e7ba8;--tint:#e8f7fb;--ink:#0e7ba8;background:var(--tint);border-color:color-mix(in srgb,var(--c2) 25%,transparent);color:var(--ink)}
+  .napB[data-n="le"]{--c1:#a78bfa;--c2:#6d28d9;--tint:#f3efff;--ink:#5b21b6}
+  .napB[data-n="xuat"]{--c1:#34d399;--c2:#047857;--tint:#e9f9f1;--ink:#065f46}
+  .napB b{background:var(--c2);color:#fff}
+  .napB.on{background:linear-gradient(135deg,var(--c1),var(--c2));color:#fff;border-color:transparent;box-shadow:0 6px 16px color-mix(in srgb,var(--c2) 35%,transparent)} .napB.on b{background:rgba(255,255,255,.28);color:#fff}
   .tkM{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
   .tkB{display:flex;flex-direction:column;align-items:center;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg);font:inherit;font-weight:800;cursor:pointer}
   .tkB small{font-weight:600;font-size:.72rem;color:var(--muted)} .tkB.on{background:linear-gradient(135deg,#26bdd8,#0e7ba8);color:#fff;border-color:transparent} .tkB.on small{color:#e6f7fb}
