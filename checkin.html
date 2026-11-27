@@ -1156,10 +1156,12 @@ function hdDocTrang(pages){                          // pages: [{text, qr}] theo
     if(/FIRST\s*CHECK\s*IN\s*PAYMENT|THANH\s*TO[ÁA]N\s*Đ[ỢO]T\s*1|FIRST\s*INSTALLMENT|FIRST\s*APARTMENT\s*RENT/.test(U)){
       hd.coPL4=true;
       var ds=t.match(/\d{1,2}\/\d{1,2}\/\d{4}/g)||[]; if(ds.length>=2){ hd.ngayVao=kpChuan(ds[0]); hd.hetDot1=kpChuan(ds[1]); }
-      var nums=hdSau(t,/First apartment rent|Tiền thuê căn hộ đợt 1/i,300).match(/\d[\d.,]*\d|\d/g)||[];
+      var seg1=hdSau(t,/First apartment rent|Tiền thuê căn hộ đợt 1/i,300);
+      var zz=seg1.replace(/\d{1,2}\s*[\/.]\s*\d{1,2}\s*[\/.]\s*\d{2,4}/g,' ').match(/(^|[^\d.,])(\d{1,2})(?![\d.,]\d)/); if(zz && +zz[2]>=1 && +zz[2]<=62) hd.zDoc=+zz[2];   // số ngày thuê đợt 1 ghi trong bảng
+      var nums=seg1.match(/\d[\d.,]*\d|\d/g)||[];
       var vals=nums.map(hdSo).filter(String).map(Number), d1=kpDate(hd.ngayVao), d2=kpDate(hd.hetDot1), ngay=(d1&&d2)?Math.round((d2-d1)/864e5)+1:0;
       var lon=vals.filter(function(x){ return x>=10000; });
-      if(lon.length){ hd.tpd1 = lon.length>1 ? lon[1] : lon[0]; if(lon.length>1 && !hd.phong) hd.phong=lon[0]; }
+      if(lon.length){ hd.tpd1 = lon.length>1 ? lon[1] : lon[0]; if(lon.length>1){ hd.donGiaDot1=lon[0]; if(!hd.phong) hd.phong=lon[0]; } }
       if(ngay) hd.soNgay=ngay;
       hd.tong = hdTienSau(t,/Total amount|Tổng số tiền/i,100000,200) || hd.tong;
       if(!hd.coc) hd.coc=hdTienSau(t,/Security deposit|Tiền đặt cọc/i,300000,120);
@@ -1191,7 +1193,33 @@ function hdTaoBanGhi(fileName, doc){
     room:f.room||'', start:f.start||d.ngayVao||'', end:f.end||'', mg:f.mg||'',
     phong:d.phong||'', coc:d.coc||'', soNguoi:d.soNguoi||String(d.khach.length||''), dien:d.dien||'', nuoc:d.nuoc||'', dv:d.dv||'',
     hetDot1:d.hetDot1||'', tpd1:d.tpd1||'', tong:d.tong||'', sdt:d.sdt||'', lh:'', muc:'', phiHH:'',
-    khach:d.khach, ck:d.ck, soNgay:d.soNgay||'', tuTen:!!f.room };
+    khach:d.khach, ck:d.ck, soNgay:d.soNgay||'', tuTen:!!f.room, zDoc:d.zDoc||'', donGiaDot1:d.donGiaDot1||'' };
+}
+/** Bảng thanh toán đợt 1 phải tự khớp: X = đơn giá × (y − x + 1)/30 (làm tròn xuống nghìn), tổng = cọc + X.
+ *  Chữ viết tay hay bị đọc nhầm (30→20, 11→14) → dò lại đơn giá / ngày y cho khớp X và tổng, ghi rõ đã sửa gì. */
+function hdSuaDot1(h){
+  var n=function(v){ return Number(hdSo(v))||0; }, X=n(h.tpd1), O=n(h.coc), T=n(h.tong), x=kpDate(h.start), y=kpDate(h.hetDot1);
+  var X0=function(t,z){ return Math.round(t*z/30/1000)*1000; };
+  h.suaTD=[];
+  if(!X || !x) return h;
+  if(T && O && Math.abs(T-O-X)>=1000) return h;                 // chính X / tổng cũng lệch → không tự sửa, để người kiểm tra
+  var zNgay=y?Math.round((y-x)/864e5)+1:0, P=n(h.phong);
+  if(P && zNgay && Math.abs(X0(P,zNgay)-X)<1000) return h;      // đã khớp
+  var ts=[P, n(h.donGiaDot1), O].filter(function(v,i,a){ return v>=500000 && a.indexOf(v)===i; });
+  var zs=[zNgay, n(h.zDoc)].filter(function(v,i,a){ return v>=1 && v<=62 && a.indexOf(v)===i; });
+  ts.forEach(function(t){ var z=Math.round(X*30/t); if(z>=1&&z<=62&&zs.indexOf(z)<0) zs.push(z); });
+  var best=null;
+  ts.forEach(function(t,ti){ zs.forEach(function(z,zi){
+    if(Math.abs(X0(t,z)-X)>=1000) return;
+    var diem=(t===P?0:2)+(z===zNgay?0:2)+(z===n(h.zDoc)?-1:0)+(t===O?-0.5:0)+ti*0.1+zi*0.1;
+    if(!best || diem<best.diem) best={ t:t, z:z, diem:diem };
+  }); });
+  if(!best) return h;
+  var add=function(d,k){ var o=new Date(d.getTime()+k*864e5); return kp2(o.getDate())+'/'+kp2(o.getMonth()+1)+'/'+o.getFullYear(); };
+  if(best.t!==P){ h.suaTD.push('Đơn giá thuê đọc '+(P?fm(P):'(trống)')+' → app sửa thành '+fm(best.t)+' cho khớp bảng thanh toán đợt 1'); h.phong=String(best.t); }
+  if(best.z!==zNgay){ var yy=add(x,best.z-1); h.suaTD.push('Ngày hết đợt 1 đọc '+(h.hetDot1||'(trống)')+' → app sửa thành '+yy+' ('+best.z+' ngày, khớp tiền thuê đợt 1 '+fm(X)+')'); h.hetDot1=yy; }
+  h.soNgay=best.z;
+  return h;
 }
 function hdCanhBao(h){
   var w=[], hom=new Date(), n=function(x){ return Number(hdSo(x))||0; }; hom.setHours(0,0,0,0);
@@ -1201,6 +1229,7 @@ function hdCanhBao(h){
   // thanh toán đợt 1: luôn nhắc cho tới khi mục 3 xác nhận Đạt
   var td=tdTim(h); var tst=(h.tt||'')||(td?td.st:'');
   if(h.kq) tst = !h.kq.ok ? 'Chưa đúng' : h.kq.sk ? 'Đạt' : (tst==='Đạt'?'Đạt':'Tạm đạt');
+  (h.suaTD||[]).forEach(function(x){ w.push('⚠️ '+x+' — kiểm tra lại với hợp đồng'); });
   if(h.dup) w.push('⚠️ ĐÃ NẠP TRƯỚC ĐÓ: '+h.dup.file+' · phòng '+h.dup.room+' vào '+h.dup.start+' · nạp '+h.dup.at+(h.dup.by?' bởi '+h.dup.by:'')+' · '+h.dup.st+(h.dup.qlkh?' · '+h.dup.qlkh:'')+' — kiểm tra có nạp nhầm kỳ cũ không');
   if(/^Đạt$/.test(tst)) w.push('✅ Thanh toán đợt 1 đã kiểm tra: Đạt');
   else if(/^Chưa đúng/.test(tst)) w.push('⚠️ THANH TOÁN ĐỢT 1 CHƯA ĐÚNG'+(h.kq?': '+h.kq.loi.join(' · '):(td&&td.detail?': '+td.detail:''))+' — xem bước 3');
@@ -1311,7 +1340,7 @@ function hdDocFile(h){
     }
     function luong(){ if(next>pdf.numPages) return Promise.resolve(); var n=next++; return mot(n).then(luong); }
     return Promise.all([luong(),luong(),luong()]).then(function(){
-      var doc=hdDocTrang(pages); Object.assign(h, hdTaoBanGhi(h.file, doc));
+      var doc=hdDocTrang(pages); Object.assign(h, hdTaoBanGhi(h.file, doc)); hdSuaDot1(h);
       h.coPL3=doc.coPL3; h.coPL4=doc.coPL4; h.coHD=doc.coHD;
       h.giay=giay.sort(function(a,b){ return a.trang-b.trang; });
       (h.ck||[]).forEach(function(c){ var g=giay.filter(function(x){ return x.trang===c.trang; })[0]; if(g) c.file=g.id; });
@@ -1761,12 +1790,12 @@ function tkXuat(){
           else if(j===24) cell.numFmt='0%';
           else if(j===8||j===9||j===23) cell.numFmt='@';
         }
-        // công thức như file DS Check-in: Z = Y×P · AA = (U−L+1)×P/30 (làm tròn xuống nghìn) · AB = O + AA
+        // công thức như file DS Check-in: Z = Y×P · AA = (U−L+1)×P/30 (làm tròn đến nghìn) · AB = O + AA
         if(r.chinh){
           var L=kpDate(c[11]), U=kpDate(c[20]), P=tkSo(c[15]), O=tkSo(c[14]), Yp=tkSo(c[24]);
-          var aa=(L&&U&&P)?Math.floor((Math.round((U-L)/864e5)+1)*P/30/1000)*1000:tkSo(c[26]);
+          var aa=(L&&U&&P)?Math.round((Math.round((U-L)/864e5)+1)*P/30/1000)*1000:tkSo(c[26]);
           if(String(c[24]||'')!=='') row.getCell(26).value={ formula:'Y'+rn+'*P'+rn, result:Yp*P };
-          if(L&&U&&P){ row.getCell(27).value={ formula:'ROUNDDOWN((U'+rn+'-L'+rn+'+1)*P'+rn+'/30,-3)', result:aa };
+          if(L&&U&&P){ row.getCell(27).value={ formula:'ROUND((U'+rn+'-L'+rn+'+1)*P'+rn+'/30,-3)', result:aa };
                        row.getCell(28).value={ formula:'O'+rn+'+AA'+rn, result:O+aa }; }
         }
         if(c[2] && toaOrder.indexOf(c[2])<0) toaOrder.push(c[2]);
@@ -1996,7 +2025,7 @@ function ttTapCon(items, target){
 var TT_COC=/(^|[^A-Z])(COC|DAT COC|TIEN COC|DEPOSIT|BOOK|BOOKING|GIU PHONG|GIU CHO|DAT CHO|ZALOG|PREDOPLAT)([^A-Z]|$)|ЗАЛОГ|ДЕПОЗИТ|БРОН|ПРЕДОПЛАТ/,
     TT_THUE=/(^|[^A-Z])(TIEN NHA|TIEN PHONG|TIEN THUE|THUE NHA|THUE PHONG|THANH TOAN|RENT|RENTAL|PAYMENT|ARENDA|OPLATA|THANG)([^A-Z]|$)|АРЕНД|ОПЛАТ|КВАРТИР/;
 /** Kiểm tra thanh toán đợt 1 — quy tắc của chủ:
- *  1. Tiền thuê đợt 1 X = giá thuê × (y − x + 1)/30 (x = ngày check-in, y = ngày kết thúc đợt 1), làm tròn XUỐNG nghìn
+ *  1. Tiền thuê đợt 1 X = giá thuê × (y − x + 1)/30 (x = ngày check-in, y = ngày kết thúc đợt 1), làm tròn đến nghìn gần nhất (như hợp đồng)
  *  2. Tổng các đợt tiền cọc (nội dung ghi cọc/book…) = tiền cọc hợp đồng Y
  *  3. Tổng khách đã chuyển = X + Y
  *  Đối chiếu: mỗi BILL khách gửi phải có trong sao kê (cùng số tiền, ngày ±1). KHÔNG xét nội dung chuyển khoản.
@@ -2017,7 +2046,7 @@ function ttKiemTra(khach, bills, sk){
     else {
       if(Y && Y>=L) soNgay=Math.round((Y-L)/864e5)+1;
       else { var d0=new Date(L).getDate(); soNgay=30-d0+1; canh.push('Chưa có ngày kết thúc đợt 1 (y) — tạm tính đến ngày 30: '+soNgay+' ngày'); }
-      expAA=Math.floor(P*soNgay/30/1000)*1000; expAB=O+expAA;
+      expAA=Math.round(P*soNgay/30/1000)*1000; expAB=O+expAA;
       ok.push('① Tiền thuê đợt 1: '+fm0(P)+' × '+soNgay+'/30'+(Y?' ('+c[11]+' → '+c[20]+')':'')+' = '+fm0(expAA)+' · cọc '+fm0(O)+' → tổng X+Y = '+fm0(expAB));
       if(AArec!=null && Math.abs(AArec-expAA)>=TT_LECH) loi.push('Hợp đồng ghi tiền thuê đợt 1 '+fm0(AArec)+' ≠ đúng '+fm0(expAA)+' (lệch '+fm0(AArec-expAA)+')');
       if(ABrec!=null && Math.abs(ABrec-expAB)>=TT_LECH) loi.push('Hợp đồng ghi tổng đợt 1 '+fm0(ABrec)+' ≠ đúng '+fm0(expAB)+' (lệch '+fm0(ABrec-expAB)+')');
