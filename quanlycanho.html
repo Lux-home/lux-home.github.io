@@ -42,16 +42,10 @@
       <div class="ds">Xem ảnh, giá, vị trí căn hộ để gửi khách</div></div>
     <div class="go">›</div>
   </a>
-  <a class="item" id="lnkCanho" href="canho.html">
-    <div class="ic">🔑</div>
-    <div><div class="nm">Khóa / Mở căn hộ</div><div class="en">Lock / open units</div>
-      <div class="ds">Mở khi khách OUT · Khóa khi khách IN</div></div>
-    <div class="go">›</div>
-  </a>
   <a class="item" id="lnkEdit" href="canhoql.html">
     <div class="ic">✏️</div>
     <div><div class="nm">Cập nhật lịch trống &amp; bảng giá</div><div class="en">Availability &amp; price list</div>
-      <div class="ds">Thêm/sửa căn, tải ảnh &amp; video, tòa nhà, mật khẩu (Admin)</div></div>
+      <div class="ds">🔑 Khóa / Mở căn (mở khi khách OUT · khóa khi khách IN) · sửa căn, giá, ảnh &amp; video, tòa nhà (Admin)</div></div>
     <div class="go">›</div>
   </a>
 </div>
@@ -62,9 +56,8 @@
   if (/[?&]tok=/.test(qs)) {
     document.getElementById('backLink').href = 'nv.html';
     document.getElementById('backLink').textContent = '← App nhân viên';
-    document.getElementById('lnkEdit').style.display = 'none';   // nhân viên: chỉ xem + gửi, không sửa dữ liệu gốc
+    document.getElementById('lnkEdit').href = 'canho.html' + qs;   // nhân viên: chỉ Khóa / Mở căn, không sửa dữ liệu gốc
   }
-  document.getElementById('lnkCanho').href = 'canho.html' + qs;
 })();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
 </script>

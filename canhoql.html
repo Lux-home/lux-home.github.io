@@ -82,6 +82,9 @@
   .toast.show{opacity:1}
   .warn{background:var(--soonbg);color:var(--soon);border-radius:12px;padding:12px;font-weight:700;margin-bottom:12px}
   @media (max-width:420px){ .grid{grid-template-columns:1fr} }
+.mode{display:flex;gap:8px;margin:12px 0 0}
+.mode button{flex:1;border:2px solid var(--line,#e2eaec);background:var(--card,#fff);color:inherit;border-radius:12px;padding:12px 10px;font:inherit;font-weight:800;cursor:pointer}
+.mode button.on{background:linear-gradient(135deg,#28c3dd,#0e7ba8);color:#fff;border-color:transparent}
 </style>
 </head>
 <body>
@@ -95,7 +98,12 @@
   </div>
 </div>
 
-<div class="wrap" id="main"><p class="muted">Đang tải…</p></div>
+<div class="wrap" style="padding-bottom:0"><div class="mode" id="modeBar">
+  <button data-m="lock" class="on" onclick="setMode('lock')">🔑 Khóa / Mở căn hộ</button>
+  <button data-m="edit" onclick="setMode('edit')">✏️ Lịch trống, bảng giá &amp; dữ liệu căn</button>
+</div></div>
+<div id="lockView"><iframe id="lockFrame" title="Khóa / Mở căn hộ" style="width:100%;border:0;display:block;min-height:70vh"></iframe></div>
+<div class="wrap" id="main" style="display:none"><p class="muted">Đang tải…</p></div>
 
 <!-- Màn hình sửa căn / tòa -->
 <div class="sheet" id="sheet">
@@ -113,6 +121,21 @@
 
 <script src="canho-api.js"></script>
 <script>
+// Gộp "Khóa / Mở căn hộ" vào trang này: chế độ Khóa/Mở (trang canho.html nhúng) | Sửa dữ liệu căn
+var MODE_KEY='canhoql_mode';
+function setMode(m){
+  try{ localStorage.setItem(MODE_KEY,m); }catch(e){}
+  document.querySelectorAll('#modeBar button').forEach(function(b){ b.classList.toggle('on', b.dataset.m===m); });
+  document.getElementById('lockView').style.display = m==='lock'?'block':'none';
+  document.getElementById('main').style.display = m==='edit'?'block':'none';
+  var tb=document.getElementById('tabs'); if(tb) tb.style.visibility = m==='edit'?'visible':'hidden';
+  if(m==='lock'){ var f=document.getElementById('lockFrame'); if(!f.src) f.src='canho.html?embed=1'; setTimeout(fitLock,0); }
+}
+// khung Khóa/Mở cao vừa màn hình (cuộn bên trong) để thông báo của trang nhúng luôn nhìn thấy
+function fitLock(){ var f=document.getElementById('lockFrame'); if(!f||f.offsetParent===null) return; var top=f.getBoundingClientRect().top+window.scrollY; f.style.height=Math.max(420, window.innerHeight-Math.max(0,top-window.scrollY))+'px'; }
+window.addEventListener('resize', fitLock); window.addEventListener('scroll', fitLock); setInterval(fitLock, 1000);
+document.addEventListener('DOMContentLoaded', function(){ var m='lock'; try{ m=localStorage.getItem(MODE_KEY)||'lock'; }catch(e){} setMode(m); });
+
 var PWKEY="luxAdminPw";
 var D={units:[],toas:[],rooms:[],opts:{tt:[],loai:[],khu:[]},hasEn:false};
 var TAB="units", CUR=null, FILES=[], COVER="";
