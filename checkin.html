@@ -338,11 +338,11 @@ function start(){
     }
     document.getElementById('who').textContent = d.owner ? '👑 Chủ nhà · quyền duyệt' : ('👤 '+d.ten+' · Mã NV '+d.ma);
     var _nx=document.getElementById('napXuat'); if(_nx) _nx.style.display=d.owner?'':'none';   // xuất Excel: chỉ chủ
-    var tabs = d.owner ? [['cho','⏳ Chờ duyệt'],['gui','📥 Nạp danh sách khách'],['ls','📚 Lịch sử'],['tk','📊 Thống kê'],['pw','🔑 Mật khẩu']]
+    var tabs = d.owner ? [['gui','📥 Nạp danh sách khách'],['cho','⏳ Chờ duyệt'],['ls','📚 Lịch sử'],['tk','📊 Thống kê'],['pw','🔑 Mật khẩu']]
                        : [['gui','📥 Nạp danh sách khách'],['cua','📋 Đợt của tôi']];
     document.getElementById('tabs').innerHTML = tabs.map(function(t){ return '<button class="tab" data-k="'+t[0]+'" onclick="moTab(\''+t[0]+'\')">'+t[1]+(t[0]==='cho'?'<span class="n" id="nCho" style="display:none"></span>':'')+'</button>'; }).join('');
     show('app');
-    moTab(d.owner?'cho':'gui');
+    moTab('gui');
   }).catch(function(){ showMsg('Không kết nối được máy chủ. Kiểm tra mạng rồi tải lại trang.'); });
 }
 function dangNhap(){
@@ -1323,7 +1323,7 @@ function hdChay(){
   if(hdDangChay) return;
   var h=HD.filter(function(x){ return x.st==='cho'; })[0]; if(!h) return;
   hdDangChay=true; h.st='doc'; hdVe();
-  hdDocFile(h).then(function(){ h.st='xong'; }).catch(function(e){ h.st='loi'; h.err=String(e&&e.message||e); })
+  hdDocFile(h).then(function(){ h.st='xong'; bkLuuDL(h); }).catch(function(e){ h.st='loi'; h.err=String(e&&e.message||e); })
     .then(function(){ delete h.f; hdDangChay=false; hdVe(); hdTuDua(h); hdChay(); });
 }
 function hdDocFile(h){
@@ -1365,7 +1365,9 @@ function hdVe(){
   setTimeout(bkVe,0);
   var el=document.getElementById('hdList');
   el.innerHTML=HD.map(function(h,i){
-    if(h.fromSv) return '';
+    if(h.fromSv) return '<div class="hdC" style="padding:10px 12px"><div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button></span></div>'
+      +'<div class="muted" style="font-size:.82rem">🚪 '+esc(h.room||'?')+' · '+((h.khach||[]).length?esc(h.khach.map(function(k){ return k.ten; }).join(', ')):'⚠️ chưa đọc được khách')+(h.nap?' · 📥 nạp '+esc(h.nap.at)+(h.nap.by?' bởi '+esc(h.nap.by):''):'')+'</div>'
+      +'<div class="kpW y" style="margin-top:6px">'+(h.qlkh==='ok'?'📁 Đã bổ sung file Quản lý khách hàng':'⏳ Chờ kiểm tra thanh toán đợt 1')+'</div></div>';
     var head='<div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button><button class="btn o kpX" onclick="hdBo('+i+')">✕</button></span></div>'+hdLuuTag(h);
     if(h.st==='cho') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang chờ…</div></div>';
     if(h.st==='doc') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang đọc trang '+h.xong+'/'+(h.tong||'?')+'… (mỗi trang ~5–10 giây)</div><div class="hdBar"><i style="width:'+(h.tong?Math.round(h.xong*100/h.tong):3)+'%"></i></div></div>';
@@ -1410,8 +1412,18 @@ function hdForm(h,i){
 function hdXem(id){
   var h=HD.filter(function(x){ return x.id===id; })[0]; if(!h) return;
   if(h.fobj){ try{ if(!h.url) h.url=URL.createObjectURL(h.fobj); var w=window.open(h.url,'_blank'); if(!w) location.href=h.url; return; }catch(e){} }
-  if(h.luu&&h.luu.st==='ok'){ window.open('hdkho.html'+location.search,'_blank'); toast('Mở kho hợp đồng: '+h.luu.path,4000); return; }
-  toast('Không còn file trên máy — chọn lại file PDF để xem',4000);
+  if(h.url){ window.open(h.url,'_blank'); return; }
+  var w=window.open('','_blank'); if(w) w.document.write('<p style="font-family:sans-serif">⏳ Đang mở hợp đồng từ kho…</p>');
+  luxApi('hdsearch', tdAuth({q:h.file.replace(/\.pdf$/i,'')}), true).then(function(s){
+    var f=(s&&s.files||[]).filter(function(x){ return x.name===h.file; })[0] || (s&&s.files||[])[0];
+    if(!f) throw new Error('Không thấy file trong kho hợp đồng');
+    return luxApi('hdget', tdAuth({id:f.id}), true);
+  }).then(function(g){
+    if(!g||!g.ok) throw new Error((g&&(g.msg||g.err))||'Không tải được file');
+    var bin=atob(g.data), u=new Uint8Array(bin.length); for(var i=0;i<bin.length;i++) u[i]=bin.charCodeAt(i);
+    h.url=URL.createObjectURL(new Blob([u],{type:'application/pdf'}));
+    if(w) w.location.href=h.url; else window.open(h.url,'_blank');
+  }).catch(function(e){ if(w) w.close(); toast('⛔ '+String(e&&e.message||e),5000); });
 }
 function hdVeCB(h){ return hdCanhBao(h).map(function(x){ var c=x.charAt(0); return '<div class="kpW '+(c==='⛔'?'r':c==='✅'?'g':'y')+'">'+esc(x)+'</div>'; }).join(''); }
 // gõ có dấu phân cách (2/1/27, 2.1.2027) → giữ nguyên khi đang gõ; rời ô thì đổi thành dd/mm/yyyy (năm 2 số → 20yy)
@@ -1537,11 +1549,11 @@ function bkLuuDL(h){
   luxApi('tdsavedata', tdAuth({ file:h.file, room:String(h.room||'').toUpperCase(), start:h.start||'', data:bkDL(h) }), true).then(function(){ tdTai(); }).catch(function(){});
 }
 // Nút KIỂM TRA DANH SÁCH CHECKIN: lấy mọi hợp đồng đang chờ (nhân viên đã nạp) rồi đối chiếu với sao kê
-function bkKiemTra(){
-  if(!TT.sk.length){ toast('Tải sao kê ở bước 2 trước'); return; }
-  var nut=document.querySelector('#bkNut button'); if(nut){ nut.disabled=true; nut.textContent='⏳ Đang lấy danh sách hợp đồng…'; }
-  luxApi('tdpending', tdAuth({}), true).then(function(d){
-    if(!d||!d.ok){ toast('Không lấy được danh sách: '+((d&&(d.msg||d.err))||'lỗi')); return; }
+// Hợp đồng đã nạp (mọi máy, mọi ngày) đang chờ kiểm tra → luôn hiện lại ở bước 1, tắt app không mất
+function hdTaiCho(){
+  if(!window.luxApi) return Promise.resolve(0);
+  return luxApi('tdpending', tdAuth({}), true).then(function(d){
+    if(!d||!d.ok) return 0;
     var co={}, them=0; HD.forEach(function(h){ co[h.file]=1; });
     d.rows.forEach(function(r){
       if(co[r.file]) return; var h; try{ h=JSON.parse(r.data); }catch(e){ return; }
@@ -1552,6 +1564,14 @@ function bkKiemTra(){
       h.nap={ at:r.at, by:r.by }; if(r.qlkh) h.qlkh='ok';
       HD.push(h); them++;
     });
+    if(them) hdVe();
+    return them;
+  }).catch(function(){ return 0; });
+}
+function bkKiemTra(){
+  if(!TT.sk.length){ toast('Tải sao kê ở bước 2 trước'); return; }
+  var nut=document.querySelector('#bkNut button'); if(nut){ nut.disabled=true; nut.textContent='⏳ Đang lấy danh sách hợp đồng…'; }
+  hdTaiCho().then(function(them){
     BK.daKiem=true; bkVe();
     var kq=document.getElementById('bkKQ'); if(kq) kq.scrollIntoView({behavior:'smooth'});
     toast('🔎 Đã kiểm tra '+bkHD().length+' hợp đồng'+(them?' ('+them+' hợp đồng nhân viên đã nạp)':''),4000);
@@ -1674,7 +1694,7 @@ function napChon(n){
   document.getElementById('preview').style.display = (n==='pdf' && PARSED && PARSED.length)?'block':'none';
   // mục 3: nạp sao kê ngân hàng → đối chiếu tiền khách check-in chuyển (dùng lại chức năng Kiểm tra thanh toán đợt 1)
   if(n!=='pdf' && !bkThangMo._on) document.getElementById('v_tt').style.display = 'none';
-  if(n==='pdf' && !napChon._td){ napChon._td=1; tdTai(); }
+  if(n==='pdf' && !napChon._td){ napChon._td=1; tdTai(); hdTaiCho(); }
   if(n==='pdf') bkVe();
   if(n==='le') kpMo();
 }
