@@ -19,15 +19,23 @@
   .brand{font-size:1.4rem;font-weight:800;letter-spacing:1px;color:#ffd977}
   .brand small{display:block;font-size:.72rem;font-weight:600;letter-spacing:2px;color:#eafbff;margin-top:2px}
   .wrap{max-width:720px;margin:0 auto;padding:16px 14px 48px}
-  .item{display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--line);border-radius:16px;
-    padding:16px 14px;margin-bottom:12px;text-decoration:none;color:inherit;box-shadow:0 2px 12px rgba(14,123,168,.10);transition:transform .08s}
-  .item:active{transform:scale(.98)}
-  .ic{width:52px;height:52px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:1.7rem;
-    background:linear-gradient(135deg,var(--cyan2),var(--cyan));flex:0 0 auto}
-  .nm{font-weight:800;font-size:1.05rem}
+  .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(290px,1fr));gap:14px}
+  .item{--c1:#22c55e;--c2:#15803d;--tint:#ecfdf3;position:relative;display:flex;flex-direction:column;gap:12px;background:var(--card);border:1px solid var(--line);border-radius:18px;
+    padding:18px 16px 16px;text-decoration:none;color:inherit;overflow:hidden;box-shadow:0 4px 18px rgba(16,40,50,.08);transition:transform .1s,box-shadow .15s}
+  .item::before{content:"";position:absolute;left:0;top:0;bottom:0;width:6px;background:linear-gradient(180deg,var(--c1),var(--c2))}
+  .item.out{--c1:#f87171;--c2:#b91c1c;--tint:#fef2f2}
+  .item:hover{box-shadow:0 8px 24px rgba(16,40,50,.14)} .item:active{transform:scale(.985)}
+  .hd{display:flex;align-items:center;gap:14px}
+  .ic{width:56px;height:56px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:1.8rem;flex:0 0 auto;
+    background:linear-gradient(135deg,var(--c1),var(--c2));box-shadow:0 6px 14px rgba(0,0,0,.12)}
+  .pill{display:inline-block;font-size:.68rem;font-weight:800;letter-spacing:.08em;color:#fff;background:var(--c2);border-radius:999px;padding:3px 10px;margin-bottom:4px}
+  .nm{font-weight:800;font-size:1.08rem;line-height:1.25}
   .en{font-size:.74rem;color:var(--muted);font-weight:500}
-  .ds{font-size:.84rem;color:var(--muted);margin-top:3px}
-  .go{margin-left:auto;font-size:1.4rem;color:var(--muted)}
+  .chips{display:flex;flex-wrap:wrap;gap:6px}
+  .chips span{font-size:.78rem;font-weight:600;color:var(--c2);background:var(--tint);border-radius:999px;padding:5px 10px}
+  .ft{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.8rem;color:var(--muted);border-top:1px dashed var(--line);padding-top:10px}
+  .ft b.go{font-size:.85rem;font-weight:800;color:#fff;background:linear-gradient(135deg,var(--c1),var(--c2));border-radius:999px;padding:7px 14px;white-space:nowrap}
+  @media (prefers-color-scheme:dark){ .item{--tint:rgba(34,197,94,.14)} .item.out{--tint:rgba(248,113,113,.14)} }
 </style>
 </head>
 <body>
@@ -35,20 +43,20 @@
   <a class="back" id="backLink" href="index.html">← Trang chính</a>
   <div class="brand">LUXHOME<small>CHECK-OUT VÀ CHECK-IN</small></div>
 </div>
-<div class="wrap">
+<div class="wrap"><div class="grid">
   <a class="item" id="lnkCheckin" href="checkin.html">
-    <div class="ic">🛎️</div>
-    <div><div class="nm">Cập nhật khách check-in</div><div class="en">Check-in updates</div>
-      <div class="ds">Gửi DS check-in chờ duyệt · chủ duyệt ghi vào file</div></div>
-    <div class="go">›</div>
+    <div class="hd"><div class="ic">🛎️</div>
+      <div><span class="pill">CHECK-IN</span><div class="nm">Cập nhật khách check-in</div><div class="en">Check-in updates</div></div></div>
+    <div class="chips"><span>📄 Nạp hợp đồng PDF</span><span>🏦 Đối chiếu sao kê</span><span>✅ Kiểm tra thanh toán đợt 1</span><span>📁 Ghi file Quản lý khách hàng</span></div>
+    <div class="ft"><span>Nhân viên nạp · chủ duyệt</span><b class="go">Mở check-in ›</b></div>
   </a>
-  <a class="item" id="lnkKhach" href="khach.html">
-    <div class="ic">👥</div>
-    <div><div class="nm">Chỉnh sửa thông tin + check-out</div><div class="en">Edit tenants · check-out</div>
-      <div class="ds">Sửa khách · xoá khách phụ · check-out cả căn (tự mở catalog) · xuất Excel — nhân viên gửi đề xuất, chủ duyệt <b id="propBadge" style="display:none;background:#b91c1c;color:#fff;border-radius:999px;padding:1px 8px;margin-left:4px"></b></div></div>
-    <div class="go">›</div>
+  <a class="item out" id="lnkKhach" href="khach.html">
+    <div class="hd"><div class="ic">🏁</div>
+      <div><span class="pill">CHECK-OUT</span><div class="nm">Chỉnh sửa thông tin + check-out</div><div class="en">Edit tenants · check-out</div></div></div>
+    <div class="chips"><span>✏️ Sửa thông tin khách</span><span>🗑 Xoá khách phụ</span><span>🏁 Check-out cả căn</span><span>↩️ Thu hồi khi out nhầm</span><span>⬇️ Xuất Excel</span></div>
+    <div class="ft"><span>Nhân viên đề xuất · chủ duyệt <b id="propBadge" style="display:none;background:#b91c1c;color:#fff;border-radius:999px;padding:1px 8px;margin-left:4px"></b></span><b class="go">Mở check-out ›</b></div>
   </a>
-</div>
+</div></div>
 <script src="canho-api.js"></script>
 <script>
 // Mở từ app nhân viên (nv.html gắn ?tok=...) -> nút quay lại về app nhân viên, giữ tok khi sang trang con
