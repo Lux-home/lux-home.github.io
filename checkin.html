@@ -22,10 +22,12 @@
   .brand small{display:block;font-size:.72rem;font-weight:600;letter-spacing:2px;color:#eafbff;margin-top:2px}
   .who{font-size:.78rem;opacity:.95;margin-top:6px}
   .wrap{max-width:760px;margin:0 auto;padding:12px 12px 60px}
-  .tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:6px;margin:4px 0 12px}
-  .tab{min-width:0;min-height:52px;display:flex;align-items:center;justify-content:center;line-height:1.2;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:12px;padding:10px 8px;font-weight:800;font-size:.88rem;cursor:pointer;text-align:center}
-  .tab.on{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;border-color:transparent}
-  .tab .n{display:inline-block;min-width:20px;padding:0 6px;border-radius:999px;background:#ef4444;color:#fff;font-size:.72rem;margin-left:4px}
+  .tabs{display:grid;grid-template-columns:repeat(auto-fit,minmax(64px,1fr));gap:8px;margin:6px 0 14px}
+  .tab{position:relative;min-width:0;min-height:68px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;border:1px solid var(--line);background:var(--card);color:var(--fg);border-radius:14px;padding:10px 4px 8px;font:inherit;font-weight:700;font-size:.78rem;line-height:1.15;text-align:center;cursor:pointer;box-shadow:0 1px 2px rgba(15,40,50,.06);transition:transform .12s,box-shadow .12s,background .12s}
+  .tab i{font-style:normal;font-size:1.35rem;line-height:1}
+  .tab:hover{box-shadow:0 4px 12px rgba(14,123,168,.14)} .tab:active{transform:scale(.97)}
+  .tab.on{background:linear-gradient(135deg,var(--cyan2),var(--cyan));color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(14,123,168,.32)}
+  .tab .n{position:absolute;top:5px;right:6px;min-width:18px;padding:1px 5px;border-radius:999px;background:#ef4444;color:#fff;font-size:.68rem;font-weight:800}
   .card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:13px;margin-bottom:10px}
   .lb{font-size:.78rem;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;margin:0 0 8px}
   textarea,input[type=text],input[type=password]{width:100%;padding:11px;border:1px solid var(--line);border-radius:10px;font:inherit;background:var(--card);color:var(--fg)}
@@ -81,10 +83,12 @@
   .hdI{width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px}
   .hdBar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:6px} .hdBar i{display:block;height:100%;background:var(--cyan)}
   .kpW.g{background:var(--okbg);color:var(--ok)}
-  .napTab{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap}
-  .napB{flex:1 1 0;min-width:0;min-height:86px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:10px 6px;line-height:1.25;text-align:center;border:1px solid var(--line);border-radius:14px;background:var(--card);color:var(--fg);font:inherit;font-weight:800;font-size:.86rem;cursor:pointer}
-  .napB b{font-size:.72rem;color:var(--muted)}
-  .napB.on{background:linear-gradient(135deg,#26bdd8,#0e7ba8);color:#fff;border-color:transparent} .napB.on b{color:#e6f7fb}
+  .napTab{display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:10px;margin-bottom:14px}
+  .napB{position:relative;min-width:0;min-height:96px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;padding:16px 8px 12px;border:1px solid var(--line);border-radius:16px;background:var(--card);color:var(--fg);font:inherit;font-weight:700;font-size:.84rem;line-height:1.25;text-align:center;cursor:pointer;box-shadow:0 1px 2px rgba(15,40,50,.06);transition:transform .12s,box-shadow .12s}
+  .napB i{font-style:normal;font-size:1.5rem;line-height:1}
+  .napB b{position:absolute;top:7px;left:8px;width:20px;height:20px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.7rem;background:#e6f4f8;color:var(--cyan)}
+  .napB:hover{box-shadow:0 4px 12px rgba(14,123,168,.14)} .napB:active{transform:scale(.97)}
+  .napB.on{background:linear-gradient(135deg,#26bdd8,#0e7ba8);color:#fff;border-color:transparent;box-shadow:0 6px 16px rgba(14,123,168,.32)} .napB.on b{background:rgba(255,255,255,.25);color:#fff}
   .tkM{display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
   .tkB{display:flex;flex-direction:column;align-items:center;padding:8px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);color:var(--fg);font:inherit;font-weight:800;cursor:pointer}
   .tkB small{font-weight:600;font-size:.72rem;color:var(--muted)} .tkB.on{background:linear-gradient(135deg,#26bdd8,#0e7ba8);color:#fff;border-color:transparent} .tkB.on small{color:#e6f7fb}
@@ -125,9 +129,9 @@
     <!-- GỬI DANH SÁCH -->
     <div id="v_gui" style="display:none">
       <div class="napTab">
-        <button class="napB" data-n="pdf" onclick="napChon('pdf')"><b>1</b>🛎️ Bổ sung khách check-in</button>
-        <button class="napB" data-n="le" onclick="napChon('le')"><b>2</b>👤 Bổ sung khách ở thêm</button>
-        <button class="napB" id="napXuat" data-n="xuat" onclick="moTab('tk')"><b>3</b>📤 Xuất Excel DS Check-in</button>
+        <button class="napB" data-n="pdf" onclick="napChon('pdf')"><b>1</b><i>🛎️</i>Bổ sung khách check-in</button>
+        <button class="napB" data-n="le" onclick="napChon('le')"><b>2</b><i>👤</i>Bổ sung khách ở thêm</button>
+        <button class="napB" id="napXuat" data-n="xuat" onclick="moTab('tk')"><b>3</b><i>📤</i>Xuất Excel DS Check-in</button>
       </div>
       <div class="card napP" id="napExcel" style="display:none">
         <div class="lb">Nạp theo file Excel DS Check-in</div>
@@ -340,9 +344,9 @@ function start(){
     }
     document.getElementById('who').textContent = d.owner ? '👑 Chủ nhà · quyền duyệt' : ('👤 '+d.ten+' · Mã NV '+d.ma);
     var _nx=document.getElementById('napXuat'); if(_nx) _nx.style.display=d.owner?'':'none';   // xuất Excel: chỉ chủ
-    var tabs = d.owner ? [['gui','📥 Nạp danh sách khách'],['cho','⏳ Chờ duyệt'],['ls','📚 Lịch sử'],['tk','📊 Thống kê'],['pw','🔑 Mật khẩu']]
-                       : [['gui','📥 Nạp danh sách khách'],['cua','📋 Đợt của tôi']];
-    document.getElementById('tabs').innerHTML = tabs.map(function(t){ return '<button class="tab" data-k="'+t[0]+'" onclick="moTab(\''+t[0]+'\')">'+t[1]+(t[0]==='cho'?'<span class="n" id="nCho" style="display:none"></span>':'')+'</button>'; }).join('');
+    var tabs = d.owner ? [['gui','📥','Nạp khách'],['cho','⏳','Chờ duyệt'],['ls','📚','Lịch sử'],['tk','📊','Thống kê'],['pw','🔑','Mật khẩu']]
+                       : [['gui','📥','Nạp khách'],['cua','📋','Đợt của tôi']];
+    document.getElementById('tabs').innerHTML = tabs.map(function(t){ return '<button class="tab" data-k="'+t[0]+'" onclick="moTab(\''+t[0]+'\')"><i>'+t[1]+'</i>'+t[2]+(t[0]==='cho'?'<span class="n" id="nCho" style="display:none"></span>':'')+'</button>'; }).join('');
     show('app');
     moTab('gui');
   }).catch(function(){ showMsg('Không kết nối được máy chủ. Kiểm tra mạng rồi tải lại trang.'); });
