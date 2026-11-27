@@ -156,7 +156,7 @@
         <div id="pdfLoi"></div>
         <input type="file" id="hdFile" accept="application/pdf,.pdf" multiple style="display:none" onchange="hdChon(this.files)">
         <button class="btn big" onclick="document.getElementById('hdFile').click()">📑 Chọn hợp đồng PDF (bản quét)</button>
-        <p class="hint">Đặt tên file dạng <b>P301_T121_17.11-16.2.27_-_Megas.pdf</b> (căn hộ_tòa_ngày vào-ngày kết thúc_môi giới). App tự đọc hộ chiếu/CCCD, dấu nhập cảnh, phụ lục 03 &amp; 04 và ảnh chuyển khoản trong file; nhân viên kiểm tra rồi bấm <b>Đưa vào danh sách gửi</b>. Chọn được nhiều file một lúc.</p>
+        <p class="hint">Tên file đặt tự do — nếu tên có mã phòng (P202 T23 / 202-T23) và ngày (26.11-25.2.27) thì app tự điền, không có thì gõ vào ô. App tự đọc hộ chiếu/CCCD, dấu nhập cảnh, phụ lục 03 &amp; 04 và ảnh chuyển khoản trong file; nhân viên kiểm tra rồi bấm <b>Đưa vào danh sách gửi</b>. Chọn được nhiều file một lúc.</p>
         <div id="hdList"></div>
         <div class="bkB"><span>2</span>Tải sao kê đối chiếu</div>
         <div id="bkSK"></div>
@@ -1078,17 +1078,29 @@ function kpFilesHtml(x){
 
 // ===== Cập nhật theo HỢP ĐỒNG PDF (bản quét) =====
 // Tên file mẫu: P301_T121_17.11-16.2.27_-_Megas.pdf → phòng 301-T121, 17/11 → 16/02/2027, môi giới Megas
-function hdTenFile(name){
-  var s=String(name||'').replace(/\.pdf$/i,'').replace(/_+/g,' ').replace(/\s+/g,' ').trim(), o={};
-  var m=s.match(/^P?\s*([A-Z0-9]{1,6})\s*[- ]\s*(T?\s*\d+[A-Z]?)\s+(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?\s*-\s*(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})\s*(.*)$/i);
-  if(!m) return o;
-  var bld=m[2].replace(/\s/g,'').toUpperCase(); if(/^\d/.test(bld)) bld='T'+bld;
-  o.apt=m[1].toUpperCase(); o.bld=bld; o.room=o.apt+'-'+bld;
-  var ey=+m[8]; if(ey<100) ey+=2000;
-  o.end=kp2(+m[6])+'/'+kp2(+m[7])+'/'+ey;
-  var sy=m[5]?(+m[5]<100?2000+(+m[5]):+m[5]):((+m[4])>(+m[7])?ey-1:ey);
-  o.start=kp2(+m[3])+'/'+kp2(+m[4])+'/'+sy;
-  var mg=m[9].replace(/^[-\s]+/,'').replace(/\s+\d+$/,'').trim(); if(mg) o.mg=mg;
+function hdTenFile(name){        // đọc mã phòng / ngày / môi giới từ tên file — KHÔNG bắt buộc theo mẫu
+  var s=String(name||'').replace(/\.pdf$/i,'').replace(/_+/g,' ').replace(/\s+/g,' ').trim(), o={}, rest=s;
+  // ngày: 26.11-25.2.27 · 26/11/2026 - 25/02/2027 · (26.11 → 25.2.27)
+  var d=s.match(/(\d{1,2})[.\/](\d{1,2})(?:[.\/](\d{2,4}))?\s*(?:-|–|—|→|>|đến|den|to)\s*(\d{1,2})[.\/](\d{1,2})[.\/](\d{2,4})/i);
+  if(d){
+    var ey=+d[6]; if(ey<100) ey+=2000;
+    o.end=kp2(+d[4])+'/'+kp2(+d[5])+'/'+ey;
+    var sy=d[3]?(+d[3]<100?2000+(+d[3]):+d[3]):((+d[2])>(+d[5])?ey-1:ey);
+    o.start=kp2(+d[1])+'/'+kp2(+d[2])+'/'+sy;
+    rest=rest.replace(d[0],' ');
+  }
+  // mã phòng: P202 T23 · 202-T23 · P301_T121 · căn 301 tòa 121
+  var r=rest.match(/(?:^|[^A-Z0-9])(?:P|CĂN|CAN|PHÒNG|PHONG)?\s*(\d{2,4}[A-Z]?)\s*[- ]?\s*(?:T|TÒA|TOA)\s*(\d{1,3}[A-Z]?)(?![0-9])/i)
+       || rest.match(/(?:^|[^A-Z0-9])(?:T|TÒA|TOA)\s*(\d{1,3}[A-Z]?)\s*[- ]?\s*(?:P|CĂN|CAN|PHÒNG|PHONG)\s*(\d{2,4}[A-Z]?)(?![0-9])/i);
+  if(r){
+    var a=r[1], b=r[2];
+    if(!/^(P|CĂN|CAN|PHÒNG|PHONG)?\s*\d{2,4}/i.test(r[0].replace(/^[^A-Z0-9]/i,'')) ){ var t=a; a=b; b=t; }   // dạng T23 P202
+    if(/(?:T|TÒA|TOA)\s*\d/i.test(r[0].replace(/^[^A-Z0-9]/i,'').slice(0,4)) && /(?:P|CĂN|CAN|PHÒNG|PHONG)\s*\d/i.test(r[0])) { a=r[2]; b=r[1]; }
+    o.apt=a.toUpperCase(); o.bld='T'+b.toUpperCase(); o.room=o.apt+'-'+o.bld;
+    rest=rest.replace(r[0],' ');
+  }
+  var mg=rest.replace(/[()\[\]]/g,' ').replace(/^[\s\-–—_.,]+|[\s\-–—_.,]+$/g,'').replace(/\s*-\s*/g,' - ').replace(/^-\s*|\s*-$/g,'').replace(/\s+\d+$/,'').trim();
+  if(mg && (o.room||o.start) && !/^\d+$/.test(mg)) o.mg=mg;   // chỉ lấy môi giới khi tên file có mã phòng/ngày
   return o;
 }
 function hdSo(s){ return String(s||'').replace(/\D/g,''); }
@@ -1174,7 +1186,6 @@ function hdTaoBanGhi(fileName, doc){
 function hdCanhBao(h){
   var w=[], hom=new Date(), n=function(x){ return Number(hdSo(x))||0; }; hom.setHours(0,0,0,0);
   if(h.coHD===false && !h.khach.length) w.push('⛔ File này không giống hợp đồng thuê: không thấy trang hợp đồng, hộ chiếu hay CCCD nào');
-  if(!h.tuTen) w.push('⚠️ Tên file sai định dạng (cần P301_T121_17.11-16.2.27_-_MôiGiới.pdf) — kiểm tra mã phòng, ngày HĐ, môi giới đã gõ');
   if(!h.room) w.push('⛔ Chưa có mã phòng — gõ vào ô Mã phòng (dạng 301-T121)');
   else if(!ROOM_RE.test(h.room)) w.push('⛔ Mã phòng "'+h.room+'" sai định dạng — cần dạng 301-T121');
   // thanh toán đợt 1: luôn nhắc cho tới khi mục 3 xác nhận Đạt
@@ -1302,7 +1313,7 @@ function hdVe(){
   setTimeout(bkVe,0);
   var el=document.getElementById('hdList');
   el.innerHTML=HD.map(function(h,i){
-    var head='<div class="hdH"><b>📑 '+esc(h.file)+'</b><button class="btn o kpX" onclick="hdBo('+i+')">✕</button></div>'+hdLuuTag(h);
+    var head='<div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button><button class="btn o kpX" onclick="hdBo('+i+')">✕</button></span></div>'+hdLuuTag(h);
     if(h.st==='cho') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang chờ…</div></div>';
     if(h.st==='doc') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang đọc trang '+h.xong+'/'+(h.tong||'?')+'… (mỗi trang ~5–10 giây)</div><div class="hdBar"><i style="width:'+(h.tong?Math.round(h.xong*100/h.tong):3)+'%"></i></div></div>';
     if(h.st==='loi') return '<div class="hdC">'+head+'<div class="err">❌ '+esc(h.err)+'</div></div>';
@@ -1342,6 +1353,12 @@ function hdForm(h,i){
   var giay=(h.giay||[]).length?'<div class="hint">📎 Đã lưu '+h.giay.length+' trang giấy tờ (hộ chiếu/dấu nhập cảnh) để chủ xem khi duyệt.</div>':'';
   return g+k+giay+'<div id="hdW'+i+'">'+hdVeCB(h)+'</div>'+
     '<button class="btn big ok" style="margin-top:10px" onclick="hdThem('+i+')">'+(h.daThem?'🔄 Cập nhật lại trong danh sách gửi':'➕ Đưa vào danh sách gửi')+'</button>';
+}
+function hdXem(id){
+  var h=HD.filter(function(x){ return x.id===id; })[0]; if(!h) return;
+  if(h.fobj){ try{ if(!h.url) h.url=URL.createObjectURL(h.fobj); var w=window.open(h.url,'_blank'); if(!w) location.href=h.url; return; }catch(e){} }
+  if(h.luu&&h.luu.st==='ok'){ window.open('hdkho.html'+location.search,'_blank'); toast('Mở kho hợp đồng: '+h.luu.path,4000); return; }
+  toast('Không còn file trên máy — chọn lại file PDF để xem',4000);
 }
 function hdVeCB(h){ return hdCanhBao(h).map(function(x){ var c=x.charAt(0); return '<div class="kpW '+(c==='⛔'?'r':c==='✅'?'g':'y')+'">'+esc(x)+'</div>'; }).join(''); }
 function hdNgay(el){ var d=el.value.replace(/\D/g,'').slice(0,8), v=d; if(d.length>4) v=d.slice(0,2)+'/'+d.slice(2,4)+'/'+d.slice(4); else if(d.length>2) v=d.slice(0,2)+'/'+d.slice(2); if(el.value!==v) el.value=v; return v; }
@@ -1478,6 +1495,7 @@ function bkVe(){
     else if(h.qlkh==='dang') btn='<button class="btn" disabled>⏳ Đang ghi vào file…</button>';
     else btn='<button class="btn'+(mau==='xanh'?' ok':'')+'"'+(mau==='xanh'?'':' style="background:linear-gradient(135deg,#ef4444,#b91c1c)"')+' onclick="bkAdd('+h.id+')">'
       +(TOK?'📨 Đề xuất bổ sung vào file Quản lý khách hàng':mau==='xanh'?'✅ Đạt yêu cầu — Bổ sung vào file Quản lý khách hàng':'⚠️ Chưa đạt — vẫn nạp vào file Quản lý khách hàng')+'</button>';
+    btn='<button class="btn o" style="margin-top:10px;width:100%" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button>'+btn;
     return '<div class="bkC '+mau+'"><div class="t">🚪 '+esc(h.room)+' · '+esc((h.khach[0]||{}).ten||'')+(h.khach.length>1?' +'+(h.khach.length-1)+' khách':'')+'</div>'
       +'<div class="l muted">Vào '+esc(h.start||'?')+' · phải thu đợt 1 '+fm0(q.can||0)+' · đã nhận '+fm0(q.nhan||0)+'</div>'
       +'<div class="l" style="font-weight:800;color:'+(mau==='xanh'?'#15803d':mau==='do'?'#b91c1c':'#b45309')+'">'+nhan+'</div>'
