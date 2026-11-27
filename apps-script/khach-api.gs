@@ -95,9 +95,9 @@ function backupFolder_() {
   return JSON.parse(drive_('/drive/v3/files?fields=id', { method: 'post', contentType: 'application/json',
     payload: JSON.stringify({ name: QLKH_BACKUP, mimeType: 'application/vnd.google-apps.folder' }) }).getContentText()).id;
 }
-function maybeBackup_(name) {
+function maybeBackup_(name, force) {
   const P = PropertiesService.getScriptProperties(), last = +(P.getProperty('kh_lastbk') || 0);
-  if (Date.now() - last < 30 * 60 * 1000) return null;
+  if (!force && Date.now() - last < 30 * 60 * 1000) return null;   // xoá dòng: luôn sao lưu trước
   const cp = drive_('/drive/v3/files/' + QLKH_ID + '/copy?supportsAllDrives=true&fields=id', { method: 'post', contentType: 'application/json',
     payload: JSON.stringify({ name: 'BACKUP_' + Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'yyMMdd_HHmm') + '_APP_' + name, parents: [backupFolder_()] }) });
   if (cp.getResponseCode() !== 200) throw new Error('Không lưu được bản sao trước khi ghi (HTTP ' + cp.getResponseCode() + ')');
@@ -213,7 +213,13 @@ function xlsmSession_() {
   /** Sửa 1 dòng trong bộ nhớ. expect {ma, ten} phải khớp nội dung hiện tại; opt {fill:'yellow', skipFormula} */
   function edit(rowNum, expect, setV, kinds, opt) {
     opt = opt || {}; expect = expect || {};
-    const rm = s.match(rowRe(rowNum));
+    let rm = s.match(rowRe(rowNum));
+    const matches = cs => (expect.ma == null || cmp_(expect.ma) === cmp_(cellVal(cs[colNum_('D')]))) && (expect.ten == null || cmp_(expect.ten) === cmp_(cellVal(cs[colNum_('E')])));
+    if (rm && !matches(parseRow(rm[0])) && expect.ma && expect.ten) {      // dòng đã dịch (do xoá dòng khách phụ) → tìm lại gần đó
+      for (let d = 1; d <= 15; d++) for (const r of [rowNum - d, rowNum + d]) {
+        const m2 = r > 8 && s.match(rowRe(r)); if (m2 && matches(parseRow(m2[0]))) { rowNum = r; rm = m2; d = 99; break; }
+      }
+    }
     if (!rm) return { ok: false, err: 'norow', msg: 'Không thấy dòng ' + rowNum + ' trong file' };
     const rowXml = rm[0], cells = parseRow(rowXml);
     const curMa = cmp_(cellVal(cells[colNum_('D')])), curTen = cmp_(cellVal(cells[colNum_('E')]));
@@ -252,8 +258,22 @@ function xlsmSession_() {
     const tag = rowXml.match(/^<row\b[^>]*?(?=\/?>)/)[0].replace(/ spans="[^"]*"/, '');
     const newRow = tag + '>' + Object.keys(byCol).map(Number).sort((a, b) => a - b).map(c => byCol[c]).join('') + '</row>';
     s = s.replace(rowXml, () => newRow); dirty = true;
-    return { ok: true };
+    return { ok: true, row: rowNum };
   }
+
+  /** Các dòng khách phụ còn trống trong cùng căn (cùng mã phòng cột D, liền nhau) — trừ dòng đầu (dòng khách chính). */
+  function blockExtras(rowNum) {
+    const at = r => { const m = r > 8 && s.match(rowRe(r)); if (!m) return null; const cs = parseRow(m[0]); return { ma: cmp_(cellVal(cs[colNum_('D')])), ten: cmp_(cellVal(cs[colNum_('E')])) }; };
+    const me = at(rowNum); if (!me || !me.ma) return [];
+    let a = rowNum, b = rowNum, x;
+    while ((x = at(a - 1)) && x.ma === me.ma) a--;
+    while ((x = at(b + 1)) && x.ma === me.ma) b++;
+    const out = [];
+    for (let r = a + 1; r <= b; r++) if (!at(r).ten) out.push(r);
+    return out;
+  }
+  let DEL = {};
+  function delRows(list) { (list || []).forEach(r => { DEL[r] = 1; }); if ((list || []).length) dirty = true; }
 
   /** Các dòng khách có số liệu lệch vào cột kỳ tính tiền Y..AC (không phải ngày / AA không phải công thức). */
   function scanShifted() {
@@ -281,13 +301,27 @@ function xlsmSession_() {
   /** Sao lưu (nếu cần) rồi ghi file lên Drive 1 lần. */
   function commit() {
     if (!dirty) return { ok: true, nothing: true };
-    const changed = {};
+    const changed = {}, D = Object.keys(DEL).map(Number).sort((a, b) => a - b);
+    let wbx = wb;
+    if (D.length) {
+      s = xdSheet_(s, D, QLKH_SHEET);
+      const rp = sheetPath.replace(/worksheets\/(sheet\d+\.xml)$/, 'worksheets/_rels/$1.rels');
+      (get(rp) || '').replace(/<Relationship\b[^>]*>/g, t => {
+        const ty = (t.match(/ Type="([^"]*)"/) || [])[1] || '', tg = (t.match(/ Target="([^"]*)"/) || [])[1] || '';
+        if (/TargetMode="External"/.test(t)) return t;
+        const path = tg.charAt(0) === '/' ? tg.slice(1) : ('xl/' + tg.replace(/^\.\.\//, '')).replace('xl/worksheets/', 'xl/worksheets/');
+        const kind = /\/drawing$/.test(ty) ? 'drawing' : /vmlDrawing$/.test(ty) ? 'vml' : /\/comments$/.test(ty) ? 'comments' : '';
+        if (kind && get(path) != null) changed[path] = xdAnchors_(get(path), D, kind);
+        return t;
+      });
+      wbx = wb.replace(/(<definedName\b[^>]*>)([^<]*)(<\/definedName>)/g, (m, o, f, c) => o + xEsc_(XD_.fixFormula(xUnesc_(f), XD_.mk(D), QLKH_SHEET, false)) + c);
+    }
     changed[sheetPath] = s;
     if (stDirty) { changed['xl/styles.xml'] = st.replace(xfsM[0], '<cellXfs count="' + (xfs.length + added.length) + '">' + xfs.join('') + added.join('') + '</cellXfs>'); }
-    changed['xl/workbook.xml'] = /<calcPr\b[^>]*\/>/.test(wb)
-      ? wb.replace(/<calcPr\b([^>]*)\/>/, (m, a) => '<calcPr' + a.replace(/ fullCalcOnLoad="\w+"/, '') + ' fullCalcOnLoad="1"/>')
-      : wb.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
-    const backupId = KH_TARGET === QLKH_ID ? maybeBackup_(meta.name) : null;
+    changed['xl/workbook.xml'] = /<calcPr\b[^>]*\/>/.test(wbx)
+      ? wbx.replace(/<calcPr\b([^>]*)\/>/, (m, a) => '<calcPr' + a.replace(/ fullCalcOnLoad="\w+"/, '') + ' fullCalcOnLoad="1"/>')
+      : wbx.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
+    const backupId = KH_TARGET === QLKH_ID ? maybeBackup_(meta.name, D.length > 0) : null;
     const blobs = [], first = '[Content_Types].xml';
     [first].concat(order.filter(n => n !== first)).forEach(n => {
       if (!byName[n]) return;
@@ -296,9 +330,9 @@ function xlsmSession_() {
     const zip = Utilities.zip(blobs, meta.name);
     const up = drive_('/upload/drive/v3/files/' + KH_TARGET + '?uploadType=media&supportsAllDrives=true', { method: 'patch', contentType: QLKH_MIME, payload: zip.getBytes() });
     if (up.getResponseCode() !== 200) throw new Error('Ghi file lên Drive không được (HTTP ' + up.getResponseCode() + ')');
-    return { ok: true, backupId: backupId };
+    return { ok: true, backupId: backupId, deleted: D.length };
   }
-  return { edit: edit, commit: commit, scanShifted: scanShifted };
+  return { edit: edit, commit: commit, scanShifted: scanShifted, blockExtras: blockExtras, delRows: delRows };
 }
 /** Sửa 1 dòng và ghi ngay (dùng cho hàm thử). */
 function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
@@ -353,13 +387,18 @@ function khApply_() {
   const P = PropertiesService.getScriptProperties();
   const items = khPending_();
   if (!items.length) return { ok: true, applied: 0, errors: khErrors_() };
-  const S = xlsmSession_(), done = [], errs = khErrors_(), after = [];
+  const S = xlsmSession_(), done = [], errs = khErrors_(), after = [], outRows = [];
   items.forEach(it => {
     const sp = it.type === 'out' ? outSpec_() : editSpec_(it.fields);
     const r = S.edit(it.row, it.expect, sp.setV, sp.kinds, it.type === 'out' ? { colFill: { E: 'red' }, skipFormula: true } : {});
-    if (r.ok) { done.push(it); if (it.type === 'out') after.push(it); }
+    if (r.ok) { done.push(it); if (it.type === 'out') { after.push(it); outRows.push(r.row); } }
     else errs.unshift({ t: it.t, row: it.row, ma: (it.expect || {}).ma || '', ten: (it.expect || {}).ten || '', type: it.type, msg: r.msg || r.err, fields: it.fields || null });
   });
+  // căn đã OUT: chỉ giữ 1 dòng khách chính, xoá hẳn các dòng khách phụ đã trống
+  let delList = [];
+  outRows.forEach(r => { delList = delList.concat(S.blockExtras(r)); });
+  delList = delList.filter((r, i, a) => a.indexOf(r) === i);
+  S.delRows(delList);
   const c = S.commit();   // lỗi ghi file -> ném lỗi, hàng chờ GIỮ NGUYÊN để thử lại lần sau
   items.forEach(it => P.deleteProperty(it.key));
   P.setProperty(KQ_ERR, JSON.stringify(errs.slice(0, 30)));
@@ -375,7 +414,7 @@ function khApply_() {
         if (i >= 0 && t.C.tt >= 0) t.sh.getRange(i + 1, t.C.tt + 1).setValue('Đang có sẵn'); } catch (e) {}
     }
   });
-  return { ok: true, applied: done.length, failed: items.length - done.length, backupId: c.backupId || null, errors: errs.slice(0, 30) };
+  return { ok: true, applied: done.length, failed: items.length - done.length, deleted: delList.length, backupId: c.backupId || null, errors: errs.slice(0, 30) };
 }
 function khStatus_() { return { ok: true, pending: khPending_().length, errors: khErrors_() }; }
 function khClearErr_() { PropertiesService.getScriptProperties().deleteProperty(KQ_ERR); return { ok: true }; }
@@ -403,6 +442,154 @@ function khOutList_() {
   if (!id) return { ok: true, rows: [] };
   const v = SpreadsheetApp.openById(id).getSheets()[0].getDataRange().getDisplayValues();
   return { ok: true, header: v[0], rows: v.slice(1).reverse().slice(0, 300), url: SpreadsheetApp.openById(id).getUrl() };
+}
+
+/* ======================= XOÁ HẲN DÒNG (khách phụ đã OUT) =======================
+ * Xoá dòng trong file .xlsm như Excel "Delete row": các dòng dưới dịch lên, đồng thời sửa
+ * vị trí tham chiếu trong công thức, định dạng có điều kiện, bộ lọc, ô gộp, liên kết, ghi chú, hình vẽ, tên vùng.
+ */
+const XD_ = {
+  // ánh xạ dòng sau khi xoá; D = mảng dòng bị xoá (tăng dần)
+  mk(D) {
+    const del = {}; D.forEach(r => del[r] = 1);
+    const below = r => { let n = 0; for (let i = 0; i < D.length && D[i] < r; i++) n++; return n; };
+    const upTo = r => { let n = 0; for (let i = 0; i < D.length && D[i] <= r; i++) n++; return n; };
+    return {
+      del: del,
+      one: r => del[r] ? null : r - below(r),
+      range: (a, b) => { const s = a - below(a), e = b - upTo(b); return e < s ? null : [s, e]; }
+    };
+  },
+  // tham chiếu ô/vùng trong công thức: (sheet!)?A1(:B2)? hoặc 9:12
+  RE: /('(?:[^']|'')+'!|[A-Za-z_][\w.]*!)?(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?|('(?:[^']|'')+'!|[A-Za-z_][\w.]*!)?(\$?)(\d+):(\$?)(\d+)/g,
+  /** Áp fn lên từng tham chiếu (bỏ qua chuỗi "..." ); fn(m, info) trả chuỗi thay thế */
+  walk(f, fn) {
+    let out = '', i = 0;
+    const parts = f.split(/("(?:[^"]|"")*")/);
+    return parts.map((p, k) => k % 2 ? p : p.replace(XD_.RE, function (m) {
+      const a = arguments, off = a[a.length - 2], str = a[a.length - 1];
+      const prev = off > 0 ? str.charAt(off - 1) : '', next = str.charAt(off + m.length);
+      if (/[A-Za-z0-9_.$]/.test(prev) || /[(A-Za-z0-9_!]/.test(next)) return m;   // tên hàm (LOG10() / tên vùng / một phần chữ khác
+      return fn(m, a);
+    })).join('');
+  },
+  sheetOf(pref) { if (!pref) return null; pref = pref.slice(0, -1); return pref.charAt(0) === "'" ? pref.slice(1, -1).replace(/''/g, "'") : pref; },
+  /** Sửa công thức sau khi xoá dòng. own = tên sheet bị xoá dòng; inOwn = công thức nằm trong sheet đó */
+  fixFormula(f, M, own, inOwn) {
+    return XD_.walk(f, (m, a) => {
+      if (a[3] != null) {           // dạng ô
+        const sh = XD_.sheetOf(a[1]); if (sh ? sh !== own : !inOwn) return m;
+        const pre = a[1] || '';
+        if (a[7] == null) { const r = M.one(+a[5]); return r == null ? pre + '#REF!' : pre + a[2] + a[3] + a[4] + r; }
+        const rg = M.range(+a[5], +a[9]); if (!rg) return pre + '#REF!';
+        return pre + a[2] + a[3] + a[4] + rg[0] + ':' + a[6] + a[7] + a[8] + rg[1];
+      }
+      const sh = XD_.sheetOf(a[10]); if (sh ? sh !== own : !inOwn) return m;   // dạng cả dòng 9:12
+      const rg = M.range(+a[12], +a[14]); if (!rg) return (a[10] || '') + '#REF!';
+      return (a[10] || '') + a[11] + rg[0] + ':' + a[13] + rg[1];
+    });
+  },
+  /** Dịch công thức dùng chung sang ô khác (dr dòng, dc cột) — phần tương đối mới dịch */
+  shift(f, dr, dc) {
+    const cs = (c, abs) => abs ? c : colName_(colNum_(c) + dc), rs = (r, abs) => abs ? r : String(+r + dr);
+    return XD_.walk(f, (m, a) => {
+      if (a[3] != null) return (a[1] || '') + a[2] + cs(a[3], a[2]) + a[4] + rs(a[5], a[4]) + (a[7] != null ? ':' + a[6] + cs(a[7], a[6]) + a[8] + rs(a[9], a[8]) : '');
+      return (a[10] || '') + a[11] + rs(a[12], a[11]) + ':' + a[13] + rs(a[14], a[13]);
+    });
+  },
+  /** sqref / ref: "A9:X1594 L72" */
+  fixSqref(sq, M) {
+    return String(sq).split(/\s+/).map(t => {
+      const g = t.match(/^(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?$/); if (!g) return t;
+      if (g[6] == null) { const r = M.one(+g[4]); return r == null ? null : g[1] + g[2] + g[3] + r; }
+      const rg = M.range(+g[4], +g[8]); return rg ? g[1] + g[2] + g[3] + rg[0] + ':' + g[5] + g[6] + g[7] + rg[1] : null;
+    }).filter(Boolean).join(' ');
+  },
+  /** Bỏ công thức dùng chung trong sheet (mỗi ô có công thức riêng) để xoá dòng an toàn */
+  unshare(s) {
+    const master = {};
+    s.replace(/<c r="([A-Z]+)(\d+)"[^>]*>\s*<f t="shared" ref="[^"]*" si="(\d+)"[^>]*>([^<]*)<\/f>/g, (m, c, r, si, f) => { master[si] = { c: colNum_(c), r: +r, f: xUnesc_(f) }; return m; });
+    return s.replace(/(<c r="([A-Z]+)(\d+)"[^>]*>\s*)<f t="shared"(?: ref="[^"]*")? si="(\d+)"[^>]*?(?:\/>|>([^<]*)<\/f>)/g, (m, pre, c, r, si, f) => {
+      const M0 = master[si]; if (!M0) return m;
+      const txt = XD_.shift(M0.f, +r - M0.r, colNum_(c) - M0.c);
+      return pre + '<f>' + xEsc_(txt) + '</f>';
+    });
+  }
+};
+
+/** Xoá dòng trong chuỗi XML của sheet (D tăng dần). Trả XML mới. */
+function xdSheet_(s, D, own) {
+  const M = XD_.mk(D);
+  s = XD_.unshare(s);
+  const a = s.indexOf('<sheetData'), b = s.indexOf('>', a) + 1, e = s.indexOf('</sheetData>');
+  const body = s.slice(b, e).replace(/<row\b[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g, rx => {
+    const r = +(rx.match(/ r="(\d+)"/) || [])[1]; if (!r) return rx;
+    const nr = M.one(r); if (nr == null) return '';
+    rx = rx.replace(/^(<row\b[^>]*? r=")\d+"/, '$1' + nr + '"');
+    rx = rx.replace(/(<c r="[A-Z]+)\d+"/g, '$1' + nr + '"');
+    rx = rx.replace(/(<f\b[^>]*>)([^<]*)(<\/f>)/g, (m, o, f, c) => o.replace(/ ref="([^"]*)"/, (q, rf) => ' ref="' + XD_.fixSqref(rf, M) + '"') + xEsc_(XD_.fixFormula(xUnesc_(f), M, own, true)) + c);
+    return rx;
+  });
+  let head = s.slice(0, b), tail = s.slice(e);
+  head = head.replace(/<dimension ref="([^"]*)"/, (m, r) => '<dimension ref="' + (XD_.fixSqref(r, M) || 'A1') + '"')
+             .replace(/(<selection\b[^>]*? sqref=")([^"]*)"/g, (m, p, r) => p + (XD_.fixSqref(r, M) || 'A1') + '"')
+             .replace(/(<selection\b[^>]*? activeCell=")([^"]*)"/g, (m, p, r) => p + (XD_.fixSqref(r, M) || 'A1') + '"');
+  tail = tail.replace(/<conditionalFormatting sqref="([^"]*)">([\s\S]*?)<\/conditionalFormatting>/g, (m, sq, inner) => {
+    const n = XD_.fixSqref(sq, M); if (!n) return '';
+    return '<conditionalFormatting sqref="' + n + '">' + inner.replace(/<formula>([^<]*)<\/formula>/g, (q, f) => '<formula>' + xEsc_(XD_.fixFormula(xUnesc_(f), M, own, true)) + '</formula>') + '</conditionalFormatting>';
+  });
+  tail = tail.replace(/<mergeCell ref="([^"]*)"\/>/g, (m, r) => { const n = XD_.fixSqref(r, M); return n && /:/.test(n) ? '<mergeCell ref="' + n + '"/>' : ''; })
+             .replace(/<mergeCells count="\d+">([\s\S]*?)<\/mergeCells>/, (m, inner) => { const k = (inner.match(/<mergeCell /g) || []).length; return k ? '<mergeCells count="' + k + '">' + inner + '</mergeCells>' : ''; })
+             .replace(/<hyperlink ref="([^"]*)"([^>]*)\/>/g, (m, r, rest) => { const n = XD_.fixSqref(r, M); return n ? '<hyperlink ref="' + n + '"' + rest + '/>' : ''; })
+             .replace(/<hyperlinks>\s*<\/hyperlinks>/, '')
+             .replace(/(<autoFilter ref=")([^"]*)"/, (m, p, r) => p + (XD_.fixSqref(r, M) || r) + '"')
+             .replace(/(<dataValidation\b[^>]*? sqref=")([^"]*)"/g, (m, p, r) => p + XD_.fixSqref(r, M) + '"')
+             .replace(/<brk id="(\d+)"/g, (m, r) => '<brk id="' + (M.one(+r) || M.one(+r + 1) || r) + '"');
+  return head + body + tail;
+}
+/** Hình vẽ / ghi chú gắn theo dòng (0-based trong drawing & vml) */
+function xdAnchors_(xml, D, kind) {
+  const M = XD_.mk(D), z = r => { const n = M.one(r + 1); return n == null ? (M.one(r + 2) || r + 1) - 1 : n - 1; };
+  if (kind === 'drawing') return xml.replace(/<xdr:row>(\d+)<\/xdr:row>/g, (m, r) => '<xdr:row>' + z(+r) + '</xdr:row>');
+  if (kind === 'vml') return xml.replace(/<x:Row>(\d+)<\/x:Row>/g, (m, r) => '<x:Row>' + z(+r) + '</x:Row>')
+    .replace(/(<x:Anchor>\s*\d+\s*,\s*\d+\s*,\s*)(\d+)(\s*,\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*)(\d+)/g, (m, a, r1, b, r2) => a + z(+r1) + b + z(+r2));
+  if (kind === 'comments') return xml.replace(/<comment ref="([^"]*)"([\s\S]*?)<\/comment>/g, (m, r, rest) => { const n = XD_.fixSqref(r, M); return n ? '<comment ref="' + n + '"' + rest + '</comment>' : ''; });
+  return xml;
+}
+
+/* Chạy tay: thử OUT + XOÁ DÒNG trên BẢN SAO, rồi mở bản sao bằng Google Sheets để kiểm tra (file thật không bị đụng). */
+function thuXoaDongBanSao() {
+  const cp = JSON.parse(drive_('/drive/v3/files/' + QLKH_ID + '/copy?supportsAllDrives=true&fields=id', { method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ name: 'THU_XOA_DONG_XOA_DUOC.xlsm' }) }).getContentText());
+  KH_TARGET = cp.id; let gs = null;
+  try {
+    const L0 = khList_().rows, n0 = L0.length;
+    // căn có >= 2 khách: OUT tất cả
+    const by = {}; L0.forEach(r => { if (r.ma && r.ten) (by[r.ma] = by[r.ma] || []).push(r); });
+    const ma = Object.keys(by).find(k => by[k].length >= 2 && by[k][0].row > 300), g = by[ma];
+    const below = L0.find(r => r.row === g[g.length - 1].row + 3) || {};
+    Logger.log('Thử OUT căn ' + ma + ': ' + g.map(r => r.row + ' ' + r.ten).join(', ') + ' · dòng dưới để so: ' + below.row + ' ' + below.ma + ' ' + below.ten);
+    const S = xlsmSession_(), os = outSpec_(), rows = [];
+    g.forEach(r => { const x = S.edit(r.row, { ma: r.ma, ten: r.ten }, os.setV, os.kinds, { colFill: { E: 'red' }, skipFormula: true }); rows.push(x.row); });
+    let del = []; rows.forEach(r => { del = del.concat(S.blockExtras(r)); }); del = del.filter((r, i, a) => a.indexOf(r) === i);
+    S.delRows(del); Logger.log('Xoá dòng: ' + del.join(',') + ' -> ' + JSON.stringify(S.commit()));
+    const L1 = khList_().rows;
+    Logger.log('Số dòng: ' + n0 + ' -> ' + L1.length + ' · căn ' + ma + ' còn: ' + JSON.stringify(L1.filter(r => r.ma === ma).map(r => [r.row, r.ten])));
+    const b2 = L1.find(r => r.ten === below.ten && r.ma === below.ma); Logger.log('Dòng dưới giờ ở: ' + (b2 ? b2.row + ' tiền phòng=' + b2.tp + ' điện=' + b2.dmoi : 'KHÔNG THẤY'));
+    // mở bằng Google Sheets: kiểm tra file đọc được + công thức không lỗi
+    gs = JSON.parse(drive_('/drive/v3/files/' + cp.id + '/copy?supportsAllDrives=true&fields=id', { method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ name: 'THU_XOA_DONG_GS', mimeType: 'application/vnd.google-apps.spreadsheet' }) }).getContentText()).id;
+    const sh = SpreadsheetApp.openById(gs).getSheetByName(QLKH_SHEET), v = sh.getDataRange().getDisplayValues(), f = sh.getDataRange().getFormulas();
+    let errN = 0, ex = []; v.forEach((row, i) => row.forEach((c, j) => { if (/^#(REF|VALUE|N\/A|NAME|DIV)/.test(c) && f[i][j]) { errN++; if (ex.length < 6) ex.push((i + 1) + ':' + (j + 1) + ' ' + f[i][j]); } }));
+    const fb = b2 ? f[b2.row - 1].filter(Boolean).slice(0, 4) : [];
+    Logger.log('Google Sheets mở được · ô công thức lỗi: ' + errN + ' ' + ex.join(' | ') + ' · công thức dòng dưới: ' + fb.join(' ; '));
+    const vba = Utilities.unzip(DriveApp.getFileById(KH_TARGET).getBlob().setContentType('application/zip')).some(b => b.getName() === 'xl/vbaProject.bin');
+    Logger.log('Macro VBA còn nguyên: ' + vba);
+  } finally {
+    KH_TARGET = QLKH_ID;
+    [cp.id, gs].filter(Boolean).forEach(id => drive_('/drive/v3/files/' + id + '?supportsAllDrives=true', { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }) }));
+    Logger.log('Đã chuyển bản sao vào thùng rác.');
+  }
 }
 
 /* Chạy tay trong trình soạn thảo: thử đọc danh sách (không ghi gì). */
