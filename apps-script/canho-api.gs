@@ -53,6 +53,7 @@ function handle_(a, p) {
   if (a === 'hdget')     return hdGet_(p);
   if (a === 'tdlist')    return tdList_(p);
   if (a === 'khadd')     return khAddRoute_(p);
+  if (a === 'setavail')  return withLock_(() => setAvail_(p));
   if (a === 'khaddst')   return khAddStatus_(p);
   if (a === 'tdsave')    return tdSave_(p);
   if (a === 'tdmail')    return tdMailCfg_(p);
@@ -345,6 +346,24 @@ function files_(ma) {
 }
 
 /* ======================= GHI CĂN HỘ ======================= */
+/** Nhân viên + chủ: chỉ đổi TÌNH TRẠNG + NGÀY TRỐNG (ngày dự kiến có) của 1 căn — không đụng giá, ảnh, mô tả. */
+function setAvail_(p) {
+  const who = hdAuth_(p, ['quanlycanho', 'canho', 'catalog']);
+  if (!who) return { ok: false, err: 'noperm', msg: 'Không có quyền đổi tình trạng căn' };
+  const t = unitTable_(), C = t.C, r = findUnit_(t, p.ma);
+  if (r < 0) return { ok: false, err: 'notfound' };
+  const ngay = String(p.ngay || '').trim();
+  if (ngay && !/^\d{2}\/\d{2}\/\d{4}$/.test(ngay)) return { ok: false, err: 'baddate', msg: 'Ngày dạng dd/mm/yyyy' };
+  const kind = String(p.kind || (ngay ? 'soon' : '')), label = kind === 'open' ? 'Đang có sẵn' : kind === 'lock' ? 'Đang Khóa' : kind === 'soon' ? 'Dự kiến có' : '';
+  if (!label) return { ok: false, err: 'need' };
+  const old = { tt: String(t.v[r][C.tt] || ''), ngay: C.ngay >= 0 ? String(t.v[r][C.ngay] || '') : '' };
+  const fm = t.sh.getRange(r + 1, 1, 1, t.sh.getLastColumn()).getFormulas()[0];
+  if (C.tt >= 0 && !fm[C.tt]) t.sh.getRange(r + 1, C.tt + 1).setValue(label);
+  if (C.ngay >= 0 && !fm[C.ngay]) t.sh.getRange(r + 1, C.ngay + 1).setNumberFormat('@').setValue(kind === 'soon' ? ngay : '');
+  SpreadsheetApp.flush();
+  if (!who.owner) { try { nkAppend_(who.ma, who.ten, 'Cập nhật ngày trống / tình trạng', p.ma + ': ' + (old.tt || '?') + (old.ngay ? ' ' + old.ngay : '') + ' → ' + label + (kind === 'soon' ? ' ' + ngay : ''), 'canho.html', p.devname); } catch (e) {} }
+  return { ok: true, ma: p.ma, tt: label, ngay: kind === 'soon' ? ngay : '' };
+}
 function saveUnit_(u, orig) {
   const t = unitTable_(), C = t.C, sh = t.sh;
   const toa = String(u.toa || '').trim().toUpperCase(), so = String(u.so || '').trim().toUpperCase();
