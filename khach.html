@@ -320,7 +320,8 @@ function kick(){
     APPLYING=false;
     if(d&&d.ok){ if(d.applied||d.failed){ PENDING=Math.max(0,PENDING-(d.applied||0)-(d.failed||0)); }
       ERRS=d.errors||[]; if(!AGAIN) PENDING=0; LASTOK=new Date().toTimeString().slice(0,5);
-      if(d.failed) toast('⚠️ '+d.failed+' thay đổi không ghi được vào file — bấm nút đỏ góc trên để xem',6000); }
+      if(d.failed) toast('⚠️ '+d.failed+' thay đổi không ghi được vào file — bấm nút đỏ góc trên để xem',6000); 
+      if(d.deleted){ toast('🧹 Đã xoá '+d.deleted+' dòng khách phụ trống — mỗi căn đã OUT chỉ còn 1 dòng',4000); if(!AGAIN&&!PENDING) load(true); } }
     else if(d&&d.err==='busy'){ AGAIN=true; }
     else { toast('Chưa ghi được vào file ('+errMsg(d)+') — sẽ thử lại',5000); setTimeout(kick,15000); }
     if(AGAIN){ setTimeout(kick,1500); } showSync();

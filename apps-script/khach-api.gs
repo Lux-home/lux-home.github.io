@@ -592,6 +592,25 @@ function thuXoaDongBanSao() {
   }
 }
 
+/** Chạy tay: dọn các căn đã trống hết khách mà còn nhiều dòng — chỉ giữ dòng đầu. xem trước: donDongTrong(true) */
+function donDongTrong(chiXem) {
+  const lock = LockService.getScriptLock(); lock.waitLock(60000);
+  try {
+    if (khPending_().length) khApply_();
+    const L = khList_().rows, by = {};
+    L.forEach(r => { if (r.ma) (by[r.ma] = by[r.ma] || []).push(r); });
+    let del = [];
+    Object.keys(by).forEach(ma => {
+      const g = by[ma].sort((a, b) => a.row - b.row);
+      const lien = g.every((r, i) => !i || r.row === g[i - 1].row + 1);
+      if (g.length > 1 && lien && g.every(r => !r.ten)) del = del.concat(g.slice(1).map(r => r.row));
+    });
+    Logger.log('Căn trống còn dòng thừa: ' + del.length + ' dòng · ' + del.map(r => r + ' ' + L.find(x => x.row === r).ma).join(', '));
+    if (chiXem || !del.length) return;
+    const S = xlsmSession_(); S.delRows(del); Logger.log('Đã xoá -> ' + JSON.stringify(S.commit()));
+  } finally { lock.releaseLock(); }
+}
+
 /* Chạy tay trong trình soạn thảo: thử đọc danh sách (không ghi gì). */
 function thuDocKhach() {
   const r = khList_();
