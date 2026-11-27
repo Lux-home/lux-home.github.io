@@ -161,8 +161,9 @@
         <div id="hdList"></div>
         <div class="bkB"><span>2</span>Tải sao kê đối chiếu</div>
         <div id="bkSK"></div>
-        <div class="bkB"><span>3</span>Đối chiếu thanh toán</div>
-        <div id="bkKQ"><p class="muted">Nạp hợp đồng ở bước 1 để đối chiếu.</p></div>
+        <div class="bkB"><span>3</span>Kiểm tra danh sách checkin</div>
+        <div id="bkNut"></div>
+        <div id="bkKQ"></div>
         <div id="bkThang"></div>
         <details id="tdWrap" class="hdC" style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">📒 Nhật ký nạp hợp đồng &amp; theo dõi thanh toán đợt 1 <span id="tdDem"></span></summary><div id="tdBox" style="margin-top:8px"><p class="muted">Đang tải…</p></div></details>
       </div>
@@ -1197,7 +1198,7 @@ function hdCanhBao(h){
   if(/^Đạt$/.test(tst)) w.push('✅ Thanh toán đợt 1 đã kiểm tra: Đạt');
   else if(/^Chưa đúng/.test(tst)) w.push('⚠️ THANH TOÁN ĐỢT 1 CHƯA ĐÚNG'+(h.kq?': '+h.kq.loi.join(' · '):(td&&td.detail?': '+td.detail:''))+' — xem bước 3');
   else if(/^Tạm đạt/.test(tst)) w.push('⚠️ Thanh toán đợt 1 mới tạm đạt theo bill — chưa đối chiếu sao kê (bước 2)');
-  else w.push('⚠️ Hợp đồng này CHƯA QUA bước đối chiếu thanh toán đợt 1 (bước 2 + 3) — đã ghi vào nhật ký nạp');
+  else w.push('⏳ CHỜ KIỂM TRA thanh toán đợt 1 — chủ kiểm tra khi có sao kê (bước 2 + nút Kiểm tra danh sách checkin)');
   if(h.coPL3===false) w.push('⚠️ Không thấy Phụ lục 03 (bảng đơn giá) — kiểm tra tiền phòng, cọc, điện, nước');
   if(h.coPL4===false) w.push('⚠️ Không thấy Phụ lục 04 (thanh toán đợt 1) — kiểm tra tiền phòng đợt 1, tổng đợt 1');
   if(!kpDate(h.start)) w.push('⛔ Chưa có ngày bắt đầu HĐ');
@@ -1315,6 +1316,7 @@ function hdVe(){
   setTimeout(bkVe,0);
   var el=document.getElementById('hdList');
   el.innerHTML=HD.map(function(h,i){
+    if(h.fromSv) return '';
     var head='<div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button><button class="btn o kpX" onclick="hdBo('+i+')">✕</button></span></div>'+hdLuuTag(h);
     if(h.st==='cho') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang chờ…</div></div>';
     if(h.st==='doc') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang đọc trang '+h.xong+'/'+(h.tong||'?')+'… (mỗi trang ~5–10 giây)</div><div class="hdBar"><i style="width:'+(h.tong?Math.round(h.xong*100/h.tong):3)+'%"></i></div></div>';
@@ -1379,7 +1381,8 @@ function hdThem(i){
   var rows=hdRows(h).map(function(r){ r=chuanHoa(r); r._hd=h.id; return r; });
   PARSED=(PARSED||[]).filter(function(r){ return r._hd!==h.id; }).concat(rows);
   h.daThem=true; if(!h.luu || h.luu.st==='loi') hdLuu(h, h.room, h.start); hdVe(); hienThu(PARSED);
-  toast('✅ Đã đưa '+rows.length+' khách phòng '+h.room+' vào danh sách gửi');
+  toast('✅ Đã đưa '+rows.length+' khách phòng '+h.room+' vào danh sách gửi — chờ kiểm tra thanh toán');
+  bkLuuDL(h);
 }
 /* ===== TỰ LƯU HỢP ĐỒNG PDF VÀO KHO: LUXHOME - HỢP ĐỒNG / Tòa / yyyy-mm (tháng check-in) / Phòng ===== */
 function hdLuuTag(h){
@@ -1430,6 +1433,7 @@ function tdTai(){
   luxApi('tdlist',tdAuth({}),true).then(function(d){ if(!d||!d.ok) return; TD=d.rows||[]; TD_URL=d.url||''; tdVe(); if(HD.length) hdVe(); }).catch(function(){});
 }
 function tdVe(){
+  setTimeout(bkVe,0);
   var el=document.getElementById('tdBox'); if(!el) return;
   var chua=TD.filter(function(x){ return x.st!=='Đạt'; });
   document.getElementById('tdDem').innerHTML=chua.length?'<span style="background:#b91c1c;color:#fff;border-radius:999px;padding:1px 8px;font-size:.78rem">'+chua.length+' chưa đạt</span>':'<span style="color:#15803d">✓ tất cả đạt</span>';
@@ -1468,6 +1472,34 @@ function tdMailThem(k,id){ var v=(document.getElementById(id).value||'').trim();
 function tdMailLuu(test){ var m=document.getElementById('tdMMsg'); if(m) m.textContent=test?'Đang gửi…':'Đang lưu…';
   luxApi('tdmail',tdAuth(TDM.follow?{follow:1,test:test?1:0}:{follow:0,emails:TDM.emails,times:TDM.times,test:test?1:0}),true).then(function(d){ if(d&&d.ok){ TDM=d; tdMailVe(test?d.sent:'✓ Đã lưu'); } else if(m) m.textContent='Lỗi: '+((d&&d.err)||''); }).catch(function(){ if(m) m.textContent='Không kết nối được'; }); }
 /* ===== BỔ SUNG KHÁCH CHECK-IN: bước 2 (sao kê) + bước 3 (đối chiếu, nút bổ sung file QLKH) ===== */
+var BK={ daKiem:false };
+// lưu dữ liệu đã đọc của hợp đồng lên máy chủ → chủ kiểm tra sau (kể cả hợp đồng nhân viên nạp ở máy khác)
+function bkDL(h){
+  var o={}; Object.keys(h).forEach(function(k){ if(/^(f|fobj|url|kq|qlkh|qlkhRows|qlkhChk|fromSv|id|st|xong|tong_|err)$/.test(k)) return; o[k]=h[k]; });
+  return JSON.stringify(o, function(k,v){ return typeof v==='string' && v.length>3000 ? undefined : v; });
+}
+function bkLuuDL(h){
+  if(!window.luxApi||!h||!h.file) return;
+  luxApi('tdsavedata', tdAuth({ file:h.file, room:String(h.room||'').toUpperCase(), start:h.start||'', data:bkDL(h) }), true).then(function(){ tdTai(); }).catch(function(){});
+}
+// Nút KIỂM TRA DANH SÁCH CHECKIN: lấy mọi hợp đồng đang chờ (nhân viên đã nạp) rồi đối chiếu với sao kê
+function bkKiemTra(){
+  if(!TT.sk.length){ toast('Tải sao kê ở bước 2 trước'); return; }
+  var nut=document.querySelector('#bkNut button'); if(nut){ nut.disabled=true; nut.textContent='⏳ Đang lấy danh sách hợp đồng…'; }
+  luxApi('tdpending', tdAuth({}), true).then(function(d){
+    if(!d||!d.ok){ toast('Không lấy được danh sách: '+((d&&(d.msg||d.err))||'lỗi')); return; }
+    var co={}, them=0; HD.forEach(function(h){ co[h.file]=1; });
+    d.rows.forEach(function(r){
+      if(co[r.file]) return; var h; try{ h=JSON.parse(r.data); }catch(e){ return; }
+      h.id=++HD_SEQ; h.st='xong'; h.daThem=true; h.fromSv=true; h.khach=h.khach||[]; h.ck=h.ck||[];
+      h.nap={ at:r.at, by:r.by }; if(r.qlkh) h.qlkh='ok';
+      HD.push(h); them++;
+    });
+    BK.daKiem=true; bkVe();
+    var kq=document.getElementById('bkKQ'); if(kq) kq.scrollIntoView({behavior:'smooth'});
+    toast('🔎 Đã kiểm tra '+bkHD().length+' hợp đồng'+(them?' ('+them+' hợp đồng nhân viên đã nạp)':''),4000);
+  }).catch(function(){ toast('Không kết nối được máy chủ'); }).then(function(){ var n=document.querySelector('#bkNut button'); if(n){ n.disabled=false; n.textContent='🔎 KIỂM TRA DANH SÁCH CHECKIN'; } });
+}
 function bkHD(){ return HD.filter(function(h){ return h.st==='xong' && h.room && ROOM_RE.test(h.room) && h.khach && h.khach.length; }); }
 function bkVe(){
   var s2=document.getElementById('bkSK'), s3=document.getElementById('bkKQ'); if(!s2||!s3) return;
@@ -1480,8 +1512,15 @@ function bkVe(){
         +'<label class="hint" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="bkNho" checked> Nhớ mật khẩu trên máy này</label></div>':'')
       +'<button class="btn" onclick="document.getElementById(\'ttSK\').click()">🏦 Chọn file sao kê (Excel tải từ ngân hàng)</button>';
   }
+  var nut=document.getElementById('bkNut'), cho=TD.filter(function(x){ return x.st!=='Đạt' || !x.qlkh; }).length;
+  if(nut){
+    var coSK=!TOK && TT.sk.length>0;
+    nut.innerHTML='<p class="hint" style="margin:0 0 6px">⏳ <b>'+cho+'</b> hợp đồng đang chờ kiểm tra'+(TOK?' — chủ sẽ kiểm tra khi có sao kê.':coSK?'.':' — tải sao kê ở bước 2 để kiểm tra.')+'</p>'
+      +(TOK?'':'<button class="btn big'+(coSK?' ok':'')+'" '+(coSK?'':'disabled style="opacity:.45;cursor:not-allowed"')+' onclick="bkKiemTra()">🔎 KIỂM TRA DANH SÁCH CHECKIN</button>');
+  }
+  if(!BK.daKiem || TOK){ s3.innerHTML=''; bkThangLink(); return; }
   var ds=bkHD();
-  if(!ds.length){ s3.innerHTML='<p class="muted">Nạp hợp đồng ở bước 1 để đối chiếu.</p>'; bkThangLink(); return; }
+  if(!ds.length){ s3.innerHTML='<p class="muted">Không có hợp đồng nào đang chờ kiểm tra.</p>'; bkThangLink(); return; }
   var gs=ds.map(function(h){ var r=chuanHoa(hdRows(h)[0]); return { c:r, dot:null, thang:'', _h:h }; });
   var bills=[]; ds.forEach(function(h){ (h.ck||[]).forEach(function(c){ bills.push({ room:String(h.room).toUpperCase(), so:c.so, ngay:c.ngay||'', nd:c.nd||'' }); }); });
   var KQ=[]; try{ KQ=ttKiemTra(gs, bills, TOK?[]:TT.sk); }catch(e){ KQ=[]; }
@@ -1501,6 +1540,7 @@ function bkVe(){
       +(TOK?'📨 Đề xuất bổ sung vào file Quản lý khách hàng':mau==='xanh'?'✅ Đạt yêu cầu — Bổ sung vào file Quản lý khách hàng':'⚠️ Chưa đạt — vẫn nạp vào file Quản lý khách hàng')+'</button>';
     btn='<button class="btn o" style="margin-top:10px;width:100%" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button>'+btn;
     return '<div class="bkC '+mau+'"><div class="t">🚪 '+esc(h.room)+' · '+esc((h.khach[0]||{}).ten||'')+(h.khach.length>1?' +'+(h.khach.length-1)+' khách':'')+'</div>'
+      +(h.nap?'<div class="l muted">📥 Nạp '+esc(h.nap.at)+(h.nap.by?' bởi '+esc(h.nap.by):'')+'</div>':'')
       +'<div class="l muted">Vào '+esc(h.start||'?')+' · phải thu đợt 1 '+fm0(q.can||0)+' · đã nhận '+fm0(q.nhan||0)+'</div>'
       +'<div class="l" style="font-weight:800;color:'+(mau==='xanh'?'#15803d':mau==='do'?'#b91c1c':'#b45309')+'">'+nhan+'</div>'
       +(q.loi||[]).map(function(x){ return '<div class="l" style="color:#b91c1c">⛔ '+esc(x)+'</div>'; }).join('')

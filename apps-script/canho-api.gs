@@ -52,6 +52,8 @@ function handle_(a, p) {
   if (a === 'hdsearch')  return hdSearch_(p);
   if (a === 'hdget')     return hdGet_(p);
   if (a === 'tdlist')    return tdList_(p);
+  if (a === 'tdsavedata') return tdSaveData_(p);
+  if (a === 'tdpending') return tdPending_(p);
   if (a === 'khadd')     return khAddRoute_(p);
   if (a === 'setavail')  return withLock_(() => setAvail_(p));
   if (a === 'khaddst')   return khAddStatus_(p);

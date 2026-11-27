@@ -112,7 +112,7 @@ function hdGet_(p) {
  * kết quả từng phòng được ghi lại: Đạt / Chưa đúng (kèm lý do) / Tạm đạt theo bill (chưa có sao kê).
  */
 const TD_NAME = 'LUXHOME - THEO DÕI THANH TOÁN ĐỢT 1';
-const TD_HDR = ['Tên file', 'Phòng', 'Tòa', 'Tháng check-in', 'Ngày vào', 'Lưu lúc', 'Người nạp', 'Trạng thái', 'Chi tiết', 'Kiểm tra lúc', 'Bổ sung file QLKH'];
+const TD_HDR = ['Tên file', 'Phòng', 'Tòa', 'Tháng check-in', 'Ngày vào', 'Lưu lúc', 'Người nạp', 'Trạng thái', 'Chi tiết', 'Kiểm tra lúc', 'Bổ sung file QLKH', 'Dữ liệu hợp đồng'];
 function tdSheet_() {
   const P = PropertiesService.getScriptProperties();
   let id = P.getProperty('td_sheet'), ss = null;
@@ -129,7 +129,7 @@ function tdRecord_(name, room, toa, thang, start, who) {
   const info = r => ({ file: r[0], room: r[1], thang: r[3], start: r[4], at: r[5], by: r[6], st: r[7] || 'Chưa kiểm tra', qlkh: r[10] || '' });
   for (let i = 0; i < v.length; i++) if (v[i][0] === name) return { st: v[i][7] || 'Chưa kiểm tra', dup: info(v[i]) };   // đã có → giữ trạng thái
   const same = v.find(r => String(r[1]).toUpperCase() === String(room).toUpperCase() && start && r[4] === start);
-  sh.appendRow(["'" + name, "'" + room, "'" + toa, "'" + thang, "'" + (start || ''), tdNow_(), who, 'Chưa kiểm tra', '', '', '']);
+  sh.appendRow(["'" + name, "'" + room, "'" + toa, "'" + thang, "'" + (start || ''), tdNow_(), who, 'Chưa kiểm tra', '', '', '', '']);
   return { st: 'Chưa kiểm tra', dup: same ? info(same) : null };
 }
 /** Đánh dấu hợp đồng đã bổ sung vào file Quản lý khách hàng */
@@ -252,4 +252,31 @@ function tdSendReport_(force) {
   h += '<p style="margin-top:14px"><a href="https://lux-home.github.io/checkin.html?mode=tt">Mở app → Kiểm tra thanh toán đợt 1 khi checkin</a></p></div>';
   MailApp.sendEmail({ to: cfg.emails.join(','), subject: 'LUXHOME · Thanh toán đợt 1: ' + (tong ? sai.length + ' chưa đúng, ' + chua.length + ' chưa kiểm tra' + (tam.length ? ', ' + tam.length + ' tạm đạt' : '') : 'tất cả đạt'), htmlBody: h, name: 'LUXHOME' });
   return 'Đã gửi tới ' + cfg.emails.join(', ');
+}
+
+
+/* ===== Hợp đồng nhân viên nạp hằng ngày: lưu dữ liệu đã đọc (khách, tiền, bill) để chủ kiểm tra sau khi có sao kê ===== */
+function tdSaveData_(p) {
+  const who = hdAuth_(p, ['checkin', 'checkinout', 'hopdong']);
+  if (!who) return { ok: false, err: 'noperm' };
+  const file = String(p.file || '').trim(), data = String(p.data || '');
+  if (!file || !data) return { ok: false, err: 'need' };
+  if (data.length > 45000) return { ok: false, err: 'big', msg: 'Dữ liệu hợp đồng quá lớn' };
+  const sh = tdSheet_(), n = sh.getLastRow(), v = n > 1 ? sh.getRange(2, 1, n - 1, 1).getDisplayValues() : [];
+  for (let i = v.length - 1; i >= 0; i--) if (v[i][0] === file) { sh.getRange(i + 2, 12).setValue(data); return { ok: true }; }
+  const room = String(p.room || '').toUpperCase(), toa = (room.split('-')[1] || '');
+  const now = new Date(Date.now()), thang = 'Tháng ' + (+Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'M')) + '-' + Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'yyyy');
+  sh.appendRow(["'" + file, "'" + room, "'" + toa, "'" + thang, "'" + (p.start || ''), tdNow_(), who.owner ? 'Chủ' : who.ten, 'Chưa kiểm tra', '', '', '', data]);
+  return { ok: true, added: true };
+}
+/** Các hợp đồng còn chờ kiểm tra (chưa Đạt hoặc chưa bổ sung file QLKH), có dữ liệu — 150 ngày gần nhất */
+function tdPending_(p) {
+  const who = hdAuth_(p, ['checkin', 'checkinout', 'hopdong']);
+  if (!who) return { ok: false, err: 'noperm' };
+  const sh = tdSheet_(), n = sh.getLastRow(); if (n < 2) return { ok: true, rows: [] };
+  const v = sh.getRange(2, 1, n - 1, TD_HDR.length).getDisplayValues(), han = Date.now() - 150 * 864e5;
+  const day = s => { const m = String(s || '').match(/^(\d{2})\/(\d{2})\/(\d{4})/); return m ? new Date(+m[3], +m[2] - 1, +m[1]).getTime() : 0; };
+  const rows = v.filter(r => r[11] && (r[7] !== 'Đạt' || !r[10]) && day(r[5]) >= han)
+    .map(r => ({ file: r[0], room: r[1], start: r[4], at: r[5], by: r[6], st: r[7] || 'Chưa kiểm tra', qlkh: r[10] || '', data: r[11] }));
+  return { ok: true, rows: rows };
 }
