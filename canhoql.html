@@ -82,8 +82,9 @@
   .toast.show{opacity:1}
   .warn{background:var(--soonbg);color:var(--soon);border-radius:12px;padding:12px;font-weight:700;margin-bottom:12px}
   @media (max-width:420px){ .grid{grid-template-columns:1fr} }
-.qa{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:0 1 auto}
-.qb{border:0;border-radius:9px;padding:8px 10px;font:inherit;font-size:.8rem;font-weight:800;color:#fff;cursor:pointer;white-space:nowrap}
+.card{flex-wrap:wrap}
+.qa{display:flex;gap:8px;flex:1 1 100%;margin-top:2px}
+.qb{flex:1 1 0;border:0;border-radius:10px;padding:10px 6px;font:inherit;font-size:.84rem;font-weight:800;color:#fff;cursor:pointer;white-space:nowrap;text-align:center}
 .qb.op{background:#15803d}.qb.lk{background:#b91c1c}.qb.dt{background:#b7791f}.qb:disabled{opacity:.35;cursor:default}
 </style>
 </head>
@@ -191,11 +192,12 @@ function listUnits(){
     var id=driveId(u.anhdd);
     return '<div class="card" onclick="openUnit(\''+esc(u.ma)+'\')"><div class="th">'+(id?'<img loading="lazy" referrerpolicy="no-referrer" src="'+thumb(id,160)+'" onerror="this.remove()">':'🏠')+'</div>'
       +'<div style="flex:1;min-width:0"><div class="ma">'+esc(u.ma)+'</div><div class="sub">'+esc([u.loai,u.khu].filter(Boolean).join(' · '))+(u.gia?' · '+money(u.gia)+' đ':'')+'</div>'+badge(u.tt)+(kind(u.tt)==='soon'&&u.ngay?' <span class="muted" style="font-size:.78rem">trống từ '+esc(u.ngay)+'</span>':'')+'</div>'
+      +'<div class="muted" style="font-size:1.3rem">›</div>'
       +(/mau/.test(norm(u.tt))?'':'<div class="qa" onclick="event.stopPropagation()">'
         +'<button class="qb op" '+(kind(u.tt)==='ok'?'disabled':'')+' onclick="quick(this,\''+esc(u.ma)+'\',\'open\')">🔓 Mở</button>'
         +'<button class="qb lk" '+(kind(u.tt)==='lock'?'disabled':'')+' onclick="quick(this,\''+esc(u.ma)+'\',\'lock\')">🔒 Khóa</button>'
         +'<button class="qb dt" onclick="quick(this,\''+esc(u.ma)+'\',\'soon\')">📅 Ngày trống</button></div>')
-      +'<div class="muted" style="font-size:1.3rem">›</div></div>';
+      +'</div>';
   }).join('')+(more?'<p class="muted">Chỉ hiện 200 căn đầu — dùng ô tìm / lọc để thu hẹp.</p>':'') : '<p class="muted">Không có căn phù hợp.</p>';
 }
 
