@@ -52,7 +52,7 @@
   <div class="brand">LUXHOME<small>KHÓA / MỞ CĂN HỘ</small></div>
 </div>
 <div class="wrap">
-  <p class="hint">📅 <b>Ngày trống</b>: đặt ngày căn sẽ trống (tình trạng "Dự kiến có"). Nhân viên chỉ đổi được tình trạng và ngày trống, không sửa giá. Kết nối trực tiếp bảng Danh mục căn hộ. <b style="color:var(--ok)">Mở</b> khi khách OUT (căn trống, hiện trong catalog) · <b style="color:var(--lock)">Khóa</b> khi khách IN (đang ở, ẩn khỏi catalog).</p>
+  <p class="hint">📅 <b>Ngày trống</b>: đặt ngày căn sẽ trống (tình trạng "Dự kiến có"). Giá thuê chỉ để xem — nhân viên chỉ đổi được tình trạng và ngày trống, không sửa giá. Kết nối trực tiếp bảng Danh mục căn hộ. <b style="color:var(--ok)">Mở</b> khi khách OUT (căn trống, hiện trong catalog) · <b style="color:var(--lock)">Khóa</b> khi khách IN (đang ở, ẩn khỏi catalog).</p>
   <div class="bar">
     <input id="q" placeholder="🔎 Tìm mã căn hộ / tòa…">
     <select id="fToa"><option value="">Mọi tòa</option></select>
@@ -128,11 +128,13 @@ function loadGviz(){
     .catch(()=>{ document.getElementById('list').innerHTML='<p class="muted">Lỗi kết nối bảng danh mục.</p>'; });
 }
 function buildFromRows(rows){
-  var hr=-1,cToa=-1,cSo=-1,cMa=-1,cTt=-1,cNgay=-1;
+  var hr=-1,cToa=-1,cSo=-1,cMa=-1,cTt=-1,cNgay=-1,cGia=-1,cDien=-1,cNuoc=-1,cDv=-1;
   for(var i=0;i<rows.length;i++){
     var r=rows[i].map(x=>String(x||'').trim().toUpperCase());
     var a=r.indexOf('MÃ TÒA'),b=r.indexOf('MÃ CĂN HỘ'),c=r.indexOf('TÌNH TRẠNG');
-    if(b>-1&&c>-1){ hr=i;cMa=b;cTt=c;cToa=a; cSo=r.indexOf('SỐ CĂN HỘ'); cNgay=r.indexOf('NGÀY DỰ KIẾN CÓ'); break; }
+    if(b>-1&&c>-1){ hr=i;cMa=b;cTt=c;cToa=a; cSo=r.indexOf('SỐ CĂN HỘ'); cNgay=r.indexOf('NGÀY DỰ KIẾN CÓ');
+      var fc=function(k){ return r.findIndex(function(x){ return norm(x).indexOf(k)>=0; }); };
+      cGia=fc('gia thue'); cDien=fc('don gia dien'); cNuoc=fc('don gia nuoc'); cDv=fc('phi dich vu'); break; }
   }
   if(hr<0){ document.getElementById('list').innerHTML='<p class="muted">Không đọc được bảng.</p>'; return; }
   DATA=[];
@@ -141,7 +143,8 @@ function buildFromRows(rows){
     var tt=String(row[cTt]||'').trim();
     if(norm(tt).indexOf('mau')>-1) continue;   // bỏ CĂN HỘ MẪU (A01, A02…) khỏi công cụ Khóa/Mở
     DATA.push({ toa:String((cToa>-1?row[cToa]:'')||'').trim(), so:String((cSo>-1?row[cSo]:'')||'').trim(),
-      ma:ma, tt:tt, ngay:String((cNgay>-1?row[cNgay]:'')||'').trim() });
+      ma:ma, tt:tt, ngay:String((cNgay>-1?row[cNgay]:'')||'').trim(),
+      gia:cGia>-1?String(row[cGia]||'').trim():'', dien:cDien>-1?String(row[cDien]||'').trim():'', nuoc:cNuoc>-1?String(row[cNuoc]||'').trim():'', dv:cDv>-1?String(row[cDv]||'').trim():'' });
   }
   applyOverlay();   // đè thay đổi vừa làm (phòng khi máy chủ lỗi phải dùng gviz trễ)
   var sel=document.getElementById('fToa'); sel.length=1;   // giữ "Mọi tòa", tránh nhân đôi option
@@ -167,7 +170,9 @@ function render(){
     var k=statusKind(a.tt);
     var badge = k==='open'?'<span class="badge b-ok">● Đang có sẵn</span>' : k==='lock'?'<span class="badge b-lock">● Đang Khóa</span>' : '<span class="badge b-other">'+esc(a.tt||'—')+(a.ngay?' · trống từ '+esc(a.ngay):'')+'</span>';
     return '<div class="row" data-ma="'+esc(a.ma)+'">'
-      +'<div class="info"><div class="ma">'+esc(a.ma)+'</div><div class="sub">Tòa '+esc(a.toa||'?')+(a.so?' · căn '+esc(a.so):'')+'</div>'+badge+'</div>'
+      +'<div class="info"><div class="ma">'+esc(a.ma)+'</div><div class="sub">Tòa '+esc(a.toa||'?')+(a.so?' · căn '+esc(a.so):'')+'</div>'
+      +(a.gia?'<div class="sub" style="color:var(--fg);font-weight:700">💰 '+esc(fmGia(a.gia))+'/tháng'+([a.dien&&('điện '+fmGia(a.dien)),a.nuoc&&('nước '+fmGia(a.nuoc)),a.dv&&('DV '+fmGia(a.dv))].filter(Boolean).length?' <span style="font-weight:400;color:var(--muted)">· '+esc([a.dien&&('điện '+fmGia(a.dien)),a.nuoc&&('nước '+fmGia(a.nuoc)),a.dv&&('DV '+fmGia(a.dv))].filter(Boolean).join(' · '))+'</span>':'')+'</div>':'')
+      +badge+'</div>'
       +'<div class="acts">'
       +'<button class="btn open" '+(k==='open'?'disabled':'')+' onclick="act(this,\''+esc(a.ma)+'\',\'open\')">🔓 Mở</button>'
       +'<button class="btn lock" '+(k==='lock'?'disabled':'')+' onclick="act(this,\''+esc(a.ma)+'\',\'lock\')">🔒 Khóa</button>'
@@ -176,6 +181,7 @@ function render(){
   }).join('');
 }
 
+function fmGia(v){ var d=String(v||'').replace(/\D/g,''); return d&&d.length>=3?(+d).toLocaleString('vi-VN'):String(v||''); }
 function act(btn, ma, which){
   var status = which==='open'?OPEN:LOCK;
   var rowEl=btn.closest('.row'); var bs=rowEl.querySelectorAll('.btn');
