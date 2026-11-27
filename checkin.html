@@ -786,8 +786,15 @@ function kpCk(s){                            // số kiểm tra MRZ (7-3-1)
 function kpSo(s){ return s.replace(/[OQD]/g,'0').replace(/[IL]/g,'1').replace(/Z/g,'2').replace(/S/g,'5').replace(/B/g,'8').replace(/G/g,'6'); }
 // Hộ chiếu: đọc 2 dòng mã MRZ cuối trang thông tin
 function kpMRZ(text){
-  var L=String(text||'').toUpperCase().replace(/\\/g,'').replace(/[«‹]/g,'<').split(/\n/).map(function(l){ return l.replace(/\s+/g,''); })
-        .filter(function(l){ return l.length>=28 && /^[A-Z0-9<]+$/.test(l) && /</.test(l); });
+  var L=[];
+  String(text||'').toUpperCase().replace(/\\/g,'').replace(/[«‹]/g,'<').split(/\n/).forEach(function(l){
+    l=l.replace(/\s+/g,'');
+    // máy đọc chữ hay dính 2 dòng MRZ thành 1 (P<KAZ…<<<<N143506051KAZ…) → tách ở chỗ bắt đầu dòng 2: số HC + mã nước + ngày sinh + giới tính + ngày hết hạn
+    if(l.length>=70){ var re2=/[A-Z0-9<]{9}[0-9<][A-Z<]{3}\d{6}\d[MF<]\d{6}\d/g, m2, cat=-1; while((m2=re2.exec(l))){ if(m2.index>=20){ cat=m2.index; break; } re2.lastIndex=m2.index+1; }
+      if(cat>0){ L.push(l.slice(0,cat)); L.push(l.slice(cat)); return; } }
+    L.push(l);
+  });
+  L=L.filter(function(l){ return l.length>=28 && /^[A-Z0-9<]+$/.test(l) && /</.test(l); });
   for(var i=0;i<L.length;i++){
     var l2=L[i];
     if(l2.length<40) continue;
