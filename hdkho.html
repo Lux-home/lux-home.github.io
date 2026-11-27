@@ -79,7 +79,7 @@ function load(){
     if(!d.folders.length && !d.files.length) html+='<p class="muted">'+(lv?'Thư mục trống.':'Kho chưa có hợp đồng nào. Hợp đồng nạp ở Check in → mục Hợp đồng checkin PDF sẽ tự lưu vào đây.')+'</p>';
     html+=d.folders.map(function(f){ return '<div class="it" onclick="open1(\''+esc(f.name).replace(/'/g,"\\'")+'\')"><div class="ic">📁</div><div><div class="nm">'+esc(f.name)+'</div><div class="sub">'+LABEL[lv]+'</div></div><div class="go">›</div></div>'; }).join('');
     html+=d.files.map(fileRow).join('');
-    html+='<p class="hint">Cấu trúc: Tòa → Tháng check-in → Phòng (vd T121 / Tháng 11-2026 / P301). File PDF gốc tự lưu khi nạp ở mục Hợp đồng checkin PDF (Check in - Check out).</p>';
+    html+='<p class="hint">Cấu trúc: Mã tòa → Tháng check-in (tháng nạp file) → Căn hộ (vd T121 / Tháng 11-2026 / P301). File PDF gốc tự lưu khi nạp ở Bổ sung khách check-in (Check in - Check out).</p>';
     $('main').innerHTML=html; bindQ();
   }).catch(function(){ $('main').innerHTML=head()+'<div class="warn">Không kết nối được máy chủ.</div>'; bindQ(); });
 }

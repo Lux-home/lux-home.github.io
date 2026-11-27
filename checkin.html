@@ -1381,7 +1381,7 @@ function hdThem(i){
 }
 /* ===== TỰ LƯU HỢP ĐỒNG PDF VÀO KHO: LUXHOME - HỢP ĐỒNG / Tòa / yyyy-mm (tháng check-in) / Phòng ===== */
 function hdLuuTag(h){
-  var l=h.luu; if(!l) return h.fobj?'<div class="muted" style="font-size:.8rem">☁️ Chưa lưu vào kho HĐ — nhập mã phòng + ngày vào rồi bấm Đưa vào danh sách gửi để lưu</div>':'';
+  var l=h.luu; if(!l) return h.fobj?'<div class="muted" style="font-size:.8rem">☁️ Chưa lưu vào kho HĐ — gõ mã phòng (dạng 202-T23) rồi bấm Đưa vào danh sách gửi để lưu</div>':'';
   if(l.st==='dang') return '<div class="muted" style="font-size:.8rem">☁️ Đang lưu vào kho HĐ… '+(l.p||0)+'%</div>';
   if(l.st==='ok') return '<div style="font-size:.8rem;color:#15803d;font-weight:700">☁️ Đã lưu: '+esc(l.path)+(l.exists?' (đã có sẵn)':'')+'</div>';
   return '<div style="font-size:.8rem;color:#b91c1c;font-weight:700">☁️ Chưa lưu được vào kho HĐ: '+esc(l.err||'lỗi')+' <a href="javascript:void 0" onclick="hdLuuLai('+h.id+')">thử lại</a></div>';
@@ -1389,9 +1389,11 @@ function hdLuuTag(h){
 function hdLuuLai(id){ var h=HD.filter(function(x){return x.id===id;})[0]; if(h) hdLuu(h, h.room||hdTenFile(h.file).room, h.start||hdTenFile(h.file).start); }
 function hdLuu(h, room, start){
   if(!window.luxApi||!window.LUX_CANHO_API||!h.fobj) return;
-  var m=String(room||'').toUpperCase().match(/^(.+)-(T?\w+)$/), d=String(start||'').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
-  if(!m||!d){ return; }
-  var f=h.fobj, toa=m[2], phong=m[1], thang=d[3]+'-'+('0'+d[2]).slice(-2);
+  var m=String(room||'').toUpperCase().match(/^(.+)-(T?\w+)$/);
+  if(!m){ return; }
+  // tháng check-in = tháng nạp/lưu file (giờ Việt Nam) → thư mục MÃ TÒA / Tháng m-yyyy / P<căn>
+  var now=new Date(Date.now()+(7*60+new Date().getTimezoneOffset())*60000);
+  var f=h.fobj, toa=m[2], phong=m[1], thang=now.getFullYear()+'-'+('0'+(now.getMonth()+1)).slice(-2);
   h.luu={st:'dang',p:0}; hdVe();
   var a={name:f.name, toa:toa, thang:thang, phong:phong, room:String(room).toUpperCase(), start:start, size:f.size, origin:location.origin};
   if(TOK){ a.tok=TOK; a.dev=devId(); a.devname=devName(); } else a.ckpw=PW;
