@@ -518,10 +518,18 @@ function khAddRoute_(p) {
   }
   add.by = 'Chủ';
   const q = khQueue_(add); if (!q.ok) return q;
+  if (p.queueOnly) return { ok: true, queued: true, t: q.t };     // nạp nhiều căn: xếp hàng hết rồi gọi khaddrun ghi 1 lần
   let r; try { r = withLock_(() => khApply_()); } catch (e) { return { ok: false, err: 'apply', msg: String(e.message || e) }; }
   const a = (r.added || []).find(x => x.t === q.t), e = (r.errors || []).find(x => x.t === q.t);
   if (a) return { ok: true, rows: a.rows };
   return { ok: false, err: 'add', msg: e ? e.msg : 'Chưa ghi được — thử lại' };
+}
+/** Chủ: ghi tất cả khách đang xếp hàng vào file trong 1 lần (1 lần tải / ghi file) */
+function khAddRun_(p) {
+  const who = hdAuth_(p, []);
+  if (!who || !who.owner) return { ok: false, err: 'noperm' };
+  let r; try { r = withLock_(() => khApply_()); } catch (e) { return { ok: false, err: 'apply', msg: String(e.message || e) }; }
+  return { ok: true, added: r.added || [], errors: r.errors || [] };
 }
 function khAddStatus_(p) {
   const who = hdAuth_(p, ['checkin', 'checkinout']);
