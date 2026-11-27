@@ -74,8 +74,9 @@
   .kpW.r{background:var(--badbg);color:var(--bad)} .kpW.y{background:var(--warnbg);color:var(--warn)}
   .kpTag{display:inline-block;font-size:.72rem;font-weight:800;padding:2px 7px;border-radius:999px;background:rgba(14,123,168,.14);color:var(--cyan);margin-left:4px}
   .hdC{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
-  .hdH{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;word-break:break-all}
-  .hdH span{display:flex;gap:6px}
+  .hdH{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap}
+  .hdH>b{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}
+  .hdH span{display:flex;gap:6px;flex-wrap:wrap}
   .hdK{border-top:1px dashed var(--line);margin-top:10px;padding-top:8px}
   .hdI{width:100%;padding:9px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--fg);font:inherit;margin-top:3px}
   .hdBar{height:8px;border-radius:99px;background:var(--line);overflow:hidden;margin-top:6px} .hdBar i{display:block;height:100%;background:var(--cyan)}
