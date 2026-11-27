@@ -855,9 +855,12 @@ function kpDau(text){
   var t=String(text||'').toUpperCase(), r={ loai:'dau' }, m;
   m=t.match(/(\d{1,2})\s*[\.\-\s]?\s*(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s*[\.\-\s]?\s*(20\d{2})/);
   if(m) r.nhapCanh=kp2(+m[1])+'/'+kp2(KP_TH[m[2]])+'/'+m[3];
-  var all=[], re=/(\d{1,2})\s*[\/\.\-]\s*(\d{1,2})\s*[\/\.\-]\s*(\d{4}|\d{2})(?!\d)/g;
+  // sau chữ "tạm trú đến / remain until": chữ số 1 viết tay hay bị đọc thành I, L, |, ! giữa các dấu chấm
+  var kw=t.search(/T[ẠA]M\s*TR[ÚU]\s*[ĐD][ẾE]N|REMAIN\s*UNTIL|PERMITTED|[ĐD][ẾE]N\s*NG[ÀA]Y/);
+  if(kw>=0){ var seg=t.slice(kw, kw+90).replace(/([\s.\/\-_…])[IL|!]([\s.\/\-_…])/g,'$11$2'); t=t.slice(0,kw)+seg+t.slice(kw+90); }
+  var all=[], re=/(\d{1,2})\s*[\/\.\-_…,\s]{1,14}?\s*(\d{1,2})\s*[\/\.\-_…,\s]{1,14}?\s*(\d{4}|\d{2})(?!\d)/g;
   while((m=re.exec(t))){ var y=m[3].length===2?2000+(+m[3]):+m[3], d=+m[1], mo=+m[2];
-    if(d>=1&&d<=31&&mo>=1&&mo<=12&&y>=2020&&y<=2040) all.push(kp2(d)+'/'+kp2(mo)+'/'+y); }
+    if(d>=1&&d<=31&&mo>=1&&mo<=12&&y>=2020&&y<=2040 && /[\/\.\-_…]/.test(m[0])) all.push(kp2(d)+'/'+kp2(mo)+'/'+y); }
   if(all.length) r.hanLuuTru=all[all.length-1];
   return (r.nhapCanh||r.hanLuuTru)?r:{ loai:'dau' };
 }
@@ -1331,12 +1334,12 @@ function hdVe(){
 function hdO(i,k,lbl,date,w){
   var v=HD[i][k]; v=v==null?'':String(v);
   return '<label class="kpL" style="flex:1 1 '+(w||140)+'px"><span>'+lbl+'</span><input type="text" value="'+esc(v)+'" '+
-    (date?'inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" ':'')+'oninput="hdSet('+i+',\''+k+'\',this'+(date?',1':'')+')" class="hdI"></label>';
+    (date?'inputmode="text" maxlength="10" placeholder="dd/mm/yyyy" onblur="hdNgayXong(this)" ':'')+'oninput="hdSet('+i+',\''+k+'\',this'+(date?',1':'')+')" class="hdI"></label>';
 }
 function hdOK(i,j,k,lbl,date,w){
   var v=HD[i].khach[j][k]; v=v==null?'':String(v);
   return '<label class="kpL" style="flex:1 1 '+(w||130)+'px"><span>'+lbl+'</span><input type="text" value="'+esc(v)+'" '+
-    (date?'inputmode="numeric" maxlength="10" placeholder="dd/mm/yyyy" ':'')+'oninput="hdSetK('+i+','+j+',\''+k+'\',this'+(date?',1':'')+')" class="hdI"></label>';
+    (date?'inputmode="text" maxlength="10" placeholder="dd/mm/yyyy" onblur="hdNgayXong(this)" ':'')+'oninput="hdSetK('+i+','+j+',\''+k+'\',this'+(date?',1':'')+')" class="hdI"></label>';
 }
 function hdForm(h,i){
   var lh=['','Zalo','WhatsApp','WeChat','Telegram','Viber','Khác'];
@@ -1369,7 +1372,12 @@ function hdXem(id){
   toast('Không còn file trên máy — chọn lại file PDF để xem',4000);
 }
 function hdVeCB(h){ return hdCanhBao(h).map(function(x){ var c=x.charAt(0); return '<div class="kpW '+(c==='⛔'?'r':c==='✅'?'g':'y')+'">'+esc(x)+'</div>'; }).join(''); }
-function hdNgay(el){ var d=el.value.replace(/\D/g,'').slice(0,8), v=d; if(d.length>4) v=d.slice(0,2)+'/'+d.slice(2,4)+'/'+d.slice(4); else if(d.length>2) v=d.slice(0,2)+'/'+d.slice(2); if(el.value!==v) el.value=v; return v; }
+// gõ có dấu phân cách (2/1/27, 2.1.2027) → giữ nguyên khi đang gõ; rời ô thì đổi thành dd/mm/yyyy (năm 2 số → 20yy)
+function hdNgayChuan(v){ var m=String(v||'').trim().match(/^(\d{1,2})\s*[\/.\-]+\s*(\d{1,2})\s*[\/.\-]+\s*(\d{2}|\d{4})$/); if(!m) return null; var y=m[3].length===2?2000+(+m[3]):+m[3]; return kp2(+m[1])+'/'+kp2(+m[2])+'/'+y; }
+function hdNgayXong(el){ var c=hdNgayChuan(el.value); if(c && c!==el.value){ el.value=c; el.dispatchEvent(new Event('input')); } }
+function hdNgay(el){
+  if(/[\/.\-]/.test(el.value)){ var v2=el.value.replace(/[^\d\/.\-]/g,'').replace(/[.\-]/g,'/'), c2=/^\d{1,2}\/\d{1,2}\/\d{4}$/.test(v2)?hdNgayChuan(v2):null; if(c2) v2=c2; if(el.value!==v2) el.value=v2; return v2; }
+  var d=el.value.replace(/\D/g,'').slice(0,8), v=d; if(d.length>4) v=d.slice(0,2)+'/'+d.slice(2,4)+'/'+d.slice(4); else if(d.length>2) v=d.slice(0,2)+'/'+d.slice(2); if(el.value!==v) el.value=v; return v; }
 function hdSet(i,k,el,date){ var v=date?hdNgay(el):el.value; if(k==='room') v=v.toUpperCase().replace(/\s/g,''); HD[i][k]=v; hdCB(i); }
 function hdSetK(i,j,k,el,date){ var v=date?hdNgay(el):el.value; HD[i].khach[j][k]=v; if(k==='han') HD[i].khach[j].hanSua=true; hdCB(i); }
 function hdCB(i){ var e=document.getElementById('hdW'+i); if(e) e.innerHTML=hdVeCB(HD[i]); }
