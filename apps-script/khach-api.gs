@@ -17,7 +17,8 @@ const QLKH_SHEET  = 'DANH SACH LUU TRU';
 const QLKH_BACKUP = 'LUXHOME BACKUP QLKH';
 const QLKH_MIME   = 'application/vnd.ms-excel.sheet.macroEnabled.12';
 const OUT_LOG_NAME = 'LUXHOME - KHÁCH ĐÃ TRẢ PHÒNG';
-let KH_TARGET = QLKH_ID;   // file đang ghi (hàm thử đổi sang bản sao)
+let KH_TARGET = QLKH_ID;
+let KH_TEST = false;        // hàm thử trên bản sao: không ghi nhật ký OUT, không đổi catalog   // file đang ghi (hàm thử đổi sang bản sao)
 
 // Trường app  ->  cột trong sheet (theo dòng tiêu đề 8 của file)
 const KF = {
@@ -505,7 +506,7 @@ function khApply_() {
   items.forEach(it => P.deleteProperty(it.key));
   P.setProperty(KQ_ERR, JSON.stringify(errs.slice(0, 30)));
   // việc phụ của OUT (sau khi file đã ghi xong)
-  after.forEach(it => {
+  if (!KH_TEST) after.forEach(it => {
     const gs = it.type === 'unitout' ? (it.guests || []) : [it.guest || {}], g = Object.assign({ ma: it.ma }, gs[0] || {});
     gs.forEach(x => {
       try {
@@ -869,6 +870,44 @@ function thuBoSungBanSao() {
     Logger.log('Google Sheets mở được · ô công thức lỗi: ' + errN + ' (file gốc: 33) · AA dòng mới: ' + (f[rows[1] - 1][26] || '(trống)') + ' · màu E dòng chính: ' + sh.getRange(rows[0], 5).getBackground());
   } finally {
     KH_TARGET = QLKH_ID;
+    [cp.id, gs].filter(Boolean).forEach(id => drive_('/drive/v3/files/' + id + '?supportsAllDrives=true', { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }) }));
+    Logger.log('Đã chuyển bản sao vào thùng rác.');
+  }
+}
+
+/* Chạy tay: thử XOÁ KHÁCH CHÍNH (đưa khách phụ lên) + CHECK-OUT CẢ CĂN trên BẢN SAO, kiểm tra bằng Google Sheets. File thật không bị đụng. */
+function thuCheckoutBanSao() {
+  const lock = LockService.getScriptLock(); lock.waitLock(60000);
+  const P = PropertiesService.getScriptProperties();
+  if (khPending_().length) { lock.releaseLock(); Logger.log('Đang có thay đổi chờ ghi — chạy lại sau'); return; }
+  const cp = JSON.parse(drive_('/drive/v3/files/' + QLKH_ID + '/copy?supportsAllDrives=true&fields=id', { method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ name: 'THU_CHECKOUT_XOA_DUOC.xlsm' }) }).getContentText());
+  KH_TARGET = cp.id; KH_TEST = true; let gs = null; const keys = [];
+  try {
+    const L0 = khList_().rows, by = {};
+    L0.forEach(r => { if (r.ma) (by[r.ma] = by[r.ma] || []).push(r); });
+    const ok = k => by[k].length >= 2 && by[k].every(r => r.ten) && by[k].every((r, i) => !i || r.row === by[k][i - 1].row + 1);
+    const ks = Object.keys(by).filter(ok), A = ks[0], B = ks[ks.length - 1];
+    Logger.log('Căn A (xoá khách chính): ' + A + ' ' + JSON.stringify(by[A].map(r => [r.row, r.ten, r.lt, r.bd, r.tp])));
+    Logger.log('Căn B (check-out cả căn): ' + B + ' ' + JSON.stringify(by[B].map(r => [r.row, r.ten])));
+    const m = by[A][0];
+    keys.push(khQueue_({ type: 'out', row: m.row, guest: m, note: 'THU' }).id);
+    keys.push(khQueue_({ type: 'unitout', ma: B, guests: by[B], note: 'THU', openUnit: false }).id);
+    const r = khApply_();
+    Logger.log('Kết quả: ' + JSON.stringify({ applied: r.applied, failed: r.failed, deleted: r.deleted, errors: (r.errors || []).slice(0, 2) }));
+    const L1 = khList_().rows;
+    Logger.log('Căn A sau: ' + JSON.stringify(L1.filter(x => x.ma === A).map(x => [x.row, x.ten, x.lt, x.bd, x.tp])));
+    Logger.log('Căn B sau: ' + JSON.stringify(L1.filter(x => x.ma === B).map(x => [x.row, x.ten, x.bd])));
+    Logger.log('Số dòng: ' + L0.length + ' -> ' + L1.length);
+    gs = JSON.parse(drive_('/drive/v3/files/' + cp.id + '/copy?supportsAllDrives=true&fields=id', { method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ name: 'THU_CHECKOUT_GS', mimeType: 'application/vnd.google-apps.spreadsheet' }) }).getContentText()).id;
+    const sh = SpreadsheetApp.openById(gs).getSheetByName(QLKH_SHEET), v = sh.getDataRange().getDisplayValues(), f = sh.getDataRange().getFormulas();
+    let errN = 0; v.forEach((row, i) => row.forEach((c, j) => { if (/^#(REF|VALUE|N.A|NAME|DIV)/.test(c) && f[i][j]) errN++; }));
+    const bRow = (L1.find(x => x.ma === B) || {}).row;
+    Logger.log('Google Sheets mở được · ô công thức lỗi: ' + errN + ' (file gốc: 33) · màu E dòng căn B: ' + (bRow ? sh.getRange('E' + bRow).getBackground() : '?'));
+  } finally {
+    keys.forEach(k => k && P.deleteProperty(k));
+    KH_TARGET = QLKH_ID; KH_TEST = false; lock.releaseLock();
     [cp.id, gs].filter(Boolean).forEach(id => drive_('/drive/v3/files/' + id + '?supportsAllDrives=true', { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }) }));
     Logger.log('Đã chuyển bản sao vào thùng rác.');
   }
