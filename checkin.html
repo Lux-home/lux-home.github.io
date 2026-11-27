@@ -164,8 +164,7 @@
         <div class="bkB"><span>3</span>Kiểm tra danh sách checkin</div>
         <div id="bkNut"></div>
         <div id="bkKQ"></div>
-        <div id="bkB4" style="display:none"><div class="bkB"><span>4</span>Khách đạt yêu cầu kiểm tra (bước 3)</div><div id="bkNap"></div></div>
-        <div id="bkB5" style="display:none"><div class="bkB"><span>5</span>Nạp danh sách đã kiểm tra</div><div id="bkFile"></div></div>
+        <div id="bkB4" style="display:none"><div class="bkB"><span>4</span>Nạp danh sách đã kiểm tra</div><div id="bkNap"></div><div id="bkFile"></div></div>
         <div id="bkThang"></div>
         <details id="tdWrap" class="hdC" style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">📒 Nhật ký nạp hợp đồng &amp; theo dõi thanh toán đợt 1 <span id="tdDem"></span></summary><div id="tdBox" style="margin-top:8px"><p class="muted">Đang tải…</p></div></details>
       </div>
@@ -1367,14 +1366,15 @@ function hdVe(){
   setTimeout(bkVe,0);
   var el=document.getElementById('hdList');
   el.innerHTML=HD.map(function(h,i){
-    if(h.fromSv) return '<div class="hdC" style="padding:10px 12px"><div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button></span></div>'
+    if(h.fromSv && h.moSua) return '<div class="hdC" id="hdC'+h.id+'"><div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="HD['+i+'].moSua=false;hdVe()">Thu gọn</button></span></div>'+hdForm(h,i)+'</div>';
+    if(h.fromSv) return '<div class="hdC" id="hdC'+h.id+'" style="padding:10px 12px"><div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdMoSua('+h.id+')">✏️ Sửa / bổ sung</button><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button></span></div>'
       +'<div class="muted" style="font-size:.82rem">🚪 '+esc(h.room||'?')+' · '+((h.khach||[]).length?esc(h.khach.map(function(k){ return k.ten; }).join(', ')):'⚠️ chưa đọc được khách')+(h.nap?' · 📥 nạp '+esc(h.nap.at)+(h.nap.by?' bởi '+esc(h.nap.by):''):'')+'</div>'
       +'<div class="kpW y" style="margin-top:6px">'+(h.qlkh==='ok'?'📁 Đã bổ sung file Quản lý khách hàng':'⏳ Chờ kiểm tra thanh toán đợt 1')+'</div></div>';
     var head='<div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button><button class="btn o kpX" onclick="hdBo('+i+')">✕</button></span></div>'+hdLuuTag(h);
     if(h.st==='cho') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang chờ…</div></div>';
     if(h.st==='doc') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang đọc trang '+h.xong+'/'+(h.tong||'?')+'… (mỗi trang ~5–10 giây)</div><div class="hdBar"><i style="width:'+(h.tong?Math.round(h.xong*100/h.tong):3)+'%"></i></div></div>';
     if(h.st==='loi') return '<div class="hdC">'+head+'<div class="err">❌ '+esc(h.err)+'</div></div>';
-    return '<div class="hdC">'+head+hdForm(h,i)+'</div>';
+    return '<div class="hdC" id="hdC'+h.id+'">'+head+hdForm(h,i)+'</div>';
   }).join('');
 }
 function hdO(i,k,lbl,date,w){
@@ -1448,7 +1448,7 @@ function hdThem(i){
   if(red.length && !confirm('Hợp đồng '+h.file+' có '+red.length+' lỗi:\n\n'+red.join('\n')+'\n\nVẫn đưa vào danh sách gửi?')) return;
   var rows=hdRows(h).map(function(r){ r=chuanHoa(r); r._hd=h.id; return r; });
   PARSED=(PARSED||[]).filter(function(r){ return r._hd!==h.id; }).concat(rows);
-  h.daThem=true; if(!h.luu || h.luu.st==='loi') hdLuu(h, h.room, h.start); hdVe(); hienThu(PARSED);
+  h.daThem=true; if(!h.fromSv && (!h.luu || h.luu.st==='loi')) hdLuu(h, h.room, h.start); if(h.fromSv) h.moSua=false; hdVe(); hienThu(PARSED);
   toast('✅ Đã đưa '+rows.length+' khách phòng '+h.room+' vào danh sách gửi — chờ kiểm tra thanh toán');
   bkLuuDL(h);
 }
@@ -1607,13 +1607,14 @@ function bkVe(){
   var bills=[]; ds.forEach(function(h){ (h.ck||[]).forEach(function(c){ bills.push({ room:String(h.room).toUpperCase(), so:c.so, ngay:c.ngay||'', nd:c.nd||'' }); }); });
   var KQ=[]; try{ KQ=ttKiemTra(gs, bills, TT.sk); }catch(e){ KQ=[]; }
   KQ.forEach(function(k){ var h=k.g._h; h.kq={ ok:!k.loi.length, sk:TT.sk.length>0, loi:k.loi, okL:k.ok, canh:k.canh, can:k.expAB, nhan:k.tong }; });
+  ds.forEach(function(h){ if(!h.kq) return; h.kq.ttOk=h.kq.ok; h.kq.thieu=bkThieu(h); if(h.kq.thieu.length) h.kq.ok=false; });
   if(TT.sk.length) tdGui(KQ);
   bkTrangThai(ds);
   setTimeout(bkNapVe,0);
   s3.innerHTML=ds.map(function(h){
     var q=h.kq||{ ok:false, loi:['Chưa tính được'], okL:[], canh:[] }, td=tdTim(h);
-    var mau = !q.ok ? 'do' : q.sk ? 'xanh' : 'vang', nhan;
-    nhan = mau==='xanh' ? '✅ ĐẠT YÊU CẦU — thanh toán đợt 1 khớp sao kê' : mau==='do' ? '⛔ KHÔNG ĐẠT — thanh toán đợt 1 chưa đúng' : '⚠️ Tạm khớp theo ảnh chuyển khoản — chưa đối chiếu sao kê';
+    var mau = q.ok ? 'xanh' : 'do', nhan, thieu=q.thieu||[];
+    nhan = mau==='xanh' ? '✅ ĐẠT YÊU CẦU — thanh toán đợt 1 khớp sao kê, đủ dữ liệu' : q.ttOk===false ? '⛔ KHÔNG ĐẠT — thanh toán đợt 1 chưa đúng'+(thieu.length?' · thiếu dữ liệu':'') : thieu.length ? '⛔ KHÔNG ĐẠT — THIẾU DỮ LIỆU (thanh toán đã khớp)' : '⚠️ Tạm khớp theo ảnh chuyển khoản — chưa đối chiếu sao kê';
     var btn;
     if(h.qlkh==='ok') btn='<div class="kpW g">📁 Đã bổ sung vào file Quản lý khách hàng'+(h.qlkhRows?' (dòng '+h.qlkhRows.join(', ')+')':'')+'</div>';
     else if(h.qlkh==='pend') btn='<div class="kpW y">📨 Đã gửi đề xuất bổ sung — chờ chủ duyệt</div>';
@@ -1626,6 +1627,8 @@ function bkVe(){
       +'<div class="l muted">Vào '+esc(h.start||'?')+' · phải thu đợt 1 '+fm0(q.can||0)+' · đã nhận '+fm0(q.nhan||0)+'</div>'
       +'<div class="l" style="font-weight:800;color:'+(mau==='xanh'?'#15803d':mau==='do'?'#b91c1c':'#b45309')+'">'+nhan+'</div>'
       +(q.loi||[]).map(function(x){ return '<div class="l" style="color:#b91c1c">⛔ '+esc(x)+'</div>'; }).join('')
+      +(thieu.length?'<div class="l" style="color:#b91c1c;font-weight:700;margin-top:4px">📝 Thiếu / sai dữ liệu:</div>'+thieu.map(function(x){ return '<div class="l" style="color:#b91c1c">• '+esc(x.replace(/^(⛔|⚠️)\s*/,''))+'</div>'; }).join('')
+        +'<button class="btn o" style="margin-top:6px;width:100%;border-color:#b91c1c;color:#b91c1c" onclick="hdMoSua('+h.id+')">✏️ Bổ sung dữ liệu ở bước 1</button>':'')
       +(q.okL||[]).map(function(x){ return '<div class="l" style="color:#15803d">✓ '+esc(x)+'</div>'; }).join('')
       +(q.canh||[]).map(function(x){ return '<div class="l" style="color:#b45309">⚠️ '+esc(x)+'</div>'; }).join('')
       +btn+'</div>';
@@ -1676,33 +1679,34 @@ function bkGhi(h, force){
   }).catch(function(){ h.qlkh=''; return { ok:false, msg:'Không kết nối được máy chủ — chưa ghi' }; });
 }
 /* ===== Bước 4: NẠP DANH SÁCH ĐÃ KIỂM TRA → ghi tất cả hợp đồng Đạt vào file QUAN LY KHACH HANG ===== */
+/* dữ liệu còn thiếu / sai của hợp đồng (lấy từ cảnh báo bước 1, bỏ phần thanh toán) */
+function bkThieu(h){
+  return hdCanhBao(h).filter(function(x){ return /^(⛔|⚠️)/.test(x) && !/thanh toán|ĐÃ NẠP TRƯỚC|kiểm tra lại với hợp đồng|Phụ lục|SĐT|đọc chưa chắc|chữ viết tay|Tổng đợt 1|Tiền phòng đợt 1/i.test(x)
+    && /chưa có|không hợp lệ|quá hạn|không đọc được|sai định dạng|không giống hợp đồng/i.test(x); });
+}
+/* mở thẻ hợp đồng ở bước 1 để sửa / bổ sung */
+function hdMoSua(id){
+  var h=HD.filter(function(x){ return x.id===id; })[0]; if(!h) return;
+  h.moSua=true; hdVe();
+  setTimeout(function(){ var el=document.getElementById('hdC'+id); if(el){ el.scrollIntoView({behavior:'smooth',block:'start'}); el.style.boxShadow='0 0 0 3px #f59e0b'; setTimeout(function(){ el.style.boxShadow=''; },2500); } },60);
+}
 function bkDat(){ return bkHD().filter(function(h){ return h.kq && h.kq.ok && h.kq.sk && (!h.qlkh || h.qlkh===''); }); }
 function bkNapVe(){
-  var w=document.getElementById('bkB4'), el=document.getElementById('bkNap'), w5=document.getElementById('bkB5'), el5=document.getElementById('bkFile');
+  var w=document.getElementById('bkB4'), el=document.getElementById('bkNap'), el5=document.getElementById('bkFile');
   if(!w||!el) return;
-  // ---- Bước 5: nạp file DS Check-in đã kiểm tra
-  if(w5&&el5){
-    w5.style.display='block';
-    if(!document.getElementById('dsBox')) el5.innerHTML='<div class="hdC" style="margin-top:8px"><b>📂 Nạp file DS Check-in đã kiểm tra (Excel)</b><p class="hint" style="margin:4px 0 8px">File mẫu DS Check-in (mỗi tháng 1 sheet, cột A → AC). App gom khách theo từng căn rồi '+(TOK?'gửi <b>chủ duyệt</b> — chủ duyệt xong mới ghi vào file QUAN LY KHACH HANG.':'ghi vào file QUAN LY KHACH HANG.')+'</p>'
-      +'<input type="file" id="dsFile" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="dsChon(this.files[0]);this.value=\'\'">'
-      +'<button class="btn" onclick="document.getElementById(\'dsFile\').click()">📂 Chọn file DS Check-in</button><div id="dsBox"></div></div>';
-    dsVe();
-  }
-  // ---- Bước 4: danh sách khách ĐẠT yêu cầu ở bước 3
   w.style.display='block';
-  if(!BK.daKiem){ el.innerHTML='<p class="hint" style="margin:0">Chưa kiểm tra — tải sao kê ở bước 2 rồi bấm <b>KIỂM TRA DANH SÁCH CHECKIN</b> ở bước 3. Khách đạt yêu cầu sẽ hiện ở đây.</p>'; return; }
-  var all=bkHD().filter(function(h){ return h.kq && h.kq.ok && h.kq.sk; }), ds=bkDat(), da=all.filter(function(h){ return h.qlkh==='ok'; }).length,
-      kd=bkHD().filter(function(h){ return h.kq && !(h.kq.ok && h.kq.sk) && !h.qlkh; }).length, nk=all.reduce(function(a,h){ return a+(h.khach||[]).length; },0);
-  var f=function(v){ var n=Number(v); return isFinite(n)&&v!==''&&v!=null?Math.round(n).toLocaleString('vi-VN')+'đ':'—'; };
-  el.innerHTML='<p class="hint" style="margin:0 0 6px">✅ <b>'+all.length+'</b> hợp đồng · <b>'+nk+'</b> khách ĐẠT'+(da?' · 📁 '+da+' đã ghi vào file':'')+(kd?' · ⛔ '+kd+' không đạt (xem thẻ đỏ ở bước 3)':'')+'</p>'
-    +(all.length?'<div style="max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:10px">'
-      +'<table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr style="background:#f0fdf4;position:sticky;top:0"><th style="padding:6px;text-align:left">Căn</th><th style="padding:6px;text-align:left">Khách</th><th style="padding:6px;text-align:left">Vào</th><th style="padding:6px;text-align:right">Cần (X+Y)</th><th style="padding:6px;text-align:right">Đã nhận</th><th style="padding:6px;text-align:left">File QLKH</th></tr></thead><tbody>'
-      +all.map(function(h){ var q=h.kq||{}, thua=Number(q.nhan)>Number(q.can);
-        return '<tr style="border-top:1px solid var(--line)"><td style="padding:6px"><b>'+esc(h.room)+'</b></td><td style="padding:6px">'+esc((h.khach||[]).map(function(k){ return k.ten; }).join(', '))+'</td><td style="padding:6px">'+esc(h.start||'')+'</td>'
-          +'<td style="padding:6px;text-align:right">'+f(q.can)+'</td><td style="padding:6px;text-align:right;'+(thua?'color:#b45309':'')+'">'+f(q.nhan)+(thua?' (thừa)':'')+'</td>'
-          +'<td style="padding:6px">'+(h.qlkh==='ok'?'<span style="color:#15803d">✓ đã ghi'+(h.qlkhRows?' dòng '+esc([].concat(h.qlkhRows).join(', ')):'')+'</span>':h.qlkh==='pend'?'📨 chờ duyệt':'<span class="muted">chưa ghi</span>')+'</td></tr>'; }).join('')
-      +'</tbody></table></div>':'<p class="muted">Chưa có hợp đồng nào đạt.</p>')
-    +'<button class="btn big ok" style="margin-top:8px" '+(ds.length&&!BK.dangNap?'':'disabled style="margin-top:8px;opacity:.45;cursor:not-allowed"')+' onclick="bkNapTatCa()">'+(BK.dangNap?'⏳ '+BK.dangNap:TOK?'📨 GỬI '+ds.length+' HỢP ĐỒNG ĐẠT CHO CHỦ DUYỆT':'📁 GHI '+ds.length+' HỢP ĐỒNG ĐẠT VÀO FILE QUAN LY KHACH HANG')+'</button>';
+  if(el5 && !document.getElementById('dsBox')) el5.innerHTML='<div class="hdC" style="margin-top:8px"><b>📂 Nạp file DS Check-in đã kiểm tra (Excel)</b><p class="hint" style="margin:4px 0 8px">File mẫu DS Check-in (mỗi tháng 1 sheet, cột A → AC). App gom khách theo từng căn rồi '+(TOK?'gửi <b>chủ duyệt</b> — chủ duyệt xong mới ghi vào file QUAN LY KHACH HANG.':'ghi vào file QUAN LY KHACH HANG.')+'</p>'
+    +'<input type="file" id="dsFile" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="dsChon(this.files[0]);this.value=\'\'">'
+    +'<button class="btn" onclick="document.getElementById(\'dsFile\').click()">📂 Chọn file DS Check-in</button><div id="dsBox"></div></div>';
+  dsVe();
+  if(!BK.daKiem){ el.innerHTML=''; return; }
+  var ds=bkDat(), da=bkHD().filter(function(h){ return h.qlkh==='ok'; }).length, kd=bkHD().filter(function(h){ return h.kq && !h.kq.ok && !h.qlkh; }).length;
+  var all=bkHD().filter(function(h){ return h.kq && h.kq.ok; }), f=function(v){ var n=Number(v); return isFinite(n)&&v!==''&&v!=null?Math.round(n).toLocaleString('vi-VN')+'đ':'—'; };
+  el.innerHTML='<p class="hint" style="margin:0 0 6px">🟢 <b>'+ds.length+'</b> hợp đồng ĐẠT chờ ghi'+(da?' · 📁 '+da+' đã ghi':'')+(kd?' · 🔴 '+kd+' không đạt (sửa ở bước 1 hoặc bấm nút đỏ trên thẻ nếu vẫn muốn nạp)':'')+'</p>'
+    +(all.length?'<div style="max-height:300px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:8px"><table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr style="background:#f0fdf4;position:sticky;top:0"><th style="padding:6px;text-align:left">Căn</th><th style="padding:6px;text-align:left">Khách đạt yêu cầu</th><th style="padding:6px;text-align:left">Vào</th><th style="padding:6px;text-align:right">Đã nhận / cần</th><th style="padding:6px;text-align:left">File QLKH</th></tr></thead><tbody>'
+      +all.map(function(h){ var q=h.kq; return '<tr style="border-top:1px solid var(--line)"><td style="padding:6px"><b>'+esc(h.room)+'</b></td><td style="padding:6px">'+esc((h.khach||[]).map(function(k){ return k.ten; }).join(', '))+'</td><td style="padding:6px">'+esc(h.start||'')+'</td><td style="padding:6px;text-align:right">'+f(q.nhan)+' / '+f(q.can)+'</td><td style="padding:6px">'+(h.qlkh==='ok'?'<span style="color:#15803d">✓ đã ghi</span>':h.qlkh==='pend'?'📨 chờ duyệt':'<span class="muted">chưa ghi</span>')+'</td></tr>'; }).join('')
+      +'</tbody></table></div>':'')
+    +'<button class="btn big ok" '+(ds.length&&!BK.dangNap?'':'disabled style="opacity:.45;cursor:not-allowed"')+' onclick="bkNapTatCa()">'+(BK.dangNap?'⏳ '+BK.dangNap:TOK?'📨 GỬI '+ds.length+' HỢP ĐỒNG ĐẠT CHO CHỦ DUYỆT':'📁 NẠP DANH SÁCH ĐÃ KIỂM TRA ('+ds.length+')')+'</button>';
 }
 /* ----- Nạp file DS Check-in (.xlsx) đã kiểm tra → ghi vào file QUAN LY KHACH HANG ----- */
 var DS={ wb:null, ten:'', sheet:'', nhom:[], chon:{}, kq:{}, dang:'', ghide:true };
