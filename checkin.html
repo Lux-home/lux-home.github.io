@@ -1159,8 +1159,8 @@ function hdDocTrang(pages){                          // pages: [{text, qr}] theo
       var seg1=hdSau(t,/First apartment rent|Tiền thuê căn hộ đợt 1/i,300);
       var zz=seg1.replace(/\d{1,2}\s*[\/.]\s*\d{1,2}\s*[\/.]\s*\d{2,4}/g,' ').match(/(^|[^\d.,])(\d{1,2})(?![\d.,]\d)/); if(zz && +zz[2]>=1 && +zz[2]<=62) hd.zDoc=+zz[2];   // số ngày thuê đợt 1 ghi trong bảng
       var nums=seg1.match(/\d[\d.,]*\d|\d/g)||[];
-      var vals=nums.map(hdSo).filter(String).map(Number), d1=kpDate(hd.ngayVao), d2=kpDate(hd.hetDot1), ngay=(d1&&d2)?Math.round((d2-d1)/864e5)+1:0;
-      var lon=vals.filter(function(x){ return x>=10000; });
+      var d1=kpDate(hd.ngayVao), d2=kpDate(hd.hetDot1), ngay=(d1&&d2)?Math.round((d2-d1)/864e5)+1:0;
+      var lon=hdTien(seg1).filter(function(x){ return x>=10000; });   // chỉ số tiền có dấu nghìn — không lấy nhầm mảnh ngày viết tay
       if(lon.length){ hd.tpd1 = lon.length>1 ? lon[1] : lon[0]; if(lon.length>1){ hd.donGiaDot1=lon[0]; if(!hd.phong) hd.phong=lon[0]; } }
       if(ngay) hd.soNgay=ngay;
       hd.tong = hdTienSau(t,/Total amount|Tổng số tiền/i,100000,200) || hd.tong;
@@ -1198,6 +1198,7 @@ function hdTaoBanGhi(fileName, doc){
 /** Bảng thanh toán đợt 1 phải tự khớp: X = đơn giá × (y − x + 1)/30 (làm tròn xuống nghìn), tổng = cọc + X.
  *  Chữ viết tay hay bị đọc nhầm (30→20, 11→14) → dò lại đơn giá / ngày y cho khớp X và tổng, ghi rõ đã sửa gì. */
 function hdSuaDot1(h){
+  if(Number(hdSo(h.phong))>0 && Number(hdSo(h.phong))<500000) h.phong='';   // đơn giá thuê không thể dưới 500.000 → đọc nhầm
   var n=function(v){ return Number(hdSo(v))||0; }, X=n(h.tpd1), O=n(h.coc), T=n(h.tong), x=kpDate(h.start), y=kpDate(h.hetDot1);
   var X0=function(t,z){ return Math.round(t*z/30/1000)*1000; };
   h.suaTD=[];
@@ -1541,7 +1542,12 @@ function bkKiemTra(){
     toast('🔎 Đã kiểm tra '+bkHD().length+' hợp đồng'+(them?' ('+them+' hợp đồng nhân viên đã nạp)':''),4000);
   }).catch(function(){ toast('Không kết nối được máy chủ'); }).then(function(){ var n=document.querySelector('#bkNut button'); if(n){ n.disabled=false; n.textContent='🔎 KIỂM TRA DANH SÁCH CHECKIN'; } });
 }
-function bkHD(){ return HD.filter(function(h){ return h.st==='xong' && h.room && ROOM_RE.test(h.room) && h.khach && h.khach.length; }); }
+function bkHD(){
+  var ds=HD.filter(function(h){ return h.st==='xong' && h.room && ROOM_RE.test(h.room) && h.khach && h.khach.length; }), giu={};
+  // cùng căn + cùng ngày vào (vd file "… (1).pdf" nạp 2 lần) → chỉ giữ 1 bản: ưu tiên bản nạp trong phiên này, rồi bản mới nhất
+  ds.forEach(function(h){ var k=String(h.room).toUpperCase()+'|'+(h.start||h.file.replace(/\s*\(\d+\)(?=\.pdf$)/i,'')); var c=giu[k]; if(!c || (c.fromSv && !h.fromSv) || (c.fromSv===h.fromSv && h.id>c.id)) giu[k]=h; });
+  return ds.filter(function(h){ var k=String(h.room).toUpperCase()+'|'+(h.start||h.file.replace(/\s*\(\d+\)(?=\.pdf$)/i,'')); return giu[k]===h; });
+}
 function bkVe(){
   var s2=document.getElementById('bkSK'), s3=document.getElementById('bkKQ'); if(!s2||!s3) return;
   if(TOK){
