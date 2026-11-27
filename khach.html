@@ -144,7 +144,7 @@ function showLogin(msg){
   $('lb').onclick=go; $('lp').onkeydown=function(e){if(e.key==='Enter')go();}; $('lp').focus();
 }
 /* ---------- CHẾ ĐỘ NHÂN VIÊN (mở từ app nhân viên ?tok=…) ---------- */
-var TOK=(new URLSearchParams(location.search)).get('tok')||'', STAFF=!!TOK, PEND={}, WHO=null, PROPN=0;
+var TOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ localStorage.setItem('nv_tok',u); return u; } if(!localStorage.getItem('luxAdminPw') && !localStorage.getItem('ck_pw')) return localStorage.getItem('nv_tok')||''; }catch(e){} return ''; })(), STAFF=!!TOK, PEND={}, WHO=null, PROPN=0;
 function devAuth(){ var dev='',ua=navigator.userAgent||''; try{dev=localStorage.getItem('nv_devid')||'';}catch(e){}
   return {tok:TOK, dev:dev, devname:(/iPhone/.test(ua)?'iPhone':/iPad/.test(ua)?'iPad':/Android/.test(ua)?'Android':(navigator.platform||'Máy'))}; }
 // mọi lệnh gửi máy chủ đi qua đây: chủ = mật khẩu Admin, nhân viên = token app phụ

@@ -274,7 +274,7 @@ function laChinh(r){ return !!r[1] && !laBoSung(r); }
 
 // Nhân viên: mở từ LUXHOME-NV (?tok=…). Chủ: mở từ app chính → mật khẩu duyệt.
 var QS=new URLSearchParams(location.search);
-var TOK=QS.get('tok')||'';
+var TOK=(function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ localStorage.setItem('nv_tok',u); return u; } if(!localStorage.getItem('luxAdminPw') && !localStorage.getItem('ck_pw')) return localStorage.getItem('nv_tok')||''; }catch(e){} return ''; })();
 var PW=''; try{ if(!TOK) PW=localStorage.getItem('ck_pw')||''; }catch(e){}
 var ME=null, curTab='', PARSED=[], CURDOT=null;
 if(TOK) document.getElementById('backLink').href='checkinout.html?tok='+encodeURIComponent(TOK);

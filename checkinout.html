@@ -54,6 +54,7 @@
 // Mở từ app nhân viên (nv.html gắn ?tok=...) -> nút quay lại về app nhân viên, giữ tok khi sang trang con
 (function(){
   var qs = location.search || '';
+  if (!/[?&]tok=/.test(qs)) { var t = (function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ localStorage.setItem('nv_tok',u); return u; } if(!localStorage.getItem('luxAdminPw') && !localStorage.getItem('ck_pw')) return localStorage.getItem('nv_tok')||''; }catch(e){} return ''; })(); if (t) qs = '?tok=' + encodeURIComponent(t); }
   if (/[?&]tok=/.test(qs)) {
     document.getElementById('backLink').href = 'nv.html';
     document.getElementById('backLink').textContent = '← App nhân viên';
@@ -62,7 +63,7 @@
   document.getElementById('lnkKhach').href = 'khach.html' + qs;
 })();
 // chủ: hiện số đề xuất chờ duyệt
-(function(){ if(/[?&]tok=/.test(location.search)) return; var pw=''; try{ pw=localStorage.getItem('luxAdminPw')||''; }catch(e){}
+(function(){ if(/[?&]tok=/.test(location.search) || ((function(){ try{ var u=new URLSearchParams(location.search).get('tok'); if(u){ localStorage.setItem('nv_tok',u); return u; } if(!localStorage.getItem('luxAdminPw') && !localStorage.getItem('ck_pw')) return localStorage.getItem('nv_tok')||''; }catch(e){} return ''; })())) return; var pw=''; try{ pw=localStorage.getItem('luxAdminPw')||''; }catch(e){}
   if(!pw||!window.luxApi) return; luxApi('khpropcount',{pw:pw}).then(function(d){ if(d&&d.ok&&d.n){ var b=document.getElementById('propBadge'); b.textContent=d.n+' chờ duyệt'; b.style.display='inline-block'; } }).catch(function(){}); })();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
 </script>
