@@ -1202,8 +1202,11 @@ function hdSuaDot1(h){
   var n=function(v){ return Number(hdSo(v))||0; }, X=n(h.tpd1), O=n(h.coc), T=n(h.tong), x=kpDate(h.start), y=kpDate(h.hetDot1);
   var X0=function(t,z){ return Math.round(t*z/30/1000)*1000; };
   h.suaTD=[];
-  if(!X || !x) return h;
-  if(T && O && Math.abs(T-O-X)>=1000) return h;                 // chính X / tổng cũng lệch → không tự sửa, để người kiểm tra
+  if(!x) return h;
+  var Xdoc=X, Xtt=(T&&O&&T>O)?T-O:0;
+  // tiền thuê đợt 1 phải = tổng − cọc; đọc lệch (vd lấy nhầm đơn giá) → dùng tổng − cọc nếu giải thích được bằng đơn giá × ngày
+  if(Xtt && (!X || Math.abs(Xtt-X)>=1000)) X=Xtt;
+  if(!X) return h;
   var zNgay=y?Math.round((y-x)/864e5)+1:0, P=n(h.phong);
   if(P && zNgay && Math.abs(X0(P,zNgay)-X)<1000) return h;      // đã khớp
   var ts=[P, n(h.donGiaDot1), O].filter(function(v,i,a){ return v>=500000 && a.indexOf(v)===i; });
@@ -1216,6 +1219,7 @@ function hdSuaDot1(h){
     if(!best || diem<best.diem) best={ t:t, z:z, diem:diem };
   }); });
   if(!best) return h;
+  if(X!==Xdoc){ h.suaTD.push('Tiền thuê đợt 1 đọc '+(Xdoc?fm(Xdoc):'(trống)')+' → app sửa thành '+fm(X)+' (= tổng '+fm(T)+' − cọc '+fm(O)+')'); h.tpd1=String(X); }
   var add=function(d,k){ var o=new Date(d.getTime()+k*864e5); return kp2(o.getDate())+'/'+kp2(o.getMonth()+1)+'/'+o.getFullYear(); };
   if(best.t!==P){ h.suaTD.push('Đơn giá thuê đọc '+(P?fm(P):'(trống)')+' → app sửa thành '+fm(best.t)+' cho khớp bảng thanh toán đợt 1'); h.phong=String(best.t); }
   if(best.z!==zNgay){ var yy=add(x,best.z-1); h.suaTD.push('Ngày hết đợt 1 đọc '+(h.hetDot1||'(trống)')+' → app sửa thành '+yy+' ('+best.z+' ngày, khớp tiền thuê đợt 1 '+fm(X)+')'); h.hetDot1=yy; }
@@ -1534,6 +1538,9 @@ function bkKiemTra(){
     d.rows.forEach(function(r){
       if(co[r.file]) return; var h; try{ h=JSON.parse(r.data); }catch(e){ return; }
       h.id=++HD_SEQ; h.st='xong'; h.daThem=true; h.fromSv=true; h.khach=h.khach||[]; h.ck=h.ck||[];
+      // làm lại các bước đối chiếu chéo cho hợp đồng nạp trước đây
+      h.ck=h.ck.filter(function(c,i,a){ return a.findIndex(function(d){ return d.so===c.so && d.ngay===c.ngay && d.trang===c.trang; })===i; });
+      try{ hdSuaDot1(h); }catch(e){}
       h.nap={ at:r.at, by:r.by }; if(r.qlkh) h.qlkh='ok';
       HD.push(h); them++;
     });
