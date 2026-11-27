@@ -1132,7 +1132,11 @@ function hdDocTrang(pages){                          // pages: [{text, qr}] theo
       if(!c2){ hd.khach.push(c2={ ten:cc.ten||'', ns:cc.ngaySinh||'', gt:cc.gioiTinh||'', hc:'', cccd:cc.cccd||'', nuoc:cc.diaChi||'', nn:false, chac:!!cc.chac, han:'', nhap:'', trang:idx+1 }); }
       last=c2; return;
     }
-    if(/CHUY[ỂE]N\s*TI[ỀE]N|GIAO\s*D[ỊI]CH|TRANSFER|SUCCESSFUL|TH[ÀA]NH\s*C[ÔO]NG/.test(U)){
+    // trang ẢNH CHUYỂN KHOẢN: phải có dấu hiệu biên lai (thành công / tài khoản nhận / người nhận…) và KHÔNG phải trang chữ của hợp đồng
+    var laBill=(/TH[ÀA]NH\s*C[ÔO]NG|SUCCESSFUL|SUCCESS\b|COMPLETED/.test(U) && /T[ÀA]I\s*KHO[ẢA]N|NG[ƯU][ỜO]I\s*NH[ẬA]N|NG[ÂA]N\s*H[ÀA]NG|N[ỘO]I\s*DUNG|BENEFICIAR|RECEIVER|ACCOUNT|LUXHOME|\d{8,}/.test(U))
+      || (/T[ÀA]I\s*KHO[ẢA]N\s*NH[ẬA]N|T[ÊE]N\s*NG[ƯU][ỜO]I\s*NH[ẬA]N|TH[ÔO]NG\s*TIN\s*NG[ƯU][ỜO]I\s*NH[ẬA]N/.test(U));
+    var laHopDong=/H[ỢO]P\s*Đ[ỒO]NG\s*(THU[ÊE]|CHO\s*THU[ÊE])|B[ÊE]N\s*(CHO\s*THU[ÊE]|THU[ÊE])|PARTY\s*[AB]\b|ĐI[ỀE]U\s*\d|ARTICLE\s*\d|PH[ỤU]\s*L[ỤU]C|APPENDIX|QUY\s*Đ[ỊI]NH|TR[ÁA]CH\s*NHI[ỆE]M|PH[ẠA]T/.test(U);
+    if(laBill && !laHopDong){
       var dsBill=hdBillsTrang(t);
       if(dsBill.length){ dsBill.forEach(function(bl){ hd.ck.push({ so:bl.so, coc:/C[ỌO]C/i.test(t), trang:idx+1, ngay:bl.ngay||'', nd:bl.nd||'' }); }); return; }
     }
