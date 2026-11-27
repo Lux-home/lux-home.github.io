@@ -93,6 +93,7 @@ function handle_(a, p) {
   if (a === 'khclearerr')   return khClearErr_();
   if (a === 'khexport')     return khExport_();
   if (a === 'khoutlist')    return khOutList_();
+  if (a === 'khoutundo')    return khOutUndo_(p);
   return { ok: false, err: 'unknown' };
 }
 function withLock_(fn) {

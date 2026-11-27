@@ -421,7 +421,7 @@ function outSpec_() {
   return { setV: setV, kinds: kinds };
 }
 const K_ADD = ['ten', 'ns', 'qt', 'gt', 'cccd', 'hc', 'dc', 'bd', 'kt', 'lt', 'coc', 'tp', 'sn', 'dck', 'nuoc', 'bt', 'ttnp', 'sale', 'lh', 'sdt'];
-const K_SNAP = ['ma', 'ten', 'ns', 'qt', 'gt', 'cccd', 'hc', 'dc', 'bd', 'kt', 'lt', 'coc', 'tp', 'sn', 'sale', 'lh', 'sdt', 'gc'];
+const K_SNAP = ['ma'].concat(K_EDIT);          // lưu ĐỦ thông tin khách trước khi xoá → thu hồi được
 function khSnap_(g) { const o = {}; K_SNAP.forEach(k => { if (g && g[k] != null && String(g[k]) !== '') o[k] = String(g[k]).slice(0, 200); }); return o; }
 const K_PERSON = ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'N'];      // cột thông tin riêng từng khách (tên, NS, QT, GT, CCCD, HC, địa chỉ, hạn lưu trú)
 function khQueue_(p) {
@@ -433,9 +433,9 @@ function khQueue_(p) {
     return { ok: true, id: key, t: item.t, pending: khPending_().length };
   }
   if (p.type === 'add') {
-    const guests = (p.guests || []).map(g => { const f = {}; K_ADD.forEach(k => { if (g[k] != null && String(g[k]).trim() !== '') f[k] = String(g[k]).trim(); }); return f; }).filter(f => f.ten);
+    const guests = (p.guests || []).map(g => { const f = {}; (p.full ? K_EDIT : K_ADD).forEach(k => { if (g[k] != null && String(g[k]).trim() !== '') f[k] = String(g[k]).trim(); }); return f; }).filter(f => f.ten);
     if (!p.ma || !guests.length) return { ok: false, err: 'nothing', msg: 'Chưa có mã phòng hoặc khách' };
-    const item = { t: Date.now(), type: 'add', ma: String(p.ma).toUpperCase().trim(), guests: guests, force: !!p.force, file: String(p.file || '').slice(0, 200), by: p.by || 'Chủ' };
+    const item = { t: Date.now(), type: 'add', ma: String(p.ma).toUpperCase().trim(), guests: guests, force: !!p.force, file: String(p.file || '').slice(0, 200), by: p.by || 'Chủ', mode: p.mode || '' };
     const key = KQ_PREFIX + item.t + '_' + Math.random().toString(36).slice(2, 7);
     PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(item));
     return { ok: true, id: key, t: item.t, pending: khPending_().length };
@@ -459,7 +459,7 @@ function khPending_() {
   const all = PropertiesService.getScriptProperties().getProperties();
   return Object.keys(all).filter(k => k.indexOf(KQ_PREFIX) === 0 && k !== KQ_ERR).sort().map(k => { const o = JSON.parse(all[k]); o.key = k; return o; });
 }
-function khErrors_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(KQ_ERR) || '[]'); } catch (e) { return []; } }
+function khErrors_() { try { return JSON.parse(PropertiesService.getScriptProperties().getProperty(KQ_ERR) || '[]').filter(e => e.type !== 'add'); } catch (e) { return []; } }
 /** Áp mọi thay đổi đang chờ vào file (1 lần tải + 1 lần ghi). Gọi bên trong khoá. */
 function khApply_() {
   const P = PropertiesService.getScriptProperties();
@@ -508,16 +508,19 @@ function khApply_() {
   // việc phụ của OUT (sau khi file đã ghi xong)
   if (!KH_TEST) after.forEach(it => {
     const gs = it.type === 'unitout' ? (it.guests || []) : [it.guest || {}], g = Object.assign({ ma: it.ma }, gs[0] || {});
-    gs.forEach(x => {
-      try {
-        outLog_().appendRow([Utilities.formatDate(new Date(it.t), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'), it.by || 'Admin', x.ma || it.ma, x.ten, x.ns, x.qt, x.gt, x.cccd, x.hc, x.dc,
-          x.bd, x.kt, x.lt, x.coc, x.tp, x.sn, x.sale, x.lh, x.sdt, x.gc, (it.type === 'unitout' ? 'CHECK-OUT CẢ CĂN' : 'Xoá khách') + (it.note ? ' · ' + it.note : '')].map(v => v == null ? '' : "'" + String(v)));
-      } catch (e) {}
-    });
+    let prev = '';
     if (it.openUnit) {
       try { const t = unitTable_(), ma = String(g.ma || it.ma || '').replace(/-/g, '').toUpperCase(), i = findUnit_(t, ma);
-        if (i >= 0 && t.C.tt >= 0) t.sh.getRange(i + 1, t.C.tt + 1).setValue('Đang có sẵn'); } catch (e) {}
+        if (i >= 0 && t.C.tt >= 0) { const rg = t.sh.getRange(i + 1, t.C.tt + 1); prev = String(rg.getValue() || ''); rg.setValue('Đang có sẵn'); } } catch (e) {}
     }
+    let sh = null; try { sh = outLog_(); } catch (e) {}
+    gs.forEach(x => {
+      try {
+        sh.appendRow([Utilities.formatDate(new Date(it.t), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'), it.by || 'Admin', x.ma || it.ma, x.ten, x.ns, x.qt, x.gt, x.cccd, x.hc, x.dc,
+          x.bd, x.kt, x.lt, x.coc, x.tp, x.sn, x.sale, x.lh, x.sdt, x.gc, (it.type === 'unitout' ? 'CHECK-OUT CẢ CĂN' : 'Xoá khách') + (it.note ? ' · ' + it.note : '')].map(v => v == null ? '' : "'" + String(v))
+          .concat(["'" + it.t, "'" + JSON.stringify(Object.assign({ ma: it.ma }, x)).slice(0, 45000), '', "'" + prev]));
+      } catch (e) {}
+    });
   });
   const res = { ok: true, applied: done.length, failed: items.length - done.length, deleted: delList.length, backupId: c.backupId || null, errors: errs.slice(0, 30) };
   if (adds.length) { const r2 = khApplyAdds_(adds); res.applied += r2.applied; res.failed += r2.failed; res.added = r2.added; res.errors = r2.errors; res.runErrors = r2.runErrors; }
@@ -533,7 +536,7 @@ function khApplyAdds_(adds) {
     .replace(/\(.*?\)/g, ' ').replace(/[^A-Z0-9]+/g, ' ').trim().split(' ').filter(Boolean).sort().join(' ');
   let reg = {}; try { reg = JSON.parse(P.getProperty('khadd_reg') || '{}'); } catch (e) {}
   adds.forEach(it => {
-    const fail = (msg, dup) => { failed++; const e = { t: it.t, row: 0, ma: it.ma, ten: (it.guests[0] || {}).ten || '', type: 'add', msg: msg, dup: !!dup }; errs.unshift(e); runErr.push(e); };
+    const fail = (msg, dup) => { failed++; const e = { t: it.t, row: 0, ma: it.ma, ten: (it.guests[0] || {}).ten || '', type: 'add', msg: msg, dup: !!dup }; runErr.push(e); };
     const ghide = it.mode !== 'bao' || !!it.force;       // mặc định: khách trùng tên → tự ghi đè dòng cũ
     try {
       const blk = S.findBlock(it.ma);
@@ -623,7 +626,9 @@ function outLog_() {
     ss.getSheets()[0].setFrozenRows(1);
     P.setProperty('kh_outlog', ss.getId());
   }
-  return ss.getSheets()[0];
+  const sh = ss.getSheets()[0];
+  if (String(sh.getRange(1, 22).getValue()) !== 'Mã lần OUT') sh.getRange(1, 22, 1, 4).setValues([['Mã lần OUT', 'Dữ liệu đầy đủ (JSON)', 'Thu hồi lúc', 'Catalog trước khi OUT']]);
+  return sh;
 }
 function khExport_() {
   const res = drive_('/drive/v3/files/' + QLKH_ID + '?alt=media&supportsAllDrives=true');
@@ -635,7 +640,55 @@ function khOutList_() {
   const id = PropertiesService.getScriptProperties().getProperty('kh_outlog');
   if (!id) return { ok: true, rows: [] };
   const v = SpreadsheetApp.openById(id).getSheets()[0].getDataRange().getDisplayValues();
-  return { ok: true, header: v[0], rows: v.slice(1).reverse().slice(0, 300), url: SpreadsheetApp.openById(id).getUrl() };
+  const W = Math.max(25, v[0].length);
+  return { ok: true, header: v[0], rows: v.slice(1).map((r, i) => { r = r.slice(0, W); while (r.length < W) r.push(''); r[22] = r[22] ? 1 : ''; r.push(i + 2); return r; }).reverse().slice(0, 300), url: SpreadsheetApp.openById(id).getUrl() };
+}
+/** Chạy tay: thu hồi lần OUT GẦN NHẤT của 1 căn (đổi mã căn ở dòng dưới rồi bấm Chạy). */
+function thuHoiCan() { const ma = '101-T46'; Logger.log(JSON.stringify(khOutUndoCan_(ma))); }
+function khOutUndoCan_(ma) {
+  const id = PropertiesService.getScriptProperties().getProperty('kh_outlog'); if (!id) return { ok: false, msg: 'Chưa có sổ OUT' };
+  const sh = SpreadsheetApp.openById(id).getSheets()[0], v = sh.getDataRange().getDisplayValues(), W = 25;
+  let last = null; const rows = [];
+  for (let i = v.length - 1; i >= 1; i--) {
+    const r = v[i]; if (String(r[2]).toUpperCase().trim() !== ma || r[23]) continue;
+    const k = r[21] ? 'G' + r[21] : 'T' + r[0];
+    if (last == null) last = k; if (k !== last) break; rows.push(i + 1);
+  }
+  if (!rows.length) return { ok: false, msg: 'Không thấy lần OUT chưa thu hồi của ' + ma };
+  Logger.log('Thu hồi dòng sổ OUT: ' + rows.join(', '));
+  return khOutUndo_({ rows: rows });
+}
+/** Chủ: THU HỒI khách đã OUT / check-out nhầm — đưa lại vào file Quản lý khách hàng (đúng căn), đổi lại catalog như trước. p.rows = số dòng trong sổ OUT. */
+function khOutUndo_(p) {
+  const id = PropertiesService.getScriptProperties().getProperty('kh_outlog'); if (!id) return { ok: false, err: 'nothing' };
+  const sh = SpreadsheetApp.openById(id).getSheets()[0], W = Math.max(25, sh.getLastColumn());
+  const rns = [].concat(p.rows || []).map(Number).filter(n => n >= 2 && n <= sh.getLastRow()).sort((a, b) => a - b);
+  if (!rns.length) return { ok: false, err: 'nothing', msg: 'Chưa chọn khách để thu hồi' };
+  const COL = ['', '', 'ma', 'ten', 'ns', 'qt', 'gt', 'cccd', 'hc', 'dc', 'bd', 'kt', 'lt', 'coc', 'tp', 'sn', 'sale', 'lh', 'sdt', 'gc'];
+  const by = {}, prevSt = {}, used = [];
+  rns.forEach(rn => {
+    const r = sh.getRange(rn, 1, 1, W).getDisplayValues()[0];
+    if (r[23]) return;                                   // đã thu hồi
+    let g = null; try { g = r[22] ? JSON.parse(r[22]) : null; } catch (e) {}
+    if (!g) { g = {}; COL.forEach((k, i) => { if (k && r[i]) g[k] = r[i]; }); }
+    const ma = String(g.ma || r[2] || '').toUpperCase().trim(); if (!ma || !g.ten) return;
+    (by[ma] = by[ma] || []).push(g); used.push(rn); if (r[24]) prevSt[ma] = r[24];
+  });
+  if (!used.length) return { ok: false, err: 'done', msg: 'Các khách này đã được thu hồi trước đó' };
+  const ts = {};
+  Object.keys(by).forEach(ma => { const q = khQueue_({ type: 'add', ma: ma, guests: by[ma], force: true, mode: 'ghide', full: true, by: 'Chủ (thu hồi)' }); if (q.ok) ts[q.t] = ma; });
+  let r; try { r = withLock_(() => khApply_()); } catch (e) { return { ok: false, err: 'apply', msg: String(e.message || e) }; }
+  if (!r || !r.ok) return { ok: false, err: 'apply', msg: (r && (r.msg || r.err)) || 'Không ghi được file' };
+  const okMa = {}; (r.added || []).forEach(a => { if (ts[a.t]) okMa[ts[a.t]] = a.rows; });
+  const errs = (r.runErrors || []).filter(e => ts[e.t]).map(e => ts[e.t] + ': ' + e.msg);
+  const at = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm');
+  rns.forEach(rn => { const ma = String(sh.getRange(rn, 3).getDisplayValue()).toUpperCase().trim(); if (okMa[ma] && used.indexOf(rn) >= 0) sh.getRange(rn, 24).setValue("'" + at); });
+  Object.keys(okMa).forEach(ma => {
+    if (!prevSt[ma]) return;
+    try { const t = unitTable_(), i = findUnit_(t, ma.replace(/-/g, '')); if (i >= 0 && t.C.tt >= 0) t.sh.getRange(i + 1, t.C.tt + 1).setValue(prevSt[ma]); } catch (e) {}
+  });
+  try { nkAppend_('CHỦ', 'Chủ', 'Thu hồi khách đã OUT', Object.keys(okMa).map(ma => ma + ' (' + by[ma].map(g => g.ten).join(', ') + ')').join(' · '), 'khach.html', ''); } catch (e) {}
+  return { ok: true, units: okMa, n: Object.keys(okMa).reduce((a, ma) => a + by[ma].length, 0), errs: errs, catalog: Object.keys(okMa).filter(ma => prevSt[ma]).map(ma => ma + ' → ' + prevSt[ma]) };
 }
 
 /* ======================= XOÁ HẲN DÒNG (khách phụ đã OUT) =======================

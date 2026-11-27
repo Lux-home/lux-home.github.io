@@ -502,17 +502,38 @@ function decide(id,ok){
   }).catch(function(){ busy(false); toast('Không kết nối được máy chủ'); });
 }
 
+var OUTG=[];
 function renderOut(){
   $('main').innerHTML='<div class="bar"><button class="btn gh sm" onclick="VIEW=\'list\';render()">← Danh sách khách</button></div><p class="muted">Đang tải…</p>';
   api('khoutlist',{pw:pw()}).then(function(d){
     if(!d||!d.ok){ $('main').innerHTML+='<div class="warn">'+esc(errMsg(d))+'</div>'; return; }
-    var H=d.header||[], R=d.rows||[];
+    var R=d.rows||[];
+    // gom theo lần OUT (cùng mã lần OUT, hoặc cùng giờ + cùng căn với bản ghi cũ)
+    OUTG=[]; var idx={};
+    R.forEach(function(x){ var k=x[21]?('G'+x[21]):('T'+x[0]+'|'+x[2]); if(!(k in idx)){ idx[k]=OUTG.length; OUTG.push({ ma:x[2], at:x[0], by:x[1], note:x[20], rows:[] }); } OUTG[idx[k]].rows.push(x); });
     $('main').innerHTML='<div class="bar"><button class="btn gh sm" onclick="VIEW=\'list\';render()">← Danh sách khách</button></div>'
-      +'<p class="hint">Khách đã OUT qua app (mới nhất trước). Mỗi khách được lưu đầy đủ thông tin trước khi xoá khỏi file.</p>'
-      +(R.length?R.map(function(x){ return '<div class="olist"><b>'+esc(x[3])+'</b> · phòng '+esc(x[2])+' <span class="muted">— OUT '+esc(x[0])+'</span><div class="muted">'
-        +esc([x[5],x[8]||x[7],x[17]&&x[18]?x[17]+' '+x[18]:x[18],'HĐ '+(x[10]||'?')+' → '+(x[11]||'?')].filter(Boolean).join(' · '))+'</div>'+(x[20]?'<div>📝 '+esc(x[20])+'</div>':'')+'</div>'; }).join('')
+      +'<p class="hint">Khách đã OUT / check-out qua app (mới nhất trước). Check-out nhầm → bấm <b>↩️ Thu hồi</b> để đưa khách lại vào đúng căn trong file Quản lý khách hàng'+(STAFF?' (chỉ chủ thu hồi được)':'')+'.</p>'
+      +(OUTG.length?OUTG.map(function(gr,gi){
+        var con=gr.rows.filter(function(x){ return !x[23]; }), full=gr.rows.every(function(x){ return x[22]; });
+        return '<div class="olist"><b>🚪 '+esc(gr.ma)+'</b> <span class="muted">— OUT '+esc(gr.at)+(gr.by?' · '+esc(gr.by):'')+' · '+gr.rows.length+' khách</span>'
+          +gr.rows.map(function(x){ return '<div style="font-size:.86rem;margin-top:4px">• <b>'+esc(x[3])+'</b> <span class="muted">'+esc([x[5],x[8]||x[7],'HĐ '+(x[10]||'?')+' → '+(x[11]||'?')].filter(Boolean).join(' · '))+'</span>'+(x[23]?' <span class="tag t-ok">↩️ đã thu hồi '+esc(x[23])+'</span>':'')+'</div>'; }).join('')
+          +(gr.note?'<div style="font-size:.84rem">📝 '+esc(gr.note)+'</div>':'')
+          +(!STAFF&&con.length?'<button class="btn" style="margin-top:8px;background:#0e7490" onclick="undoOut('+gi+')">↩️ Thu hồi'+(con.length>1?' '+con.length+' khách':'')+' — đưa lại vào căn '+esc(gr.ma)+'</button>'+(full?'':'<div class="hint" style="margin-top:4px">Bản ghi cũ: thu hồi được tên, giấy tờ, ngày HĐ, lưu trú, cọc, tiền phòng, liên hệ — chỉ số điện và kỳ tính tiền cần nhập lại.</div>'):'')
+          +'</div>'; }).join('')
       :'<p class="muted">Chưa có khách nào OUT qua app.</p>');
   }).catch(function(){ $('main').innerHTML+='<div class="warn">Không kết nối được máy chủ.</div>'; });
+}
+function undoOut(gi){
+  var gr=OUTG[gi]; if(!gr) return; var con=gr.rows.filter(function(x){ return !x[23]; });
+  if(!confirm('Thu hồi '+con.length+' khách về căn '+gr.ma+'?\n\n'+con.map(function(x){ return '• '+x[3]; }).join('\n')+'\n\nKhách được ghi lại vào file Quản lý khách hàng (dòng trống của căn, thiếu thì chèn thêm dòng). Catalog trả về tình trạng trước khi check-out.')) return;
+  busy(true,'Đang thu hồi và ghi vào file…');
+  api('khoutundo',{pw:pw(),rows:con.map(function(x){ return x[x.length-1]; })},true).then(function(d){
+    busy(false);
+    if(!d||!d.ok) return toast(errMsg(d),6000);
+    if(d.errs&&d.errs.length) alert('Chưa thu hồi được:\n'+d.errs.join('\n'));
+    else toast('✓ Đã thu hồi '+d.n+' khách'+(d.catalog&&d.catalog.length?' · catalog: '+d.catalog.join(', '):''),5000);
+    load(true).then(function(){ VIEW='out'; render(); });
+  }).catch(function(){ busy(false); toast('Mất kết nối — tải lại để xem kết quả',6000); });
 }
 
 start();
