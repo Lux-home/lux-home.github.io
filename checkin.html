@@ -1693,7 +1693,7 @@ function bkNapVe(){
   dsVe();
 }
 /* ----- Nạp file DS Check-in (.xlsx) đã kiểm tra → ghi vào file QUAN LY KHACH HANG ----- */
-var DS={ wb:null, ten:'', sheet:'', nhom:[], chon:{}, kq:{}, dang:'', ghide:false };
+var DS={ wb:null, ten:'', sheet:'', nhom:[], chon:{}, kq:{}, dang:'', ghide:true };
 var DS_COT={ ma:['ma ch','ma can ho'], can:['can ho'], toa:['toa nha','toa'], ten:['ten khach'], ns:['nam sinh','ngay sinh'], qt:['quoc tich'], gt:['gioi tinh'],
   cccd:['cccd','cccd/ho chieu'], hc:['ho chieu'], dc:['dia chi'], bd:['bat dau hd'], kt:['ngay ket thuc hd'], lt:['thoi han luu tru'], coc:['tien coc'], tp:['tien phong'],
   sn:['so nguoi o'], dck:['chi so dien check in'], nuoc:['don gia nuoc'], bt:['don gia bao tri'], ttnp:['thanh toan khi nhan phong'], sale:['moi gioi'], lh:['lien he khach'], sdt:['sdt khach hang'] };
@@ -1758,7 +1758,7 @@ function dsVe(){
     +'<button class="btn big ok" style="margin-top:8px" '+(n&&!DS.dang?'':'disabled style="margin-top:8px;opacity:.45;cursor:not-allowed"')+' onclick="dsGhi()">'+(DS.dang?'⏳ '+DS.dang:'📁 Ghi '+n+' căn vào file QUAN LY KHACH HANG')+'</button>';
 }
 function dsGhi(chiSo, force, mode){
-  mode=mode||(DS.ghide?'ghide':'');
+  mode=mode||(DS.ghide?'ghide':'bao');
   var ds=chiSo || DS.nhom.map(function(x,i){ return i; }).filter(function(i){ return DS.chon[i] && !(DS.kq[i]&&DS.kq[i].ok); });
   if(!ds.length) return;
   if(!chiSo && !confirm('Ghi '+ds.length+' căn từ sheet '+DS.sheet+' vào file QUAN LY KHACH HANG?')) return;

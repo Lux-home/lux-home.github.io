@@ -477,7 +477,7 @@ function khApplyAdds_(adds) {
   let reg = {}; try { reg = JSON.parse(P.getProperty('khadd_reg') || '{}'); } catch (e) {}
   adds.forEach(it => {
     const fail = (msg, dup) => { failed++; const e = { t: it.t, row: 0, ma: it.ma, ten: (it.guests[0] || {}).ten || '', type: 'add', msg: msg, dup: !!dup }; errs.unshift(e); runErr.push(e); };
-    const ghide = it.mode === 'ghide' || !!it.force;      // khách trùng tên → ghi đè dòng cũ
+    const ghide = it.mode !== 'bao' || !!it.force;       // mặc định: khách trùng tên → tự ghi đè dòng cũ
     try {
       const blk = S.findBlock(it.ma);
       if (!blk.length) return fail('Không thấy căn ' + it.ma + ' trong file Quản lý khách hàng — thêm căn vào file trước');
@@ -520,7 +520,7 @@ function khApplyAdds_(adds) {
 function khAddRoute_(p) {
   const who = hdAuth_(p, ['checkin', 'checkinout']);
   if (!who) return { ok: false, err: 'noperm' };
-  const add = { type: 'add', ma: p.ma, guests: p.guests, force: !!p.force, file: p.file, mode: p.mode === 'ghide' ? 'ghide' : '' };
+  const add = { type: 'add', ma: p.ma, guests: p.guests, force: !!p.force, file: p.file, mode: p.mode === 'bao' ? 'bao' : 'ghide' };
   if (!who.owner) {
     if (!(p.guests || []).length || !p.ma) return { ok: false, err: 'nothing' };
     const o = { t: Date.now(), status: 'cho', who: { ma: who.ma, ten: who.ten }, type: 'add', add: add, kq: String(p.kq || '').slice(0, 300) };
@@ -752,6 +752,37 @@ function donDongTrong(chiXem) {
     const S = xlsmSession_(); S.delRows(del); Logger.log('Đã xoá -> ' + JSON.stringify(S.commit()));
   } finally { lock.releaseLock(); }
 }
+
+/** Chạy tay: xoá các dòng KHÁCH TRÙNG (cùng căn, cùng tên) đang có trong file — giữ 1 dòng (dòng chính của căn, hoặc dòng nhiều dữ liệu nhất). chiXem=true: chỉ liệt kê. */
+function donKhachTrung(chiXem) {
+  const lock = LockService.getScriptLock(); lock.waitLock(60000);
+  try {
+    if (khPending_().length) khApply_();
+    const nk = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'D').toUpperCase()
+      .replace(/\(.*?\)/g, ' ').replace(/[^A-Z0-9]+/g, ' ').trim().split(' ').filter(Boolean).sort().join(' ');
+    const L = khList_().rows.slice().sort((a, b) => a.row - b.row), del = [], log = [];
+    const day = (r) => Object.keys(r).filter(k => ['row', 'ma', 'ten'].indexOf(k) < 0 && r[k] != null && String(r[k]).trim() !== '').length;
+    // gom từng khối liền nhau cùng mã căn
+    let blk = [];
+    const xet = () => {
+      if (blk.length < 2) return;
+      const by = {};
+      blk.forEach((r, i) => { const k = nk(r.ten); if (k) (by[k] = by[k] || []).push(Object.assign({ i: i }, r)); });
+      Object.keys(by).forEach(k => {
+        const g = by[k]; if (g.length < 2) return;
+        const giu = g.find(r => r.i === 0) || g.slice().sort((a, b) => day(b) - day(a) || a.row - b.row)[0];
+        g.forEach(r => { if (r.row !== giu.row) { del.push(r.row); log.push(r.ma + ' · ' + r.ten + ' · xoá dòng ' + r.row + ' (giữ dòng ' + giu.row + ')'); } });
+      });
+    };
+    L.forEach(r => { if (blk.length && (r.ma !== blk[0].ma || r.row !== blk[blk.length - 1].row + 1)) { xet(); blk = []; } if (r.ma) blk.push(r); else { xet(); blk = []; } });
+    xet();
+    Logger.log('Khách trùng: ' + del.length + ' dòng\n' + log.join('\n'));
+    if (chiXem || !del.length) return { ok: true, n: del.length, list: log };
+    const S = xlsmSession_(); S.delRows(del); const c = S.commit(); Logger.log('Đã xoá -> ' + JSON.stringify(c));
+    return { ok: true, n: del.length, list: log, backupId: c.backupId || null };
+  } finally { lock.releaseLock(); }
+}
+function donKhachTrungXem() { return donKhachTrung(true); }
 
 /* Chạy tay: thử BỔ SUNG KHÁCH CHECK-IN (2 khách vào 1 căn trống → chèn 1 dòng) trên BẢN SAO, kiểm tra bằng Google Sheets. */
 function thuBoSungBanSao() {
