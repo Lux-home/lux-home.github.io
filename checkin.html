@@ -1208,7 +1208,8 @@ function hdSuaDot1(h){
   if(Xtt && (!X || Math.abs(Xtt-X)>=1000)) X=Xtt;
   if(!X) return h;
   var zNgay=y?Math.round((y-x)/864e5)+1:0, P=n(h.phong);
-  if(P && zNgay && Math.abs(X0(P,zNgay)-X)<1000) return h;      // đã khớp
+  var ghiX=function(){ if(X!==Xdoc){ h.suaTD.push('Tiền thuê đợt 1 đọc '+(Xdoc?fm(Xdoc):'(trống)')+' → app sửa thành '+fm(X)+' (= tổng '+fm(T)+' − cọc '+fm(O)+')'); h.tpd1=String(X); } };
+  if(P && zNgay && Math.abs(X0(P,zNgay)-X)<1000){ ghiX(); return h; }      // đơn giá + ngày đã khớp
   var ts=[P, n(h.donGiaDot1), O].filter(function(v,i,a){ return v>=500000 && a.indexOf(v)===i; });
   var zs=[zNgay, n(h.zDoc)].filter(function(v,i,a){ return v>=1 && v<=62 && a.indexOf(v)===i; });
   ts.forEach(function(t){ var z=Math.round(X*30/t); if(z>=1&&z<=62&&zs.indexOf(z)<0) zs.push(z); });
@@ -1219,7 +1220,7 @@ function hdSuaDot1(h){
     if(!best || diem<best.diem) best={ t:t, z:z, diem:diem };
   }); });
   if(!best) return h;
-  if(X!==Xdoc){ h.suaTD.push('Tiền thuê đợt 1 đọc '+(Xdoc?fm(Xdoc):'(trống)')+' → app sửa thành '+fm(X)+' (= tổng '+fm(T)+' − cọc '+fm(O)+')'); h.tpd1=String(X); }
+  ghiX();
   var add=function(d,k){ var o=new Date(d.getTime()+k*864e5); return kp2(o.getDate())+'/'+kp2(o.getMonth()+1)+'/'+o.getFullYear(); };
   if(best.t!==P){ h.suaTD.push('Đơn giá thuê đọc '+(P?fm(P):'(trống)')+' → app sửa thành '+fm(best.t)+' cho khớp bảng thanh toán đợt 1'); h.phong=String(best.t); }
   if(best.z!==zNgay){ var yy=add(x,best.z-1); h.suaTD.push('Ngày hết đợt 1 đọc '+(h.hetDot1||'(trống)')+' → app sửa thành '+yy+' ('+best.z+' ngày, khớp tiền thuê đợt 1 '+fm(X)+')'); h.hetDot1=yy; }
