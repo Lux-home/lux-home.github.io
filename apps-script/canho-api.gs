@@ -86,6 +86,7 @@ function handle_(a, p) {
   if (a === 'khproplist')   return kpList_();
   if (a === 'khpropcount')  return kpCount_();
   if (a === 'khdecide')     return kpDecide_(p);
+  if (a === 'khdecidelo')   return kpDecideLo_(p);
   if (a === 'khqueue')      return khQueue_(p);
   if (a === 'khapply')      return withLock_(() => khApply_());
   if (a === 'khstatus')     return khStatus_();

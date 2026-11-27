@@ -524,9 +524,10 @@ function khAddRoute_(p) {
   if (!who.owner) {
     if (!(p.guests || []).length || !p.ma) return { ok: false, err: 'nothing' };
     const o = { t: Date.now(), status: 'cho', who: { ma: who.ma, ten: who.ten }, type: 'add', add: add, kq: String(p.kq || '').slice(0, 300) };
+    if (p.lo) { o.lo = String(p.lo).slice(0, 80); o.src = String(p.src || '').slice(0, 120); }     // lô nạp từ file DS Check-in → chủ duyệt cả lô
     o.id = KP_PREFIX + o.t + '_' + Math.random().toString(36).slice(2, 7);
     kpSave_(o);
-    try { nkAppend_(who.ma, who.ten, kpLabel_(o), kpDetail_(o), 'checkin.html', p.devname); } catch (e) {}
+    if (!p.lo || p.loFirst) { try { nkAppend_(who.ma, who.ten, p.lo ? 'Gửi lô DS Check-in chờ duyệt' : kpLabel_(o), p.lo ? (o.src + ' · ' + (p.loN || '') + ' căn') : kpDetail_(o), 'checkin.html', p.devname); } catch (e) {} }
     return { ok: true, proposed: true, id: o.id };
   }
   add.by = 'Chủ';

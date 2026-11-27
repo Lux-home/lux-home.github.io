@@ -118,4 +118,33 @@ function kpDecide_(p) {
   try { nkAppend_('CHỦ', 'Chủ', 'Duyệt: ' + kpLabel_(o), (o.who ? o.who.ten + ' · ' : '') + kpDetail_(o) + (o.status === 'loi' ? ' · LỖI: ' + o.err : ''), 'khach.html', ''); } catch (e) {}
   return { ok: true, status: o.status, err: o.err || '' };
 }
+/** Chủ duyệt / từ chối CẢ LÔ đề xuất bổ sung khách (nhân viên nạp từ file DS Check-in) — ghi file 1 lần */
+function kpDecideLo_(p) {
+  const lo = String(p.lo || ''); if (!lo) return { ok: false, err: 'nothing' };
+  const ds = kpAll_().filter(o => o.status === 'cho' && o.type === 'add' && o.lo === lo && (!p.ids || p.ids.indexOf(o.id) >= 0));
+  if (!ds.length) return { ok: false, err: 'done', msg: 'Lô này không còn đề xuất chờ duyệt' };
+  const now = Date.now(), src = ds[0].src || lo, nv = ds[0].who ? ds[0].who.ten : '';
+  if (!p.approve) {
+    const reason = String(p.reason || '').slice(0, 300);
+    ds.forEach(o => { o.status = 'tuchoi'; o.reason = reason; o.decidedAt = now; kpSave_(o); });
+    try { nkAppend_('CHỦ', 'Chủ', 'Từ chối lô DS Check-in', nv + ' · ' + src + ' · ' + ds.length + ' căn' + (reason ? ' · lý do: ' + reason : ''), 'khach.html', ''); } catch (e) {}
+    return { ok: true, n: ds.length };
+  }
+  const theoT = {};
+  ds.forEach(o => {
+    const q = khQueue_(Object.assign({}, o.add, { by: 'NV ' + nv }));
+    o.decidedAt = now;
+    if (q.ok) { theoT[q.t] = o; o.status = 'duyet'; } else { o.status = 'loi'; o.err = 'Không đưa được vào hàng chờ'; }
+    kpSave_(o);
+  });
+  let r = null;
+  try { r = withLock_(() => khApply_()); } catch (err) { r = { ok: false, msg: String(err.message || err) }; }
+  let ok = 0, loi = 0;
+  ((r && (r.runErrors || r.errors)) || []).forEach(e => { const o = theoT[e.t]; if (o) { o.status = 'loi'; o.err = e.msg; kpSave_(o); } });
+  ((r && r.added) || []).forEach(a => { const o = theoT[a.t]; if (o) { o.rows = a.rows; kpSave_(o); } });
+  ds.forEach(o => { if (o.status === 'duyet') ok++; else loi++; });
+  if (!r || !r.ok) ds.forEach(o => { if (o.status === 'duyet') { o.err = 'Đã duyệt — đang chờ ghi vào file (sẽ tự ghi ở lần kế tiếp)'; kpSave_(o); } });
+  try { nkAppend_('CHỦ', 'Chủ', 'Duyệt lô DS Check-in', nv + ' · ' + src + ' · ghi ' + ok + '/' + ds.length + ' căn' + (loi ? ' · ' + loi + ' lỗi' : ''), 'khach.html', ''); } catch (e) {}
+  return { ok: true, n: ds.length, ghi: ok, loi: loi, errs: ds.filter(o => o.status === 'loi').map(o => (o.add.ma || '') + ': ' + o.err), pending: !r || !r.ok };
+}
 function kpCount_() { return { ok: true, n: kpAll_().filter(o => o.status === 'cho').length }; }

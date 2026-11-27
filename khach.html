@@ -428,10 +428,28 @@ function renderProps(){
     PROPN=d.pending.length;
     var card=function(o,act){ return '<div class="olist"><b>'+esc(o.who?o.who.ten:'?')+'</b> <span class="muted">'+esc(o.who?o.who.ma:'')+' · '+tf(o.t)+'</span><div><b>'+typeLab(o)+'</b> '+stLab(o)+'</div>'+propBody(o)
       +(act?'<div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1;background:#15803d" onclick="decide(\''+o.id+'\',1)">✓ Duyệt</button><button class="btn red" style="flex:1" onclick="decide(\''+o.id+'\',0)">✕ Từ chối</button></div>':'')+'</div>'; };
+    var lo={}, le=[]; d.pending.forEach(function(o){ if(o.type==='add'&&o.lo){ (lo[o.lo]=lo[o.lo]||[]).push(o); } else le.push(o); });
+    var loHtml=Object.keys(lo).map(function(k){ var g=lo[k], o=g[0], nk=g.reduce(function(a,x){ return a+((x.add||{}).guests||[]).length; },0);
+      return '<div class="olist" style="border:2px solid #15803d"><b>📁 Lô DS Check-in</b> <span class="tag t-amb">⏳ Chờ duyệt</span><div><b>'+esc(o.who?o.who.ten:'?')+'</b> <span class="muted">'+esc(o.who?o.who.ma:'')+' · '+tf(o.t)+'</span></div>'
+        +'<div class="muted">'+esc(o.src||'')+' · <b>'+g.length+'</b> căn · '+nk+' khách. Khách đã có trong file (trùng tên) sẽ được ghi đè.</div>'
+        +'<div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1;background:#15803d" onclick="decideLo(\''+esc(k)+'\',1,'+g.length+')">✓ Duyệt cả lô ('+g.length+' căn)</button><button class="btn red" style="flex:1" onclick="decideLo(\''+esc(k)+'\',0,'+g.length+')">✕ Từ chối cả lô</button></div>'
+        +'<details style="margin-top:8px"><summary style="cursor:pointer">Xem / duyệt từng căn</summary>'+g.map(function(x){ return card(x,true); }).join('')+'</details></div>'; }).join('');
     $('main').innerHTML=backBar()+'<h3 style="margin:6px 0">🔔 Chờ duyệt ('+d.pending.length+')</h3>'
-      +(d.pending.length?d.pending.map(function(o){return card(o,true);}).join(''):'<p class="muted">Không có đề xuất nào đang chờ.</p>')
+      +(d.pending.length?loHtml+le.map(function(o){return card(o,true);}).join(''):'<p class="muted">Không có đề xuất nào đang chờ.</p>')
       +(d.recent.length?'<h3 style="margin:16px 0 6px">Đã xử lý gần đây</h3>'+d.recent.map(function(o){return card(o,false);}).join(''):'');
   }).catch(function(){ $('main').innerHTML=backBar()+'<div class="warn">Không kết nối được máy chủ.</div>'; });
+}
+function decideLo(lo,ok,n){
+  var reason=''; if(!ok){ reason=prompt('Lý do từ chối cả lô (nhân viên sẽ thấy):',''); if(reason===null) return; }
+  else if(!confirm('Duyệt và ghi '+n+' căn vào file QUAN LY KHACH HANG?')) return;
+  busy(true, ok?'Đang ghi '+n+' căn vào file (1–3 phút)…':'Đang từ chối…');
+  api('khdecidelo',{lo:lo,approve:!!ok,reason:reason},true).then(function(d){
+    busy(false);
+    if(!d||!d.ok) return toast(errMsg(d),6000);
+    if(ok){ if(d.loi) alert('Đã ghi '+d.ghi+'/'+d.n+' căn.\n\nChưa ghi được:\n'+(d.errs||[]).join('\n')); else toast('✓ Đã duyệt và ghi '+d.ghi+' căn'+(d.pending?' — đang chờ ghi file':''),6000); }
+    else toast('Đã từ chối '+d.n+' căn');
+    if(ok) load(true).then(function(){ VIEW='props'; render(); }); else renderProps();
+  }).catch(function(){ busy(false); toast('Mất kết nối — tải lại để xem kết quả',6000); });
 }
 function decide(id,ok){
   var reason=''; if(!ok){ reason=prompt('Lý do từ chối (nhân viên sẽ thấy):',''); if(reason===null) return; }
