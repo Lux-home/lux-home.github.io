@@ -126,6 +126,7 @@
       <div class="napTab">
         <button class="napB" data-n="pdf" onclick="napChon('pdf')"><b>1</b>🛎️ Bổ sung khách check-in</button>
         <button class="napB" data-n="le" onclick="napChon('le')"><b>2</b>👤 Bổ sung khách ở thêm</button>
+        <button class="napB" id="napXuat" data-n="xuat" onclick="moTab('tk')"><b>3</b>📤 Xuất file Excel DS Check-in</button>
       </div>
       <div class="card napP" id="napExcel" style="display:none">
         <div class="lb">Nạp theo file Excel DS Check-in</div>
@@ -276,7 +277,7 @@ var PW=''; try{ if(!TOK) PW=localStorage.getItem('ck_pw')||''; }catch(e){}
 var ME=null, curTab='', PARSED=[], CURDOT=null;
 if(TOK) document.getElementById('backLink').href='checkinout.html?tok='+encodeURIComponent(TOK);
 // mục 3 (đối chiếu sao kê) chỉ dành cho chủ — máy chủ check-in chỉ cho chủ xem thống kê thanh toán
-if(TOK){ var _b3=document.querySelector('.napB[data-n="tt"]'); if(_b3) _b3.style.display='none'; }
+if(TOK){ var _b3=document.getElementById('napXuat'); if(_b3) _b3.style.display='none'; }
 var MODE=QS.get('mode')||'';
 if(MODE==='tt'){
   document.title='LUXHOME · Kiểm tra thanh toán đợt 1';
@@ -335,6 +336,7 @@ function start(){
       document.getElementById('v_tt').style.display='block'; ttMo(); return;
     }
     document.getElementById('who').textContent = d.owner ? '👑 Chủ nhà · quyền duyệt' : ('👤 '+d.ten+' · Mã NV '+d.ma);
+    var _nx=document.getElementById('napXuat'); if(_nx) _nx.style.display=d.owner?'':'none';   // xuất Excel: chỉ chủ
     var tabs = d.owner ? [['cho','⏳ Chờ duyệt'],['gui','📥 Nạp danh sách khách'],['ls','📚 Lịch sử'],['tk','📊 Thống kê'],['pw','🔑 Mật khẩu']]
                        : [['gui','📥 Nạp danh sách khách'],['cua','📋 Đợt của tôi']];
     document.getElementById('tabs').innerHTML = tabs.map(function(t){ return '<button class="tab" data-k="'+t[0]+'" onclick="moTab(\''+t[0]+'\')">'+t[1]+(t[0]==='cho'?'<span class="n" id="nCho" style="display:none"></span>':'')+'</button>'; }).join('');
@@ -1682,10 +1684,10 @@ function tkXuat(){
     var tkRows=[];
     sel.forEach(function(k){
       var p=k.split('-'), ten='TH '+(+p[1])+(nhieuNam?'.'+p[0].slice(2):'');
-      var ws=wb.addWorksheet(ten, { views:[{ state:'frozen', ySplit:3 }] });
+      var ws=wb.addWorksheet(ten);
       TK_W.forEach(function(w,i){ ws.getColumn(i+1).width=w; });
       ws.mergeCells('A1:V1');
-      var t=ws.getCell('A1'); t.value='DANH SÁCH CHECK IN THÁNG '+(+p[1])+'/'+p[0]; t.font=Object.assign({},F,{bold:true}); t.alignment={horizontal:'center',vertical:'middle'};
+      var t=ws.getCell('A1'); t.value='DANH SÁCH CHECK IN'; t.font=Object.assign({},F,{bold:true}); t.alignment={horizontal:'center',vertical:'middle'};
       ws.getRow(1).height=42.75; ws.getRow(2).height=36.5;
       TK_H.forEach(function(h,i){
         var col=tkCot(i+1);
@@ -1696,21 +1698,30 @@ function tkXuat(){
       ws.getCell('K3').value='Chi Tiết';
       var rs=TK.rows.filter(function(r){ return r.thang===k; }), rn=4, stt=0, lastRoom='', toaOrder=[];
       rs.forEach(function(r){
-        var c=r.c, room=c[3]+'|'+r.dot; stt = (r.chinh || room!==lastRoom) ? 1 : stt+1; lastRoom=room;
+        var c=r.c; stt++;
         var row=ws.getRow(rn); row.height=27.95;
         for(var j=0;j<NCOL;j++){
           var cell=row.getCell(j+1), v=j===0?stt:tkGiaTri(c[j],j);
           if(j===4) v=String(c[4]||'').replace(/\s*\(b[ổo]\s*sung\)\s*/i,'').trim()+(laBoSung(c)?' (bổ sung)':'');
           cell.value=v; cell.font=F; cell.border=B; cell.alignment={horizontal:'center',vertical:'middle',wrapText:j===23||j===10};
-          if(TK_DATE.indexOf(j)>=0) cell.numFmt='dd/mm/yyyy';
+          if(TK_DATE.indexOf(j)>=0) cell.numFmt='d/mm/yyyy';
           else if(TK_MONEY.indexOf(j)>=0) cell.numFmt='#,##0';
           else if(j===24) cell.numFmt='0%';
           else if(j===8||j===9||j===23) cell.numFmt='@';
+        }
+        // công thức như file DS Check-in: Z = Y×P · AA = (U−L+1)×P/30 (làm tròn xuống nghìn) · AB = O + AA
+        if(r.chinh){
+          var L=kpDate(c[11]), U=kpDate(c[20]), P=tkSo(c[15]), O=tkSo(c[14]), Yp=tkSo(c[24]);
+          var aa=(L&&U&&P)?Math.floor((Math.round((U-L)/864e5)+1)*P/30/1000)*1000:tkSo(c[26]);
+          if(String(c[24]||'')!=='') row.getCell(26).value={ formula:'Y'+rn+'*P'+rn, result:Yp*P };
+          if(L&&U&&P){ row.getCell(27).value={ formula:'ROUNDDOWN((U'+rn+'-L'+rn+'+1)*P'+rn+'/30,-3)', result:aa };
+                       row.getCell(28).value={ formula:'O'+rn+'+AA'+rn, result:O+aa }; }
         }
         if(c[2] && toaOrder.indexOf(c[2])<0) toaOrder.push(c[2]);
         rn++;
       });
       var last=rn-1, s=tkTinh(rs);
+      if(last>=4) ws.autoFilter='A2:AC'+last;
       tkRows.push([tkTenThang(k), s.phong, s.khach, s.nn, s.vn, s.coc, s.tien, s.dot1, s.hh]);
       // bảng hoa hồng theo tòa như file mẫu
       var r0=rn+4; ws.getCell('B'+(r0-1)).value='HOA HỒNG THEO TÒA'; ws.getCell('B'+(r0-1)).font=Object.assign({},F,{bold:true});
