@@ -99,7 +99,7 @@ function tile(m, live){
 }
 const gLive=document.getElementById("gLive"), gSoon=document.getElementById("gSoon");
 LIVE.forEach(m=>gLive.appendChild(tile(m,true)));
-// số đỏ: đề xuất của nhân viên đang chờ chủ duyệt (ô Check in - Check out)
+// số đỏ: đề xuất của nhân viên đang chờ chủ duyệt (ô Cập nhật khách Check-in)
 (function(){ var pw=''; try{ pw=localStorage.getItem('luxAdminPw')||''; }catch(e){}
   if(!pw||!window.luxApi) return;
   luxApi('khpropcount',{pw:pw}).then(function(d){ if(!(d&&d.ok&&d.n)) return;
