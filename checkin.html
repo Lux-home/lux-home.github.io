@@ -1920,9 +1920,8 @@ var TT_COC=/(^|[^A-Z])(COC|DAT COC|TIEN COC|DEPOSIT|BOOK|BOOKING|GIU PHONG|GIU C
  *  1. Tiền thuê đợt 1 X = giá thuê × (y − x + 1)/30 (x = ngày check-in, y = ngày kết thúc đợt 1), làm tròn XUỐNG nghìn
  *  2. Tổng các đợt tiền cọc (nội dung ghi cọc/book…) = tiền cọc hợp đồng Y
  *  3. Tổng khách đã chuyển = X + Y
- *  4. Nội dung chuyển khoản không ghi là tiền cọc / tiền thuê → cảnh báo
- *  5. Luôn đánh giá thừa / thiếu (thiếu = không đạt; thừa = đạt + cảnh báo)
- *  Giao dịch tìm theo: bill đính kèm (số tiền + ngày, mọi thời điểm) · sao kê ghi mã căn hộ · tên người chuyển */
+ *  Đối chiếu: mỗi BILL khách gửi phải có trong sao kê (cùng số tiền, ngày ±1). KHÔNG xét nội dung chuyển khoản.
+ *  Luôn đánh giá thừa / thiếu (thiếu = không đạt; thừa = đạt + cảnh báo). Không có bill → tìm theo mã căn / tên khách. */
 function ttKiemTra(khach, bills, sk){
   var dung={}, KQ=[], co=sk.length>0;
   var maBat=/(CAN HO|PHONG|APARTMENT|ROOM)\s*[A-Z0-9]|\b(T|TOA\s?)\d{1,3}[A-Z]?|\d(T|TOA)\d|\d{3,6}P\b|\d{1,4}\s?-\s?\d{1,3}P\b/, nganHang=/TRA LAI|RUT GOC|LAI TIEN GUI|TK DAU TU|TIEN LAI|INTEREST/;
@@ -1948,71 +1947,50 @@ function ttKiemTra(khach, bills, sk){
     // khoảng tìm sao kê theo mã căn: từ bill sớm nhất (hoặc 20 ngày trước check-in) đến 15 ngày sau
     var bMin=bs.map(function(b){ return ttNgay(b.ngay); }).filter(Boolean), tu=L?Math.min.apply(null,[L-20*864e5].concat(bMin.map(function(t){ return t-864e5; }))):null;
     var trong=function(ng){ var t=ttNgay(ng); return !L || !t || (t>=tu && t<=L+15*864e5); };
-    var nhan=[], cach='';
+    var nhan=[], cach='', tb=bs.reduce(function(a,b){ return a+b.so; },0), thieuBill=0;
     if(co){
-      // (a) bill đính kèm → tìm đúng giao dịch trong sao kê (cùng số tiền, ±1 ngày), không giới hạn thời gian
-      bs.forEach(function(b){
+      // (a) mỗi bill khách gửi → tìm đúng giao dịch trong sao kê (cùng số tiền, ngày ±1), không giới hạn thời gian, không xét nội dung
+      bs.forEach(function(b,i){
         var t=ttNgay(b.ngay);
         var cand=sk.filter(function(x){ return !dung[x._i] && x.so===b.so && (!t || Math.abs(ttNgay(x.ngay)-t)<=864e5); });
         cand.sort(function(p,q){ return (re&&re.test(q._u)?1:0)-(re&&re.test(p._u)?1:0); });
-        if(cand[0]){ dung[cand[0]._i]=1; nhan.push({ sk:cand[0], coMa:!!(re&&re.test(cand[0]._u)), bill:b }); }
-        else loi.push('Bill '+fm0(b.so)+(b.ngay?' ngày '+b.ngay:'')+' KHÔNG tìm thấy trong sao kê');
+        if(cand[0]){ dung[cand[0]._i]=1; nhan.push({ sk:cand[0], coMa:true, bill:b }); ok.push('Bill '+(i+1)+': '+fm0(b.so)+(b.ngay?' ngày '+b.ngay:'')+' → CÓ trong sao kê ('+cand[0].ngay+')'); }
+        else { thieuBill+=b.so; loi.push('Bill '+(i+1)+': '+fm0(b.so)+(b.ngay?' ngày '+b.ngay:'')+' → KHÔNG có trong sao kê'); }
       });
-      // (b) giao dịch ghi mã căn hộ trong khoảng tìm
-      var coMa=sk.filter(function(x){ if(dung[x._i] || !re || !re.test(x._u)) return false; if(trong(x.ngay)) return true;
-        var t=ttNgay(x.ngay); return L && t && t>=L-60*864e5 && t<L && TT_COC.test(x._u); });   // cọc / book ghi mã căn: tìm lùi tới 60 ngày
-      if(coMa.length && expAB!=null){
-        var daCo=nhan.reduce(function(a,r){ return a+r.sk.so; },0), canCon=expAB-daCo, tongMa=coMa.reduce(function(a,x){ return a+x.so; },0);
-        var chon = tongMa>canCon+TT_LECH ? (ttTapCon(coMa, canCon)||coMa) : coMa;   // nhiều hơn cần → thử chọn đúng tập khớp
+      // (b) không có bill → tìm trong sao kê theo mã căn hộ / tên người chuyển
+      if(!bs.length){
+        canh.push('Hợp đồng không có ảnh chuyển khoản (bill) — tìm tiền trong sao kê theo mã căn / tên khách');
+        var coMa=sk.filter(function(x){ return !dung[x._i] && re && re.test(x._u) && trong(x.ngay); });
+        var chon = expAB!=null && coMa.reduce(function(a,x){ return a+x.so; },0)>expAB+TT_LECH ? (ttTapCon(coMa, expAB)||coMa) : coMa;
         chon.forEach(function(x){ dung[x._i]=1; nhan.push({ sk:x, coMa:true }); });
-      } else coMa.forEach(function(x){ dung[x._i]=1; nhan.push({ sk:x, coMa:true }); });
-      // (c) theo TÊN người chuyển (không ghi mã căn hộ)
-      var ten=ttKhongDau(String(c[4]||'').replace(/\(.*?\)/g,'')).replace(/[^A-Z ]/g,' ').split(/\s+/).filter(function(w){ return w.length>1; });
-      if(ten.length>=2 && expAB!=null){
-        var con=function(){ return expAB-nhan.reduce(function(a,r){ return a+r.sk.so; },0); };
-        sk.filter(function(x){ return !dung[x._i] && trong(x.ngay) && !maBat.test(x._u) && !nganHang.test(x._u) && ten.every(function(w){ return (' '+x._u+' '+x._t+' ').replace(/[^A-Z]/g,' ').indexOf(' '+w+' ')>=0; }); })
-          .forEach(function(x){ if(x.so<=con()+TT_LECH){ dung[x._i]=1; nhan.push({ sk:x, coMa:false, theoTen:true }); } });
+        var ten=ttKhongDau(String(c[4]||'').replace(/\(.*?\)/g,'')).replace(/[^A-Z ]/g,' ').split(/\s+/).filter(function(w){ return w.length>1; });
+        if(ten.length>=2 && expAB!=null){
+          var con=function(){ return expAB-nhan.reduce(function(a,r){ return a+r.sk.so; },0); };
+          sk.filter(function(x){ return !dung[x._i] && trong(x.ngay) && !maBat.test(x._u) && !nganHang.test(x._u) && ten.every(function(w){ return (' '+x._u+' '+x._t+' ').replace(/[^A-Z]/g,' ').indexOf(' '+w+' ')>=0; }); })
+            .forEach(function(x){ if(x.so<=con()+TT_LECH){ dung[x._i]=1; nhan.push({ sk:x, coMa:false, theoTen:true }); } });
+        }
+        if(!nhan.length) loi.push('Không có bill và sao kê không thấy tiền vào cho căn '+room);
+        else ok.push('Sao kê có '+nhan.length+' giao dịch cho căn '+room+': '+nhan.map(function(r){ return fm0(r.sk.so)+' ('+r.sk.ngay+')'; }).join(' + '));
       }
-      nhan.filter(function(r){ return !r.coMa; }).forEach(function(r){ khongMa.push(r.sk);
-        canh.push('Khách chuyển '+fm0(r.sk.so)+' ngày '+r.sk.ngay+' KHÔNG ghi mã căn hộ'+(r.theoTen?' (nhận ra theo tên người chuyển)':' (ghép theo bill)')+' — "'+String(r.sk.nd).slice(0,60)+'"'); });
       cach=nhan.length?'sk':'';
-      if(!nhan.length) loi.push('Sao kê không có tiền vào cho căn '+room+(bs.length?'':' (không ghi mã căn hộ, chưa có bill)'));
     } else {
       bs.forEach(function(b){ nhan.push({ sk:{ so:b.so, ngay:b.ngay, nd:b.nd||'' }, coMa:true, bill:b, chiBill:true }); });
-      canh.push('Chưa tải sao kê — tạm kiểm tra theo ảnh chuyển khoản (bill)');
-      if(!bs.length) loi.push('Chưa có sao kê và chưa có bill');
+      canh.push('Chưa tải sao kê — chưa xác nhận được tiền trong bill đã về tài khoản');
+      if(!bs.length) loi.push('Chưa có sao kê và hợp đồng không có bill');
     }
-    // ② các đợt cọc · ④ nội dung chuyển khoản
-    var tongCoc=0, coCoc=false, coGop=false, lan=nhan.length;
-    nhan.forEach(function(r,i){
-      var nd=String(r.sk.nd||'')+(r.bill&&r.bill.nd&&r.bill.nd!==r.sk.nd?' '+r.bill.nd:''), l=loai(nd);
-      r.loai = l.coc&&!l.thue?'coc':l.thue&&!l.coc?'thue':l.coc?'ca2':'';
-      if(l.coc&&!l.thue){ tongCoc+=r.sk.so; coCoc=true; }
-      if(l.coc&&l.thue) coGop=true;
-      if(!l.coc&&!l.thue) canh.push('④ Lần '+(i+1)+' ('+fm0(r.sk.so)+(r.sk.ngay?' ngày '+r.sk.ngay:'')+'): nội dung không ghi là tiền cọc hay tiền thuê — "'+String(nd).slice(0,60)+'"');
-    });
-    if(lan && O){
-      if(coCoc){
-        if(Math.abs(tongCoc-O)<TT_LECH) ok.push('② Tổng các đợt cọc '+fm0(tongCoc)+' = tiền cọc hợp đồng '+fm0(O));
-        else loi.push('② Tổng các đợt cọc '+fm0(tongCoc)+' ≠ tiền cọc hợp đồng '+fm0(O)+' ('+(tongCoc<O?'thiếu ':'thừa ')+fm0(Math.abs(O-tongCoc))+')');
-      } else if(coGop) canh.push('② Khách chuyển GỘP cọc + tiền thuê trong cùng lần — không tách riêng được tiền cọc, chỉ kiểm tra theo tổng X+Y');
-      else canh.push('② Không có lần chuyển nào ghi là tiền cọc — chưa xác định được các đợt cọc');
-    }
-    // ③ tổng chuyển = X+Y · ⑤ thừa / thiếu
-    var tg=nhan.reduce(function(a,r){ return a+r.sk.so; },0), lech=expAB!=null?tg-expAB:null;
+    // tổng tiền khách chuyển (đã xác nhận trong sao kê) so với X+Y — luôn báo thừa / thiếu
+    var tg=nhan.reduce(function(a,r){ return a+r.sk.so; },0), lech=expAB!=null?tg-expAB:null, lan=nhan.length;
+    if(bs.length) ok.push('Tổng các bill: '+fm0(tb)+(co&&thieuBill?' · trong đó '+fm0(thieuBill)+' chưa thấy trong sao kê':''));
     if(lan && expAB!=null){
-      if(Math.abs(lech)<TT_LECH) ok.push('③ Khách đã chuyển '+lan+' lần = '+fm0(tg)+' khớp X+Y '+fm0(expAB)+ttLe(lech)+' · ⑤ không thừa, không thiếu');
-      else if(lech<0) loi.push('③ Khách đã chuyển '+fm0(tg)+' < X+Y '+fm0(expAB)+' · ⑤ THIẾU '+fm0(-lech));
-      else { ok.push('③ Khách đã chuyển '+fm0(tg)+' ≥ X+Y '+fm0(expAB)); canh.push('⑤ Khách chuyển THỪA '+fm0(lech)+' — hoàn lại hoặc trừ kỳ sau'); }
-    }
+      var nguon=co?'đã về tài khoản (sao kê)':'theo bill';
+      if(Math.abs(lech)<TT_LECH) ok.push('Tổng '+nguon+' '+fm0(tg)+' = X+Y '+fm0(expAB)+ttLe(lech)+' → không thừa, không thiếu');
+      else if(lech<0) loi.push('Tổng '+nguon+' '+fm0(tg)+' < X+Y '+fm0(expAB)+' → THIẾU '+fm0(-lech));
+      else { ok.push('Tổng '+nguon+' '+fm0(tg)+' ≥ X+Y '+fm0(expAB)); canh.push('Khách chuyển THỪA '+fm0(lech)+' — hoàn lại hoặc trừ kỳ sau'); }
+    } else if(expAB!=null && !lan && co && bs.length) loi.push('Chưa có khoản nào khớp sao kê → THIẾU '+fm0(expAB));
+    var tongCoc=0;
     KQ.push({ g:g, room:room, ten:String(c[4]||'').replace(/\s*\(b[ổo]\s*sung\)/i,''), ngay:c[11], P:P, O:O, AArec:AArec, ABrec:ABrec, expAA:expAA, expAB:expAB, soNgay:soNgay,
               bills:bs.map(function(b){ var r=nhan.filter(function(n){ return n.bill===b && !n.chiBill; })[0]; return { b:b, sk:r?r.sk:null }; }),
               nhan:co?nhan:[], daNhan:co?tg:0, tong:tg, lech:lech, tongCoc:tongCoc, cach:cach, khongMa:khongMa, loi:loi, canh:canh, ok:ok, re:re });
-  });
-  if(co) KQ.forEach(function(k){
-    if(!k.re) return; var L=ttNgay(k.ngay);
-    sk.forEach(function(x){ if(dung[x._i] || !k.re.test(x._u)) return; var t=ttNgay(x.ngay); if(L && (t<L-20*864e5 || t>L+15*864e5)) return;
-      k.canh.push('Sao kê còn tiền vào '+fm0(x.so)+' ngày '+x.ngay+' ghi phòng này nhưng không tính vào đợt 1'); });
   });
   var Ls=ds.map(function(g){ return ttNgay(g.c[11]); }).filter(Boolean), tu=Math.min.apply(null,Ls)-20*864e5, den=Math.max.apply(null,Ls)+15*864e5;
   KQ.khongRo = co && Ls.length ? sk.filter(function(x){ var t=ttNgay(x.ngay); return !dung[x._i] && t>=tu && t<=den && !maBat.test(x._u) && !nganHang.test(x._u); }) : [];
