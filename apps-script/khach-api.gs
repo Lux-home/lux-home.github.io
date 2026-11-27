@@ -262,6 +262,27 @@ function xlsmSession_() {
     return { ok: true, row: rowNum };
   }
 
+  /** Đưa khách ở dòng fromRow lên dòng chính mainRow: chép các ô thông tin cá nhân (giữ định dạng dòng chính). */
+  function promote(mainRow, fromRow, cols) {
+    const rm = s.match(rowRe(mainRow)), fm = s.match(rowRe(fromRow));
+    if (!rm || !fm) return { ok: false, msg: 'Không thấy dòng ' + (!rm ? mainRow : fromRow) };
+    const mc = parseRow(rm[0]), fc = parseRow(fm[0]), byCol = {};
+    Object.keys(mc).forEach(c => { byCol[+c] = mc[c].xml; });
+    cols.forEach(L => {
+      const c = colNum_(L), src = fc[c], old = mc[c];
+      if (old && /<f[ >]/.test(old.xml)) return;
+      const st = old && old.s != null && old.s !== '' ? old.s : (src && src.s != null && src.s !== '' ? src.s : null);
+      if (src && !/<f[ >]/.test(src.xml) && cellVal(src) !== '') {
+        let x = src.xml.replace(/ r="[A-Z]+\d+"/, ' r="' + L + mainRow + '"');
+        if (st != null) x = / s="\d+"/.test(x) ? x.replace(/ s="\d+"/, ' s="' + st + '"') : x.replace('<c ', '<c s="' + st + '" ');
+        byCol[c] = x;
+      } else byCol[c] = '<c r="' + L + mainRow + '"' + (st != null ? ' s="' + st + '"' : '') + '/>';
+    });
+    const tag = rm[0].match(/^<row\b[^>]*?(?=\/?>)/)[0].replace(/ spans="[^"]*"/, '');
+    s = s.replace(rm[0], () => tag + '>' + Object.keys(byCol).map(Number).sort((a, b) => a - b).map(c => byCol[c]).join('') + '</row>');
+    dirty = true; return { ok: true };
+  }
+
   /** Các dòng khách phụ còn trống trong cùng căn (cùng mã phòng cột D, liền nhau) — trừ dòng đầu (dòng khách chính). */
   function blockExtras(rowNum) {
     const at = r => { const m = r > 8 && s.match(rowRe(r)); if (!m) return null; const cs = parseRow(m[0]); return { ma: cmp_(cellVal(cs[colNum_('D')])), ten: cmp_(cellVal(cs[colNum_('E')])) }; };
@@ -369,7 +390,7 @@ function xlsmSession_() {
     if (up.getResponseCode() !== 200) throw new Error('Ghi file lên Drive không được (HTTP ' + up.getResponseCode() + ')');
     return { ok: true, backupId: backupId, deleted: D.length };
   }
-  return { edit: edit, commit: commit, scanShifted: scanShifted, blockExtras: blockExtras, delRows: delRows, insRows: insRows, findBlock: findBlock };
+  return { edit: edit, commit: commit, scanShifted: scanShifted, blockExtras: blockExtras, delRows: delRows, insRows: insRows, findBlock: findBlock, promote: promote };
 }
 /** Sửa 1 dòng và ghi ngay (dùng cho hàm thử). */
 function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
@@ -399,7 +420,17 @@ function outSpec_() {
   return { setV: setV, kinds: kinds };
 }
 const K_ADD = ['ten', 'ns', 'qt', 'gt', 'cccd', 'hc', 'dc', 'bd', 'kt', 'lt', 'coc', 'tp', 'sn', 'dck', 'nuoc', 'bt', 'ttnp', 'sale', 'lh', 'sdt'];
+const K_SNAP = ['ma', 'ten', 'ns', 'qt', 'gt', 'cccd', 'hc', 'dc', 'bd', 'kt', 'lt', 'coc', 'tp', 'sn', 'sale', 'lh', 'sdt', 'gc'];
+function khSnap_(g) { const o = {}; K_SNAP.forEach(k => { if (g && g[k] != null && String(g[k]) !== '') o[k] = String(g[k]).slice(0, 200); }); return o; }
+const K_PERSON = ['E', 'F', 'G', 'H', 'I', 'J', 'K', 'N'];      // cột thông tin riêng từng khách (tên, NS, QT, GT, CCCD, HC, địa chỉ, hạn lưu trú)
 function khQueue_(p) {
+  if (p.type === 'unitout') {
+    const ma = String(p.ma || '').toUpperCase().trim(); if (!ma) return { ok: false, err: 'nothing' };
+    const item = { t: Date.now(), type: 'unitout', ma: ma, guests: (p.guests || []).map(khSnap_).slice(0, 12), note: String(p.note || '').slice(0, 300), openUnit: p.openUnit !== false, by: p.by || '' };
+    const key = KQ_PREFIX + item.t + '_' + Math.random().toString(36).slice(2, 7);
+    PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(item));
+    return { ok: true, id: key, t: item.t, pending: khPending_().length };
+  }
   if (p.type === 'add') {
     const guests = (p.guests || []).map(g => { const f = {}; K_ADD.forEach(k => { if (g[k] != null && String(g[k]).trim() !== '') f[k] = String(g[k]).trim(); }); return f; }).filter(f => f.ten);
     if (!p.ma || !guests.length) return { ok: false, err: 'nothing', msg: 'Chưa có mã phòng hoặc khách' };
@@ -416,7 +447,7 @@ function khQueue_(p) {
     if (!Object.keys(f).length) return { ok: false, err: 'nothing' };
     item.fields = f;
   } else {
-    item.guest = p.guest || {}; item.note = p.note || ''; item.openUnit = !!p.openUnit;
+    item.guest = khSnap_(p.guest || {}); item.note = p.note || ''; item.openUnit = !!p.openUnit;
     item.expect = { ma: item.guest.ma, ten: item.guest.ten };
   }
   const key = KQ_PREFIX + item.t + '_' + Math.random().toString(36).slice(2, 7);
@@ -436,14 +467,37 @@ function khApply_() {
   const items = all.filter(it => it.type !== 'add'), adds = all.filter(it => it.type === 'add');
   if (!items.length) return khApplyAdds_(adds);
   const S = xlsmSession_(), done = [], errs = khErrors_(), after = [], outRows = [];
+  let delList = [];
+  const bad = (it, msg) => errs.unshift({ t: it.t, row: it.row || 0, ma: it.ma || (it.expect || {}).ma || '', ten: (it.expect || {}).ten || '', type: it.type, msg: msg, fields: it.fields || null });
   items.forEach(it => {
-    const sp = it.type === 'out' ? outSpec_() : editSpec_(it.fields);
-    const r = S.edit(it.row, it.expect, sp.setV, sp.kinds, it.type === 'out' ? { colFill: { E: 'red' }, skipFormula: true } : {});
-    if (r.ok) { done.push(it); if (it.type === 'out') { after.push(it); outRows.push(r.row); } }
-    else errs.unshift({ t: it.t, row: it.row, ma: (it.expect || {}).ma || '', ten: (it.expect || {}).ten || '', type: it.type, msg: r.msg || r.err, fields: it.fields || null });
+    if (it.type === 'unitout') {                           // CHECK-OUT CẢ CĂN: xoá trắng dòng chính (tô đỏ ô tên), xoá hẳn mọi dòng khách phụ
+      const blk = S.findBlock(it.ma);
+      if (!blk.length) return bad(it, 'Không thấy căn ' + it.ma + ' trong file');
+      const sp = outSpec_(), r = S.edit(blk[0].row, { ma: it.ma }, sp.setV, sp.kinds, { colFill: { E: 'red' }, skipFormula: true });
+      if (!r.ok) return bad(it, r.msg || r.err);
+      delList = delList.concat(blk.slice(1).map(x => x.row));
+      done.push(it); after.push(it); return;
+    }
+    if (it.type === 'out') {
+      // khách CHÍNH (dòng đầu của căn) ra mà còn khách phụ ở lại → đưa khách phụ kế tiếp lên dòng chính, xoá dòng khách phụ đó
+      const chk = S.edit(it.row, it.expect, {}, {}, {});
+      if (!chk.ok) return bad(it, chk.msg || chk.err);
+      const blk = S.findBlock((it.expect || {}).ma || '');
+      const nx = blk.length && blk[0].row === chk.row ? blk.slice(1).find(x => x.ten) : null;
+      if (nx) {
+        const pr = S.promote(chk.row, nx.row, K_PERSON);
+        if (!pr.ok) return bad(it, pr.msg);
+        delList.push(nx.row); done.push(it); after.push(it); return;
+      }
+      const sp = outSpec_(), r = S.edit(chk.row, it.expect, sp.setV, sp.kinds, { colFill: { E: 'red' }, skipFormula: true });
+      if (r.ok) { done.push(it); after.push(it); outRows.push(r.row); } else bad(it, r.msg || r.err);
+      return;
+    }
+    const sp = editSpec_(it.fields);
+    const r = S.edit(it.row, it.expect, sp.setV, sp.kinds, {});
+    if (r.ok) done.push(it); else bad(it, r.msg || r.err);
   });
   // căn đã OUT: chỉ giữ 1 dòng khách chính, xoá hẳn các dòng khách phụ đã trống
-  let delList = [];
   outRows.forEach(r => { delList = delList.concat(S.blockExtras(r)); });
   delList = delList.filter((r, i, a) => a.indexOf(r) === i);
   S.delRows(delList);
@@ -452,13 +506,15 @@ function khApply_() {
   P.setProperty(KQ_ERR, JSON.stringify(errs.slice(0, 30)));
   // việc phụ của OUT (sau khi file đã ghi xong)
   after.forEach(it => {
-    const g = it.guest || {};
-    try {
-      outLog_().appendRow([Utilities.formatDate(new Date(it.t), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'), 'Admin', g.ma, g.ten, g.ns, g.qt, g.gt, g.cccd, g.hc, g.dc,
-        g.bd, g.kt, g.lt, g.coc, g.tp, g.sn, g.sale, g.lh, g.sdt, g.gc, it.note || ''].map(x => x == null ? '' : "'" + String(x)));
-    } catch (e) {}
+    const gs = it.type === 'unitout' ? (it.guests || []) : [it.guest || {}], g = Object.assign({ ma: it.ma }, gs[0] || {});
+    gs.forEach(x => {
+      try {
+        outLog_().appendRow([Utilities.formatDate(new Date(it.t), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm'), it.by || 'Admin', x.ma || it.ma, x.ten, x.ns, x.qt, x.gt, x.cccd, x.hc, x.dc,
+          x.bd, x.kt, x.lt, x.coc, x.tp, x.sn, x.sale, x.lh, x.sdt, x.gc, (it.type === 'unitout' ? 'CHECK-OUT CẢ CĂN' : 'Xoá khách') + (it.note ? ' · ' + it.note : '')].map(v => v == null ? '' : "'" + String(v)));
+      } catch (e) {}
+    });
     if (it.openUnit) {
-      try { const t = unitTable_(), ma = String(g.ma || '').replace(/-/g, '').toUpperCase(), i = findUnit_(t, ma);
+      try { const t = unitTable_(), ma = String(g.ma || it.ma || '').replace(/-/g, '').toUpperCase(), i = findUnit_(t, ma);
         if (i >= 0 && t.C.tt >= 0) t.sh.getRange(i + 1, t.C.tt + 1).setValue('Đang có sẵn'); } catch (e) {}
     }
   });

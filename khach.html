@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>LUXHOME · Chỉnh sửa thông tin khách thuê</title>
+<title>LUXHOME · Sửa thông tin + Check-out</title>
 <meta name="theme-color" content="#0e7ba8">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -82,7 +82,7 @@
 <body>
 <div class="top">
   <a class="back" href="checkinout.html">← Cập nhật khách Check-in</a>
-  <div class="brand">LUXHOME<small>CHỈNH SỬA THÔNG TIN KHÁCH THUÊ</small></div>
+  <div class="brand">LUXHOME<small>SỬA THÔNG TIN + CHECK-OUT</small></div>
 </div>
 <div class="wrap" id="main"><p class="muted">Đang tải…</p></div>
 
@@ -213,7 +213,9 @@ function list(){
   L.forEach(function(r){ var k=r.ma||('?'+r.row); if(!(k in idx)){idx[k]=groups.length;groups.push({ma:r.ma,toa:r.toa,rows:[]});} groups[idx[k]].rows.push(r); });
   var more=groups.length>150; if(more) groups=groups.slice(0,150);
   $('list').innerHTML=groups.length?groups.map(function(gr){
-    return '<div class="room"><div class="rh">🚪 '+esc(gr.ma||'(chưa có mã phòng)')+'<span class="n">'+gr.rows.filter(function(r){return r.ten;}).length+' khách</span></div>'
+    var nk=gr.rows.filter(function(r){return r.ten;}).length;
+    return '<div class="room"><div class="rh">🚪 '+esc(gr.ma||'(chưa có mã phòng)')+'<span class="n">'+nk+' khách</span>'
+      +(gr.ma&&nk?'<button class="btn red sm" style="margin-left:8px;padding:4px 10px;font-size:.78rem" onclick="event.stopPropagation();askUnitOut(\''+esc(gr.ma)+'\')">🏁 Check-out</button>':'')+'</div>'
       +gr.rows.map(function(r){
         if(!r.ten) return '<div class="g empty" onclick="openG('+r.row+')"><div><div class="nm">Dòng trống (dòng '+r.row+')</div><div class="sub">Bấm để điền khách vào dòng này</div></div><div class="go">›</div></div>';
         var fl=flags(r);
@@ -279,8 +281,11 @@ function openG(row){
       +FIELDS.filter(function(f){return f[3]===gp;}).map(function(f){return fieldHtml(f,r);}).join('')
       +(gp===3?'<div class="calc" id="calcBox"></div><div class="f full hint" style="margin:0">Tính giống công thức trong file (cột AI–AN). Cột công thức trong file KHÔNG bị sửa.</div>':'')+'</div></details>';
   });
-  if(r.ten) html+='<div style="margin-top:14px"><button class="btn red" style="width:100%" onclick="askOut()">🚪 '+(STAFF?'Đề xuất khách trả phòng (OUT)':'Khách trả phòng (OUT)')+'</button>'
-    +'<div class="hint" style="margin-top:6px">Lưu thông tin khách vào danh sách "Khách đã trả phòng", rồi xoá trắng thông tin khách trong file và tô ĐỎ ô Tên khách — giữ mã phòng và chỉ số điện cho khách sau.</div></div>';
+  var cung=ROWS.filter(function(x){ return x.ma===r.ma && x.ten; });
+  if(r.ten && cung.length>1) html+='<div style="margin-top:14px"><button class="btn red" style="width:100%" onclick="askOut()">🗑 '+(STAFF?'Đề xuất xoá khách này khỏi căn':'Xoá khách này khỏi căn')+'</button>'
+    +'<div class="hint" style="margin-top:6px">Khách ra, căn vẫn còn người ở: lưu thông tin khách vào "Khách đã trả phòng" rồi XOÁ HẲN dòng của khách trong file. Nếu là khách chính, khách phụ kế tiếp được đưa lên dòng chính (giữ thông tin hợp đồng của căn).</div></div>';
+  if(r.ma && cung.length) html+='<div style="margin-top:10px"><button class="btn red" style="width:100%;background:linear-gradient(135deg,#7f1d1d,#b91c1c)" onclick="askUnitOut(\''+esc(r.ma)+'\')">🏁 '+(STAFF?'Đề xuất CHECK-OUT cả căn ':'CHECK-OUT cả căn ')+esc(r.ma)+'</button>'
+    +'<div class="hint" style="margin-top:6px">Cả căn trả phòng: lưu thông tin '+cung.length+' khách vào "Khách đã trả phòng", xoá trắng dòng chính và tô ĐỎ, xoá hẳn các dòng khách phụ — căn chỉ còn 1 dòng; catalog tự đổi sang "Đang có sẵn".</div></div>';
   $('sBody').innerHTML=html;
   $('sAct').innerHTML='<button class="btn gh" onclick="closeSheet()">Đóng</button><button class="btn" id="saveBtn" onclick="saveG()" disabled>'+(STAFF?'📨 Gửi đề xuất':'💾 Lưu')+'</button>';
   FIELDS.forEach(function(f){ var e=$('e_'+f[0]); if(!e) return; var h=function(){ if(f[2]==='m'){ var p=e.selectionStart, L=e.value.length; e.value=money(e.value); } markChanges(); };
@@ -337,7 +342,7 @@ function showSync(){
 function syncClick(){
   if(!ERRS.length) return;
   $('mBox').innerHTML='<h3>⚠️ Thay đổi chưa ghi được</h3><div class="hint">Các thay đổi dưới đây KHÔNG được ghi vào file (thường do dòng đã bị đổi ở nơi khác). Tải lại danh sách rồi sửa lại.</div>'
-    +ERRS.map(function(e){ return '<div class="olist"><b>'+esc(e.type==='out'?'OUT ':'Sửa ')+esc(e.ten||'(dòng trống)')+'</b> · '+esc(e.ma||'')+' · dòng '+e.row+'<div class="muted">'+esc(e.msg||'')+'</div>'
+    +ERRS.map(function(e){ return '<div class="olist"><b>'+esc(e.type==='unitout'?'Check-out căn ':e.type==='out'?'Xoá khách ':'Sửa ')+esc(e.ten||'(dòng trống)')+'</b> · '+esc(e.ma||'')+' · dòng '+e.row+'<div class="muted">'+esc(e.msg||'')+'</div>'
       +(e.fields?'<div class="muted" style="font-size:.78rem">'+esc(Object.keys(e.fields).map(function(k){var f=FIELDS.find(function(x){return x[0]===k;});return (f?f[1]:k)+': '+e.fields[k];}).join(' · '))+'</div>':'')+'</div>'; }).join('')
     +'<div style="display:flex;gap:8px;margin-top:12px"><button class="btn gh" style="flex:1" onclick="closeM()">Đóng</button><button class="btn" style="flex:1" onclick="clearErr()">Đã hiểu — tải lại</button></div>';
   $('modal').classList.add('show');
@@ -346,30 +351,64 @@ function clearErr(){ closeM(); api('khclearerr',{pw:pw()},true).then(function(){
 window.addEventListener('pagehide',function(){ if(PENDING>0&&!APPLYING) api('khapply',{pw:pw()},true,true); });
 function askOut(){
   var r=CUR, same=ROWS.filter(function(x){return x.ma===r.ma && x.ten && x.row!==r.row;});
-  $('mBox').innerHTML='<h3>🚪 '+esc(r.ten)+' trả phòng?</h3><div class="muted">Phòng '+esc(r.ma)+(same.length?' · còn '+same.length+' khách khác trong phòng':' · là khách cuối cùng của phòng')+'</div>'
+  $('mBox').innerHTML='<h3>🗑 Xoá '+esc(r.ten)+' khỏi căn?</h3><div class="muted">Phòng '+esc(r.ma)+(same.length?' · còn '+same.length+' khách khác trong phòng':' · là khách cuối cùng của phòng')+'</div>'
     +'<div class="f" style="margin-top:12px"><label>Ghi chú (lý do, ngày đi…)</label><input id="o_note" placeholder="VD: hết HĐ, chuyển phòng…"></div>'
-    +'<label class="chk"><input type="checkbox" id="o_open"'+(same.length?'':' checked')+'> Mở căn '+esc(String(r.ma).replace(/-/g,''))+' trên catalog (Đang có sẵn)</label>'
-    +'<div style="display:flex;gap:8px;margin-top:12px"><button class="btn gh" style="flex:1" onclick="closeM()">Huỷ</button><button class="btn red" style="flex:1" onclick="doOut()">'+(STAFF?'📨 Gửi đề xuất OUT':'Xác nhận OUT')+'</button></div>';
+    +'<label class="chk" style="display:'+(same.length?'none':'flex')+'"><input type="checkbox" id="o_open"'+(same.length?'':' checked')+'> Mở căn '+esc(String(r.ma).replace(/-/g,''))+' trên catalog (Đang có sẵn)</label>'
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button class="btn gh" style="flex:1" onclick="closeM()">Huỷ</button><button class="btn red" style="flex:1" onclick="doOut()">'+(STAFF?'📨 Gửi đề xuất xoá khách':'Xác nhận xoá khách')+'</button></div>';
   $('modal').classList.add('show');
 }
 function closeM(){ $('modal').classList.remove('show'); }
+/* ---------- CHECK-OUT CẢ CĂN ---------- */
+var UO_MA='';
+function askUnitOut(ma){
+  UO_MA=ma; var gs=ROWS.filter(function(x){ return x.ma===ma && x.ten; });
+  $('mBox').innerHTML='<h3>🏁 Check-out cả căn '+esc(ma)+'?</h3><div class="muted">'+gs.length+' khách: <b>'+esc(gs.map(function(x){ return x.ten; }).join(', '))+'</b></div>'
+    +'<div class="hint" style="margin-top:8px">• Lưu thông tin từng khách vào "Khách đã trả phòng"<br>• Xoá trắng dòng chính, tô ĐỎ ô tên — căn chỉ còn 1 dòng<br>• Xoá hẳn các dòng khách phụ<br>• Catalog: căn '+esc(String(ma).replace(/-/g,''))+' → "Đang có sẵn"</div>'
+    +'<div class="f" style="margin-top:12px"><label>Ghi chú (lý do, ngày đi…)</label><input id="uo_note" placeholder="VD: hết HĐ, chuyển phòng…"></div>'
+    +'<div style="display:flex;gap:8px;margin-top:12px"><button class="btn gh" style="flex:1" onclick="closeM()">Huỷ</button><button class="btn red" style="flex:1" onclick="doUnitOut()">'+(STAFF?'📨 Gửi đề xuất check-out':'Xác nhận CHECK-OUT')+'</button></div>';
+  $('modal').classList.add('show');
+}
+function doUnitOut(){
+  var ma=UO_MA, note=$('uo_note').value.trim(); closeM();
+  var gs=ROWS.filter(function(x){ return x.ma===ma && x.ten; }), snap=gs.map(function(x){ return JSON.parse(JSON.stringify(x)); });
+  if(!gs.length) return toast('Căn này không còn khách');
+  var first=ROWS.filter(function(x){ return x.ma===ma; })[0];
+  if(STAFF){
+    api('khpropose',{type:'unitout',ma:ma,row:first?first.row:0,guests:snap,note:note},true).then(function(d){
+      if(!d||!d.ok) return toast(errMsg(d),5000);
+      if(first) PEND[first.row]=(PEND[first.row]||0)+1; closeSheet(true); list(); toast('📨 Đã gửi đề xuất check-out căn '+ma+' — chờ chủ duyệt',4000);
+    }).catch(function(){ toast('Không kết nối được máy chủ — chưa gửi',5000); });
+    return;
+  }
+  api('khqueue',{pw:pw(),type:'unitout',ma:ma,guests:snap,note:note,openUnit:true},true).then(function(d){
+    if(!d||!d.ok) return toast(errMsg(d),5000);
+    // hiển thị ngay: giữ 1 dòng trống của căn
+    var rows=ROWS.filter(function(x){ return x.ma===ma; }), keep=rows[0];
+    if(keep){ FIELDS.forEach(function(f){ if(['phong','toa','ma','dcu','dmoi','khac','gc','gdien'].indexOf(f[0])<0) keep[f[0]]=''; }); keep.ten=''; }
+    ROWS=ROWS.filter(function(x){ return x.ma!==ma || x===keep; });
+    closeSheet(true); list();
+    toast('✓ Đã check-out căn '+ma+' · catalog → Đang có sẵn',4000);
+    PENDING++; kick();
+  }).catch(function(){ toast('Không kết nối được máy chủ — chưa check-out',5000); });
+}
 function doOut(){
   var r=CUR, note=$('o_note').value.trim(), op=$('o_open').checked; closeM();
   var snap=JSON.parse(JSON.stringify(r));
   if(STAFF){
     api('khpropose',{type:'out',row:r.row,expect:{ma:r.ma,ten:r.ten},guest:snap,note:note,openUnit:op},true).then(function(d){
       if(!d||!d.ok) return toast(errMsg(d),5000);
-      PEND[r.row]=(PEND[r.row]||0)+1; closeSheet(true); list(); toast('📨 Đã gửi đề xuất OUT '+snap.ten+' — chờ chủ duyệt',4000);
+      PEND[r.row]=(PEND[r.row]||0)+1; closeSheet(true); list(); toast('📨 Đã gửi đề xuất xoá khách '+snap.ten+' — chờ chủ duyệt',4000);
     }).catch(function(){ toast('Không kết nối được máy chủ — chưa gửi',5000); });
     return;
   }
   api('khqueue',{pw:pw(),type:'out',row:r.row,guest:snap,note:note,openUnit:op},true).then(function(d){
     if(!d||!d.ok) return toast(errMsg(d),5000);
     var keep={row:r.row,phong:r.phong,toa:r.toa,ma:r.ma,dcu:r.dcu,dmoi:r.dmoi,khac:r.khac,gc:r.gc,gdien:r.gdien};
-    FIELDS.forEach(function(f){ if(!(f[0] in keep)) r[f[0]]=''; }); Object.assign(r,keep);
+    var con=ROWS.filter(function(x){ return x.ma===r.ma && x.ten && x!==r; });
+    if(con.length){ ROWS=ROWS.filter(function(x){ return x!==r; }); toast('✓ Đã xoá '+snap.ten+' khỏi căn '+r.ma+' — đang ghi file, danh sách sẽ tải lại',4000); }
+    else { FIELDS.forEach(function(f){ if(!(f[0] in keep)) r[f[0]]=''; }); Object.assign(r,keep); toast('✓ Đã OUT '+snap.ten+(op?' · căn sẽ được mở trên catalog':''),3500); }
     closeSheet(true); list();
-    toast('✓ Đã OUT '+snap.ten+(op?' · căn sẽ được mở trên catalog':''),3500);
-    PENDING++; kick();
+    PENDING++; kick(); if(con.length) setTimeout(function(){ if(!PENDING&&!APPLYING) load(true); },8000);
   }).catch(function(){ toast('Không kết nối được máy chủ — chưa OUT',5000); });
 }
 
@@ -393,14 +432,15 @@ function exportX(){
 /* ---------- ĐỀ XUẤT ---------- */
 var LAB={}; FIELDS.forEach(function(f){ LAB[f[0]]=f[1]; });
 function tf(t){ var d=new Date(t); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
-function typeLab(o){ return o.type==='out'?'🚪 Đề xuất OUT':o.type==='export'?'⬇️ Yêu cầu xuất Excel':o.type==='add'?'🛎️ Bổ sung khách check-in':'✏️ Đề xuất sửa'; }
+function typeLab(o){ return o.type==='unitout'?'🏁 Đề xuất CHECK-OUT cả căn':o.type==='out'?'🗑 Đề xuất xoá khách':o.type==='export'?'⬇️ Yêu cầu xuất Excel':o.type==='add'?'🛎️ Bổ sung khách check-in':'✏️ Đề xuất sửa'; }
 function stLab(o){ return o.status==='cho'?'<span class="tag t-amb">⏳ Chờ duyệt</span>':o.status==='duyet'?'<span class="tag t-ok">✓ Đã duyệt</span>':o.status==='tuchoi'?'<span class="tag t-red">✕ Từ chối</span>':'<span class="tag t-red">⚠️ Lỗi ghi file</span>'; }
 function propBody(o){
   var h='';
+  if(o.type==='unitout'){ h+='<div class="muted">Căn <b>'+esc(o.ma||'')+'</b> · '+(o.guests||[]).length+' khách</div><div style="font-size:.86rem;margin-top:4px">'+(o.guests||[]).map(function(g){ return '• <b>'+esc(g.ten)+'</b>'; }).join('<br>')+'</div><div style="font-size:.86rem;margin-top:4px">Xoá trắng dòng chính (tô đỏ), xoá các dòng khách phụ · catalog → Đang có sẵn'+(o.note?' · 📝 '+esc(o.note):'')+'</div>'; return h+(o.reason?'<div style="font-size:.84rem;color:var(--red)">Lý do từ chối: '+esc(o.reason)+'</div>':'')+(o.err?'<div style="font-size:.84rem;color:var(--red)">'+esc(o.err)+'</div>':''); }
   if(o.type==='add'){ var a=o.add||{}; h+='<div class="muted">Căn <b>'+esc(a.ma||'')+'</b>'+(a.file?' · HĐ '+esc(a.file):'')+'</div><div style="font-size:.86rem;margin-top:4px">'+(a.guests||[]).map(function(g){ return '• <b>'+esc(g.ten)+'</b> '+esc([g.qt,g.hc||g.cccd,g.bd&&('vào '+g.bd)].filter(Boolean).join(' · ')); }).join('<br>')+'</div>'+(o.kq?'<div style="font-size:.84rem;margin-top:4px;color:'+(/Đạt/.test(o.kq)?'#15803d':'#b91c1c')+'">💳 Thanh toán đợt 1: '+esc(o.kq)+'</div>':''); }
   else if(o.type!=='export') h+='<div class="muted">'+esc((o.expect||{}).ma||'')+' · <b>'+esc((o.expect||{}).ten||'(dòng trống)')+'</b> · dòng '+o.row+'</div>';
   if(o.type==='save') h+='<div style="font-size:.86rem;margin-top:4px">'+Object.keys(o.fields||{}).map(function(k){ return '• '+esc(LAB[k]||k)+': <s class="muted">'+esc((o.before||{})[k]||'(trống)')+'</s> → <b>'+esc(o.fields[k]||'(xoá)')+'</b>'; }).join('<br>')+'</div>';
-  if(o.type==='out') h+='<div style="font-size:.86rem;margin-top:4px">Xoá trắng thông tin khách, tô đỏ ô tên'+(o.openUnit?' · mở căn trên catalog':'')+(o.note?' · 📝 '+esc(o.note):'')+'</div>';
+  if(o.type==='out') h+='<div style="font-size:.86rem;margin-top:4px">Xoá khách khỏi căn (khách cuối: xoá trắng, tô đỏ ô tên)'+(o.openUnit?' · mở căn trên catalog':'')+(o.note?' · 📝 '+esc(o.note):'')+'</div>';
   if(o.reason) h+='<div style="font-size:.84rem;color:var(--red)">Lý do từ chối: '+esc(o.reason)+'</div>';
   if(o.err) h+='<div style="font-size:.84rem;color:var(--red)">'+esc(o.err)+'</div>';
   return h;

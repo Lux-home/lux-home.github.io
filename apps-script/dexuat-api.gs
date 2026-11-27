@@ -26,9 +26,10 @@ function kpAll_() {
   return out.sort((a, b) => b.t - a.t);
 }
 function kpSave_(o) { const c = Object.assign({}, o); delete c.id; PropertiesService.getScriptProperties().setProperty(o.id, JSON.stringify(c)); }
-function kpLabel_(o) { return o.type === 'out' ? 'Đề xuất OUT' : o.type === 'export' ? 'Yêu cầu xuất Excel' : o.type === 'add' ? 'Đề xuất bổ sung khách check-in' : 'Đề xuất sửa khách'; }
+function kpLabel_(o) { return o.type === 'unitout' ? 'Đề xuất CHECK-OUT cả căn' : o.type === 'out' ? 'Đề xuất xoá khách' : o.type === 'export' ? 'Yêu cầu xuất Excel' : o.type === 'add' ? 'Đề xuất bổ sung khách check-in' : 'Đề xuất sửa khách'; }
 function kpDetail_(o) {
   if (o.type === 'export') return 'Xuất file QUAN LY KHACH HANG';
+  if (o.type === 'unitout') return (o.ma || '') + ' · ' + (o.guests || []).map(g => g.ten).join(', ') + (o.note ? ' · ghi chú: ' + o.note : '');
   if (o.type === 'add') return (o.add.ma || '') + ' · ' + (o.add.guests || []).map(g => g.ten).join(', ') + (o.add.file ? ' · HĐ ' + o.add.file : '') + (o.kq ? ' · thanh toán: ' + o.kq : '');
   const g = o.expect || {};
   let d = (g.ma || '') + ' · ' + (g.ten || '(dòng trống)') + ' · dòng ' + o.row;
@@ -49,9 +50,12 @@ function staffRoute_(a, p) {
     return Object.assign(khList_(), { staff: true, who: who, pend: kpPendingByRow_() });
   }
   if (a === 'khpropose') {
-    const type = ['save', 'out', 'export'].indexOf(p.type) >= 0 ? p.type : 'save';
+    const type = ['save', 'out', 'export', 'unitout'].indexOf(p.type) >= 0 ? p.type : 'save';
     const o = { t: Date.now(), status: 'cho', who: { ma: who.ma, ten: who.ten }, type: type };
-    if (type !== 'export') {
+    if (type === 'unitout') {
+      o.ma = String(p.ma || '').toUpperCase().trim(); if (!o.ma) return { ok: false, err: 'nothing' };
+      o.guests = (p.guests || []).map(khSnap_).slice(0, 12); o.note = String(p.note || '').slice(0, 300); o.row = +p.row || 0;
+    } else if (type !== 'export') {
       o.row = +p.row; if (!(o.row > 8)) return { ok: false, err: 'badrow' };
       o.expect = { ma: (p.expect || {}).ma || '', ten: (p.expect || {}).ten || '' };
     }
@@ -60,7 +64,7 @@ function staffRoute_(a, p) {
       if (!Object.keys(f).length) return { ok: false, err: 'nothing' };
       o.fields = f; o.before = b;
     }
-    if (type === 'out') { o.guest = p.guest || {}; o.note = String(p.note || '').slice(0, 300); o.openUnit = !!p.openUnit; }
+    if (type === 'out') { o.guest = khSnap_(p.guest || {}); o.note = String(p.note || '').slice(0, 300); o.openUnit = !!p.openUnit; }
     o.id = KP_PREFIX + o.t + '_' + Math.random().toString(36).slice(2, 7);
     kpSave_(o);
     try { nkAppend_(who.ma, who.ten, kpLabel_(o), kpDetail_(o), 'khach.html', p.devname); } catch (e) {}
@@ -104,7 +108,9 @@ function kpDecide_(p) {
     o.status = 'duyet'; kpSave_(o);
   } else {
     // đưa vào hàng chờ ghi file và ghi ngay
-    const q = o.type === 'add' ? khQueue_(Object.assign({}, o.add, { by: 'NV ' + (o.who ? o.who.ten : '') })) : khQueue_(o.type === 'out'
+    const q = o.type === 'add' ? khQueue_(Object.assign({}, o.add, { by: 'NV ' + (o.who ? o.who.ten : '') }))
+      : o.type === 'unitout' ? khQueue_({ type: 'unitout', ma: o.ma, guests: o.guests, note: (o.note || '') + ' (NV ' + (o.who ? o.who.ten : '') + ' đề xuất)', openUnit: true, by: 'NV ' + (o.who ? o.who.ten : '') })
+      : khQueue_(o.type === 'out'
       ? { type: 'out', row: o.row, guest: Object.assign({}, o.guest, { ma: o.expect.ma, ten: o.expect.ten }), note: (o.note || '') + ' (NV ' + (o.who ? o.who.ten : '') + ' đề xuất)', openUnit: o.openUnit }
       : { type: 'save', row: o.row, expect: o.expect, fields: o.fields });
     if (!q.ok) return { ok: false, err: 'queue', msg: 'Không đưa được vào hàng chờ' };
