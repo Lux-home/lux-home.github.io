@@ -164,7 +164,8 @@
         <div class="bkB"><span>3</span>Kiểm tra danh sách checkin</div>
         <div id="bkNut"></div>
         <div id="bkKQ"></div>
-        <div id="bkB4" style="display:none"><div class="bkB"><span>4</span>Nạp danh sách đã kiểm tra</div><div id="bkNap"></div></div>
+        <div id="bkB4" style="display:none"><div class="bkB"><span>4</span>Khách đạt yêu cầu kiểm tra (bước 3)</div><div id="bkNap"></div></div>
+        <div id="bkB5" style="display:none"><div class="bkB"><span>5</span>Nạp danh sách đã kiểm tra</div><div id="bkFile"></div></div>
         <div id="bkThang"></div>
         <details id="tdWrap" class="hdC" style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">📒 Nhật ký nạp hợp đồng &amp; theo dõi thanh toán đợt 1 <span id="tdDem"></span></summary><div id="tdBox" style="margin-top:8px"><p class="muted">Đang tải…</p></div></details>
       </div>
@@ -1680,16 +1681,32 @@ function bkGhi(h, force){
 /* ===== Bước 4: NẠP DANH SÁCH ĐÃ KIỂM TRA → ghi tất cả hợp đồng Đạt vào file QUAN LY KHACH HANG ===== */
 function bkDat(){ return bkHD().filter(function(h){ return h.kq && h.kq.ok && h.kq.sk && !h.qlkh; }); }
 function bkNapVe(){
-  var w=document.getElementById('bkB4'), el=document.getElementById('bkNap'); if(!w||!el) return;
+  var w=document.getElementById('bkB4'), el=document.getElementById('bkNap'), w5=document.getElementById('bkB5'), el5=document.getElementById('bkFile');
+  if(!w||!el) return;
+  // ---- Bước 5: nạp file DS Check-in đã kiểm tra
+  if(w5&&el5){
+    w5.style.display='block';
+    if(!document.getElementById('dsBox')) el5.innerHTML='<div class="hdC" style="margin-top:8px"><b>📂 Nạp file DS Check-in đã kiểm tra (Excel)</b><p class="hint" style="margin:4px 0 8px">File mẫu DS Check-in (mỗi tháng 1 sheet, cột A → AC). App gom khách theo từng căn rồi '+(TOK?'gửi <b>chủ duyệt</b> — chủ duyệt xong mới ghi vào file QUAN LY KHACH HANG.':'ghi vào file QUAN LY KHACH HANG.')+'</p>'
+      +'<input type="file" id="dsFile" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="dsChon(this.files[0]);this.value=\'\'">'
+      +'<button class="btn" onclick="document.getElementById(\'dsFile\').click()">📂 Chọn file DS Check-in</button><div id="dsBox"></div></div>';
+    dsVe();
+  }
+  // ---- Bước 4: danh sách khách ĐẠT yêu cầu ở bước 3
   w.style.display='block';
-  var fileHtml='<div class="hdC" style="margin-top:8px"><b>📂 Nạp file DS Check-in đã kiểm tra (Excel)</b><p class="hint" style="margin:4px 0 8px">File mẫu DS Check-in (mỗi tháng 1 sheet, cột A → AC). App gom khách theo từng căn rồi '+(TOK?'gửi <b>chủ duyệt</b> — chủ duyệt xong mới ghi vào file QUAN LY KHACH HANG.':'ghi vào file QUAN LY KHACH HANG.')+'</p>'
-    +'<input type="file" id="dsFile" accept=".xlsx,.xlsm,.xls" style="display:none" onchange="dsChon(this.files[0]);this.value=\'\'">'
-    +'<button class="btn" onclick="document.getElementById(\'dsFile\').click()">📂 Chọn file DS Check-in</button><div id="dsBox"></div></div>';
-  if(!BK.daKiem || TOK){ el.innerHTML=fileHtml; dsVe(); return; }
-  var ds=bkDat(), da=bkHD().filter(function(h){ return h.qlkh==='ok'; }).length, kd=bkHD().filter(function(h){ return h.kq && !(h.kq.ok && h.kq.sk) && !h.qlkh; }).length;
-  el.innerHTML='<p class="hint" style="margin:0 0 6px">✅ <b>'+ds.length+'</b> hợp đồng ĐẠT chờ ghi vào file'+(da?' · 📁 '+da+' đã ghi':'')+(kd?' · ⛔ '+kd+' không đạt (bấm nút đỏ trên từng thẻ nếu vẫn muốn nạp)':'')+'</p>'
-    +'<button class="btn big ok" '+(ds.length&&!BK.dangNap?'':'disabled style="opacity:.45;cursor:not-allowed"')+' onclick="bkNapTatCa()">'+(BK.dangNap?'⏳ '+BK.dangNap:'📁 NẠP DANH SÁCH ĐÃ KIỂM TRA ('+ds.length+')')+'</button>'+fileHtml;
-  dsVe();
+  if(TOK){ el.innerHTML='<p class="hint" style="margin:0">Chủ chạy bước 3 với sao kê ngân hàng — danh sách khách đạt yêu cầu hiện ở đây trên máy của chủ.</p>'; return; }
+  if(!BK.daKiem){ el.innerHTML='<p class="hint" style="margin:0">Chưa kiểm tra — tải sao kê ở bước 2 rồi bấm <b>KIỂM TRA DANH SÁCH CHECKIN</b> ở bước 3. Khách đạt yêu cầu sẽ hiện ở đây.</p>'; return; }
+  var all=bkHD().filter(function(h){ return h.kq && h.kq.ok && h.kq.sk; }), ds=bkDat(), da=all.filter(function(h){ return h.qlkh==='ok'; }).length,
+      kd=bkHD().filter(function(h){ return h.kq && !(h.kq.ok && h.kq.sk) && !h.qlkh; }).length, nk=all.reduce(function(a,h){ return a+(h.khach||[]).length; },0);
+  var f=function(v){ var n=Number(v); return isFinite(n)&&v!==''&&v!=null?Math.round(n).toLocaleString('vi-VN')+'đ':'—'; };
+  el.innerHTML='<p class="hint" style="margin:0 0 6px">✅ <b>'+all.length+'</b> hợp đồng · <b>'+nk+'</b> khách ĐẠT'+(da?' · 📁 '+da+' đã ghi vào file':'')+(kd?' · ⛔ '+kd+' không đạt (xem thẻ đỏ ở bước 3)':'')+'</p>'
+    +(all.length?'<div style="max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:10px">'
+      +'<table style="width:100%;border-collapse:collapse;font-size:.84rem"><thead><tr style="background:#f0fdf4;position:sticky;top:0"><th style="padding:6px;text-align:left">Căn</th><th style="padding:6px;text-align:left">Khách</th><th style="padding:6px;text-align:left">Vào</th><th style="padding:6px;text-align:right">Cần (X+Y)</th><th style="padding:6px;text-align:right">Đã nhận</th><th style="padding:6px;text-align:left">File QLKH</th></tr></thead><tbody>'
+      +all.map(function(h){ var q=h.kq||{}, thua=Number(q.nhan)>Number(q.can);
+        return '<tr style="border-top:1px solid var(--line)"><td style="padding:6px"><b>'+esc(h.room)+'</b></td><td style="padding:6px">'+esc((h.khach||[]).map(function(k){ return k.ten; }).join(', '))+'</td><td style="padding:6px">'+esc(h.start||'')+'</td>'
+          +'<td style="padding:6px;text-align:right">'+f(q.can)+'</td><td style="padding:6px;text-align:right;'+(thua?'color:#b45309':'')+'">'+f(q.nhan)+(thua?' (thừa)':'')+'</td>'
+          +'<td style="padding:6px">'+(h.qlkh==='ok'?'<span style="color:#15803d">✓ đã ghi'+(h.qlkhRows?' dòng '+esc([].concat(h.qlkhRows).join(', ')):'')+'</span>':h.qlkh==='pend'?'📨 chờ duyệt':'<span class="muted">chưa ghi</span>')+'</td></tr>'; }).join('')
+      +'</tbody></table></div>':'<p class="muted">Chưa có hợp đồng nào đạt.</p>')
+    +'<button class="btn big ok" style="margin-top:8px" '+(ds.length&&!BK.dangNap?'':'disabled style="margin-top:8px;opacity:.45;cursor:not-allowed"')+' onclick="bkNapTatCa()">'+(BK.dangNap?'⏳ '+BK.dangNap:'📁 GHI '+ds.length+' HỢP ĐỒNG ĐẠT VÀO FILE QUAN LY KHACH HANG')+'</button>';
 }
 /* ----- Nạp file DS Check-in (.xlsx) đã kiểm tra → ghi vào file QUAN LY KHACH HANG ----- */
 var DS={ wb:null, ten:'', sheet:'', nhom:[], chon:{}, kq:{}, dang:'', ghide:true };
