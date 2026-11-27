@@ -150,8 +150,8 @@ function tdList_(p) {
 }
 /** Chủ gửi kết quả kiểm tra: results = [{room, ngay, ok, detail, sk}] */
 function tdSave_(p) {
-  const who = hdAuth_(p, []);
-  if (!who || !who.owner) return { ok: false, err: 'noperm' };
+  const who = hdAuth_(p, ['checkin', 'checkinout', 'hopdong']);     // nhân viên cũng chạy được bước 3 (đối chiếu sao kê)
+  if (!who) return { ok: false, err: 'noperm' };
   const sh = tdSheet_(), n = sh.getLastRow(); if (n < 2) return { ok: true, n: 0 };
   const v = sh.getRange(2, 1, n - 1, TD_HDR.length).getDisplayValues();
   const norm = s => String(s || '').toUpperCase().replace(/\s/g, '');
