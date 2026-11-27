@@ -82,9 +82,9 @@
   .toast.show{opacity:1}
   .warn{background:var(--soonbg);color:var(--soon);border-radius:12px;padding:12px;font-weight:700;margin-bottom:12px}
   @media (max-width:420px){ .grid{grid-template-columns:1fr} }
-.mode{display:flex;gap:8px;margin:12px 0 0}
-.mode button{flex:1;border:2px solid var(--line,#e2eaec);background:var(--card,#fff);color:inherit;border-radius:12px;padding:12px 10px;font:inherit;font-weight:800;cursor:pointer}
-.mode button.on{background:linear-gradient(135deg,#28c3dd,#0e7ba8);color:#fff;border-color:transparent}
+.qa{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;flex:0 1 auto}
+.qb{border:0;border-radius:9px;padding:8px 10px;font:inherit;font-size:.8rem;font-weight:800;color:#fff;cursor:pointer;white-space:nowrap}
+.qb.op{background:#15803d}.qb.lk{background:#b91c1c}.qb.dt{background:#b7791f}.qb:disabled{opacity:.35;cursor:default}
 </style>
 </head>
 <body>
@@ -98,12 +98,7 @@
   </div>
 </div>
 
-<div class="wrap" style="padding-bottom:0"><div class="mode" id="modeBar">
-  <button data-m="lock" class="on" onclick="setMode('lock')">🔑 Khóa / Mở căn hộ</button>
-  <button data-m="edit" onclick="setMode('edit')">✏️ Lịch trống, bảng giá &amp; dữ liệu căn</button>
-</div></div>
-<div id="lockView"><iframe id="lockFrame" title="Khóa / Mở căn hộ" style="width:100%;border:0;display:block;min-height:70vh"></iframe></div>
-<div class="wrap" id="main" style="display:none"><p class="muted">Đang tải…</p></div>
+<div class="wrap" id="main"><p class="muted">Đang tải…</p></div>
 
 <!-- Màn hình sửa căn / tòa -->
 <div class="sheet" id="sheet">
@@ -121,20 +116,6 @@
 
 <script src="canho-api.js"></script>
 <script>
-// Gộp "Khóa / Mở căn hộ" vào trang này: chế độ Khóa/Mở (trang canho.html nhúng) | Sửa dữ liệu căn
-var MODE_KEY='canhoql_mode';
-function setMode(m){
-  try{ localStorage.setItem(MODE_KEY,m); }catch(e){}
-  document.querySelectorAll('#modeBar button').forEach(function(b){ b.classList.toggle('on', b.dataset.m===m); });
-  document.getElementById('lockView').style.display = m==='lock'?'block':'none';
-  document.getElementById('main').style.display = m==='edit'?'block':'none';
-  var tb=document.getElementById('tabs'); if(tb) tb.style.visibility = m==='edit'?'visible':'hidden';
-  if(m==='lock'){ var f=document.getElementById('lockFrame'); if(!f.src) f.src='canho.html?embed=1'; setTimeout(fitLock,0); }
-}
-// khung Khóa/Mở cao vừa màn hình (cuộn bên trong) để thông báo của trang nhúng luôn nhìn thấy
-function fitLock(){ var f=document.getElementById('lockFrame'); if(!f||f.offsetParent===null) return; var top=f.getBoundingClientRect().top+window.scrollY; f.style.height=Math.max(420, window.innerHeight-Math.max(0,top-window.scrollY))+'px'; }
-window.addEventListener('resize', fitLock); window.addEventListener('scroll', fitLock); setInterval(fitLock, 1000);
-document.addEventListener('DOMContentLoaded', function(){ var m='lock'; try{ m=localStorage.getItem(MODE_KEY)||'lock'; }catch(e){} setMode(m); });
 
 var PWKEY="luxAdminPw";
 var D={units:[],toas:[],rooms:[],opts:{tt:[],loai:[],khu:[]},hasEn:false};
@@ -209,8 +190,29 @@ function listUnits(){
   $('list').innerHTML=L.length? L.map(function(u){
     var id=driveId(u.anhdd);
     return '<div class="card" onclick="openUnit(\''+esc(u.ma)+'\')"><div class="th">'+(id?'<img loading="lazy" referrerpolicy="no-referrer" src="'+thumb(id,160)+'" onerror="this.remove()">':'🏠')+'</div>'
-      +'<div style="flex:1;min-width:0"><div class="ma">'+esc(u.ma)+'</div><div class="sub">'+esc([u.loai,u.khu].filter(Boolean).join(' · '))+(u.gia?' · '+money(u.gia)+' đ':'')+'</div>'+badge(u.tt)+'</div><div class="muted" style="font-size:1.3rem">›</div></div>';
+      +'<div style="flex:1;min-width:0"><div class="ma">'+esc(u.ma)+'</div><div class="sub">'+esc([u.loai,u.khu].filter(Boolean).join(' · '))+(u.gia?' · '+money(u.gia)+' đ':'')+'</div>'+badge(u.tt)+(kind(u.tt)==='soon'&&u.ngay?' <span class="muted" style="font-size:.78rem">trống từ '+esc(u.ngay)+'</span>':'')+'</div>'
+      +(/mau/.test(norm(u.tt))?'':'<div class="qa" onclick="event.stopPropagation()">'
+        +'<button class="qb op" '+(kind(u.tt)==='ok'?'disabled':'')+' onclick="quick(this,\''+esc(u.ma)+'\',\'open\')">🔓 Mở</button>'
+        +'<button class="qb lk" '+(kind(u.tt)==='lock'?'disabled':'')+' onclick="quick(this,\''+esc(u.ma)+'\',\'lock\')">🔒 Khóa</button>'
+        +'<button class="qb dt" onclick="quick(this,\''+esc(u.ma)+'\',\'soon\')">📅 Ngày trống</button></div>')
+      +'<div class="muted" style="font-size:1.3rem">›</div></div>';
   }).join('')+(more?'<p class="muted">Chỉ hiện 200 căn đầu — dùng ô tìm / lọc để thu hẹp.</p>':'') : '<p class="muted">Không có căn phù hợp.</p>';
+}
+
+// Mở / Khóa / đặt ngày trống ngay trong danh sách (không cần mở form)
+function quick(btn, ma, kindNew){
+  var u=D.units.find(function(x){return x.ma===ma;}); if(!u) return;
+  var ngay='';
+  if(kindNew==='soon'){
+    var v=prompt('Ngày căn '+ma+' trống (dd/mm/yyyy):', u.ngay||''); if(v===null) return;
+    var m=v.trim().replace(/[.\-]/g,'/').match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/); if(!m){ toast('Ngày dạng dd/mm/yyyy'); return; }
+    var y=+m[3]; if(y<100) y+=2000; ngay=('0'+m[1]).slice(-2)+'/'+('0'+m[2]).slice(-2)+'/'+y;
+  }
+  var bs=btn.parentNode.querySelectorAll('button'); bs.forEach(function(b){b.disabled=true;}); var old=btn.textContent; btn.textContent='…';
+  luxApi('setavail',{pw:pw(), ma:ma, kind:kindNew, ngay:ngay},true).then(function(d){
+    if(d&&d.ok){ u.tt=d.tt; u.ngay=d.ngay; toast('✓ '+ma+' → '+d.tt+(d.ngay?' · trống từ '+d.ngay:'')); listUnits(); }
+    else { btn.textContent=old; bs.forEach(function(b){b.disabled=false;}); toast(errMsg(d)); }
+  }).catch(function(){ btn.textContent=old; bs.forEach(function(b){b.disabled=false;}); toast('Không kết nối được máy chủ'); });
 }
 
 /* ---------- SỬA / THÊM CĂN ---------- */
