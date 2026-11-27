@@ -1476,7 +1476,7 @@ function bkVe(){
     if(h.qlkh==='ok') btn='<div class="kpW g">📁 Đã bổ sung vào file Quản lý khách hàng'+(h.qlkhRows?' (dòng '+h.qlkhRows.join(', ')+')':'')+'</div>';
     else if(h.qlkh==='pend') btn='<div class="kpW y">📨 Đã gửi đề xuất bổ sung — chờ chủ duyệt</div>';
     else if(h.qlkh==='dang') btn='<button class="btn" disabled>⏳ Đang ghi vào file…</button>';
-    else btn='<button class="btn'+(mau==='xanh'?' ok':' red')+'" onclick="bkAdd('+h.id+')">'
+    else btn='<button class="btn'+(mau==='xanh'?' ok':'')+'"'+(mau==='xanh'?'':' style="background:linear-gradient(135deg,#ef4444,#b91c1c)"')+' onclick="bkAdd('+h.id+')">'
       +(TOK?'📨 Đề xuất bổ sung vào file Quản lý khách hàng':mau==='xanh'?'✅ Đạt yêu cầu — Bổ sung vào file Quản lý khách hàng':'⚠️ Chưa đạt — vẫn nạp vào file Quản lý khách hàng')+'</button>';
     return '<div class="bkC '+mau+'"><div class="t">🚪 '+esc(h.room)+' · '+esc((h.khach[0]||{}).ten||'')+(h.khach.length>1?' +'+(h.khach.length-1)+' khách':'')+'</div>'
       +'<div class="l muted">Vào '+esc(h.start||'?')+' · phải thu đợt 1 '+fm0(q.can||0)+' · đã nhận '+fm0(q.nhan||0)+'</div>'
