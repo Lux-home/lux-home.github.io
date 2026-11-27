@@ -26,9 +26,10 @@ function kpAll_() {
   return out.sort((a, b) => b.t - a.t);
 }
 function kpSave_(o) { const c = Object.assign({}, o); delete c.id; PropertiesService.getScriptProperties().setProperty(o.id, JSON.stringify(c)); }
-function kpLabel_(o) { return o.type === 'out' ? 'Đề xuất OUT' : o.type === 'export' ? 'Yêu cầu xuất Excel' : 'Đề xuất sửa khách'; }
+function kpLabel_(o) { return o.type === 'out' ? 'Đề xuất OUT' : o.type === 'export' ? 'Yêu cầu xuất Excel' : o.type === 'add' ? 'Đề xuất bổ sung khách check-in' : 'Đề xuất sửa khách'; }
 function kpDetail_(o) {
   if (o.type === 'export') return 'Xuất file QUAN LY KHACH HANG';
+  if (o.type === 'add') return (o.add.ma || '') + ' · ' + (o.add.guests || []).map(g => g.ten).join(', ') + (o.add.file ? ' · HĐ ' + o.add.file : '') + (o.kq ? ' · thanh toán: ' + o.kq : '');
   const g = o.expect || {};
   let d = (g.ma || '') + ' · ' + (g.ten || '(dòng trống)') + ' · dòng ' + o.row;
   if (o.type === 'save') d += ' · ' + Object.keys(o.fields || {}).map(k => k + ': "' + ((o.before || {})[k] || '') + '" → "' + o.fields[k] + '"').join('; ');
@@ -103,7 +104,7 @@ function kpDecide_(p) {
     o.status = 'duyet'; kpSave_(o);
   } else {
     // đưa vào hàng chờ ghi file và ghi ngay
-    const q = khQueue_(o.type === 'out'
+    const q = o.type === 'add' ? khQueue_(Object.assign({}, o.add, { by: 'NV ' + (o.who ? o.who.ten : '') })) : khQueue_(o.type === 'out'
       ? { type: 'out', row: o.row, guest: Object.assign({}, o.guest, { ma: o.expect.ma, ten: o.expect.ten }), note: (o.note || '') + ' (NV ' + (o.who ? o.who.ten : '') + ' đề xuất)', openUnit: o.openUnit }
       : { type: 'save', row: o.row, expect: o.expect, fields: o.fields });
     if (!q.ok) return { ok: false, err: 'queue', msg: 'Không đưa được vào hàng chờ' };

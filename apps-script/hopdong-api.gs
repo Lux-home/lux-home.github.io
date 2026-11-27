@@ -48,9 +48,9 @@ function hdSession_(p) {
   const tm = thang.split('-'), lv2 = 'Tháng ' + (+tm[1]) + '-' + tm[0], lv3 = /^P/.test(phong) ? phong : 'P' + phong;
   const f = hdChild_(hdChild_(hdChild_(hdRoot_(), toa), lv2), lv3);
   const ex = f.getFilesByName(name);
-  let tt = '';
-  try { tt = tdRecord_(name, String(p.room || (phong + '-' + toa)).toUpperCase(), toa, lv2, p.start || '', who.owner ? 'Chủ' : who.ten); } catch (e) {}
-  while (ex.hasNext()) { const x = ex.next(); if (!x.isTrashed() && (!p.size || x.getSize() === +p.size)) return { ok: true, exists: true, id: x.getId(), path: toa + ' / ' + lv2 + ' / ' + lv3, tt: tt }; }
+  let tt = '', dup = null;
+  try { const rr = tdRecord_(name, String(p.room || (phong + '-' + toa)).toUpperCase(), toa, lv2, p.start || '', who.owner ? 'Chủ' : who.ten); tt = rr.st; dup = rr.dup; } catch (e) {}
+  while (ex.hasNext()) { const x = ex.next(); if (!x.isTrashed() && (!p.size || x.getSize() === +p.size)) return { ok: true, exists: true, id: x.getId(), path: toa + ' / ' + lv2 + ' / ' + lv3, tt: tt, dup: dup }; }
   const res = UrlFetchApp.fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=resumable&supportsAllDrives=true', {
     method: 'post', contentType: 'application/json; charset=UTF-8', muteHttpExceptions: true,
     headers: { Authorization: 'Bearer ' + ScriptApp.getOAuthToken(), 'X-Upload-Content-Type': 'application/pdf', 'X-Upload-Content-Length': String(p.size || ''),
@@ -60,7 +60,7 @@ function hdSession_(p) {
   const loc = res.getAllHeaders()['Location'] || res.getAllHeaders()['location'];
   if (res.getResponseCode() !== 200 || !loc) return { ok: false, err: 'session', msg: res.getContentText().slice(0, 200) };
   if (!who.owner) { try { nkAppend_(who.ma, who.ten, 'Lưu hợp đồng PDF', toa + ' / ' + lv2 + ' / ' + lv3 + ' · ' + name, 'checkin.html', p.devname); } catch (e) {} }
-  return { ok: true, url: loc, path: toa + ' / ' + lv2 + ' / ' + lv3, tt: tt };
+  return { ok: true, url: loc, path: toa + ' / ' + lv2 + ' / ' + lv3, tt: tt, dup: dup };
 }
 /** Duyệt kho: path = [] (tòa) | [tòa] (tháng) | [tòa, tháng] (phòng) | [tòa, tháng, phòng] (file) */
 function hdList_(p) {
@@ -112,27 +112,40 @@ function hdGet_(p) {
  * kết quả từng phòng được ghi lại: Đạt / Chưa đúng (kèm lý do) / Tạm đạt theo bill (chưa có sao kê).
  */
 const TD_NAME = 'LUXHOME - THEO DÕI THANH TOÁN ĐỢT 1';
-const TD_HDR = ['Tên file', 'Phòng', 'Tòa', 'Tháng check-in', 'Ngày vào', 'Lưu lúc', 'Người nạp', 'Trạng thái', 'Chi tiết', 'Kiểm tra lúc'];
+const TD_HDR = ['Tên file', 'Phòng', 'Tòa', 'Tháng check-in', 'Ngày vào', 'Lưu lúc', 'Người nạp', 'Trạng thái', 'Chi tiết', 'Kiểm tra lúc', 'Bổ sung file QLKH'];
 function tdSheet_() {
   const P = PropertiesService.getScriptProperties();
   let id = P.getProperty('td_sheet'), ss = null;
   if (id) { try { ss = SpreadsheetApp.openById(id); } catch (e) {} }
   if (!ss) { ss = SpreadsheetApp.create(TD_NAME); const sh = ss.getSheets()[0]; sh.appendRow(TD_HDR); sh.setFrozenRows(1); P.setProperty('td_sheet', ss.getId()); }
-  return ss.getSheets()[0];
+  const sh = ss.getSheets()[0];
+  if (sh.getLastColumn() < TD_HDR.length) sh.getRange(1, 1, 1, TD_HDR.length).setValues([TD_HDR]);   // thêm cột mới cho bảng cũ
+  return sh;
 }
 const tdNow_ = () => Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm');
+/** Ghi nhật ký nạp hợp đồng. Trả { st, dup } — dup: lần nạp trước (trùng file, hoặc trùng phòng + ngày vào) */
 function tdRecord_(name, room, toa, thang, start, who) {
   const sh = tdSheet_(), n = sh.getLastRow(), v = n > 1 ? sh.getRange(2, 1, n - 1, TD_HDR.length).getDisplayValues() : [];
-  for (let i = 0; i < v.length; i++) if (v[i][0] === name) return v[i][7] || 'Chưa kiểm tra';   // đã có → giữ trạng thái
-  sh.appendRow(["'" + name, "'" + room, "'" + toa, "'" + thang, "'" + (start || ''), tdNow_(), who, 'Chưa kiểm tra', '', '']);
-  return 'Chưa kiểm tra';
+  const info = r => ({ file: r[0], room: r[1], thang: r[3], start: r[4], at: r[5], by: r[6], st: r[7] || 'Chưa kiểm tra', qlkh: r[10] || '' });
+  for (let i = 0; i < v.length; i++) if (v[i][0] === name) return { st: v[i][7] || 'Chưa kiểm tra', dup: info(v[i]) };   // đã có → giữ trạng thái
+  const same = v.find(r => String(r[1]).toUpperCase() === String(room).toUpperCase() && start && r[4] === start);
+  sh.appendRow(["'" + name, "'" + room, "'" + toa, "'" + thang, "'" + (start || ''), tdNow_(), who, 'Chưa kiểm tra', '', '', '']);
+  return { st: 'Chưa kiểm tra', dup: same ? info(same) : null };
+}
+/** Đánh dấu hợp đồng đã bổ sung vào file Quản lý khách hàng */
+function tdMarkAdd_(file, text) {
+  try {
+    const sh = tdSheet_(), n = sh.getLastRow(); if (n < 2 || !file) return;
+    const v = sh.getRange(2, 1, n - 1, 1).getDisplayValues();
+    for (let i = v.length - 1; i >= 0; i--) if (v[i][0] === file) { sh.getRange(i + 2, 11).setValue(text); return; }
+  } catch (e) {}
 }
 function tdList_(p) {
   const who = hdAuth_(p, ['checkin', 'checkinout', 'hopdong']);
   if (!who) return { ok: false, err: 'noperm' };
   const sh = tdSheet_(), n = sh.getLastRow();
   const rows = n > 1 ? sh.getRange(2, 1, n - 1, TD_HDR.length).getDisplayValues().map(r => ({
-    file: r[0], room: r[1], toa: r[2], thang: r[3], start: r[4], at: r[5], by: r[6], st: r[7] || 'Chưa kiểm tra', detail: r[8], checked: r[9] })) : [];
+    file: r[0], room: r[1], toa: r[2], thang: r[3], start: r[4], at: r[5], by: r[6], st: r[7] || 'Chưa kiểm tra', detail: r[8], checked: r[9], qlkh: r[10] || '' })) : [];
   return { ok: true, rows: rows.reverse(), url: SpreadsheetApp.openById(PropertiesService.getScriptProperties().getProperty('td_sheet')).getUrl() };
 }
 /** Chủ gửi kết quả kiểm tra: results = [{room, ngay, ok, detail, sk}] */

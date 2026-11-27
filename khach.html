@@ -393,11 +393,12 @@ function exportX(){
 /* ---------- ĐỀ XUẤT ---------- */
 var LAB={}; FIELDS.forEach(function(f){ LAB[f[0]]=f[1]; });
 function tf(t){ var d=new Date(t); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
-function typeLab(o){ return o.type==='out'?'🚪 Đề xuất OUT':o.type==='export'?'⬇️ Yêu cầu xuất Excel':'✏️ Đề xuất sửa'; }
+function typeLab(o){ return o.type==='out'?'🚪 Đề xuất OUT':o.type==='export'?'⬇️ Yêu cầu xuất Excel':o.type==='add'?'🛎️ Bổ sung khách check-in':'✏️ Đề xuất sửa'; }
 function stLab(o){ return o.status==='cho'?'<span class="tag t-amb">⏳ Chờ duyệt</span>':o.status==='duyet'?'<span class="tag t-ok">✓ Đã duyệt</span>':o.status==='tuchoi'?'<span class="tag t-red">✕ Từ chối</span>':'<span class="tag t-red">⚠️ Lỗi ghi file</span>'; }
 function propBody(o){
   var h='';
-  if(o.type!=='export') h+='<div class="muted">'+esc((o.expect||{}).ma||'')+' · <b>'+esc((o.expect||{}).ten||'(dòng trống)')+'</b> · dòng '+o.row+'</div>';
+  if(o.type==='add'){ var a=o.add||{}; h+='<div class="muted">Căn <b>'+esc(a.ma||'')+'</b>'+(a.file?' · HĐ '+esc(a.file):'')+'</div><div style="font-size:.86rem;margin-top:4px">'+(a.guests||[]).map(function(g){ return '• <b>'+esc(g.ten)+'</b> '+esc([g.qt,g.hc||g.cccd,g.bd&&('vào '+g.bd)].filter(Boolean).join(' · ')); }).join('<br>')+'</div>'+(o.kq?'<div style="font-size:.84rem;margin-top:4px;color:'+(/Đạt/.test(o.kq)?'#15803d':'#b91c1c')+'">💳 Thanh toán đợt 1: '+esc(o.kq)+'</div>':''); }
+  else if(o.type!=='export') h+='<div class="muted">'+esc((o.expect||{}).ma||'')+' · <b>'+esc((o.expect||{}).ten||'(dòng trống)')+'</b> · dòng '+o.row+'</div>';
   if(o.type==='save') h+='<div style="font-size:.86rem;margin-top:4px">'+Object.keys(o.fields||{}).map(function(k){ return '• '+esc(LAB[k]||k)+': <s class="muted">'+esc((o.before||{})[k]||'(trống)')+'</s> → <b>'+esc(o.fields[k]||'(xoá)')+'</b>'; }).join('<br>')+'</div>';
   if(o.type==='out') h+='<div style="font-size:.86rem;margin-top:4px">Xoá trắng thông tin khách, tô đỏ ô tên'+(o.openUnit?' · mở căn trên catalog':'')+(o.note?' · 📝 '+esc(o.note):'')+'</div>';
   if(o.reason) h+='<div style="font-size:.84rem;color:var(--red)">Lý do từ chối: '+esc(o.reason)+'</div>';

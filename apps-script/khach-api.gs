@@ -180,6 +180,7 @@ function xlsmSession_() {
   };
   const RGB = { yellow: 'FFFFEB9C', red: 'FFFF0000' };
   const fillId = color => {
+    if (color === 'none') return 0;
     if (FILLS[color] != null) return FILLS[color];
     const fm = st.match(/<fills count="(\d+)">([\s\S]*?)<\/fills>/);
     FILLS[color] = +fm[1]; stDirty = true;
@@ -273,7 +274,43 @@ function xlsmSession_() {
     return out;
   }
   let DEL = {};
+  const OPS = [];          // các lần chèn/xoá dòng (để sửa hình vẽ, ghi chú, tên vùng lúc ghi file)
   function delRows(list) { (list || []).forEach(r => { DEL[r] = 1; }); if ((list || []).length) dirty = true; }
+  /** Chèn n dòng trống ngay sau dòng `after`, chép định dạng + công thức của dòng mẫu `tmpl` (áp ngay trong bộ nhớ). */
+  function insRows(after, n, tmpl) {
+    if (!(n > 0)) return [];
+    const M = XD_.mkIns(after, n);
+    s = xdSheetM_(s, M, QLKH_SHEET); OPS.push(M);
+    const tm = s.match(rowRe(M.one(tmpl)));
+    if (!tm) throw new Error('Không thấy dòng mẫu ' + tmpl);
+    const tr = M.one(tmpl), cs = parseRow(tm[0]), tag = tm[0].match(/^<row\b[^>]*?(?=\/?>)/)[0].replace(/ spans="[^"]*"/, '');
+    let add = '', rows = [];
+    for (let k = 1; k <= n; k++) {
+      const nr = after + k; rows.push(nr);
+      add += tag.replace(/ r="\d+"/, ' r="' + nr + '"') + '>' + Object.keys(cs).map(Number).sort((a, b) => a - b).map(c => {
+        const x = cs[c], ref = colName_(c) + nr, sa = x.s && x.s !== '0' ? ' s="' + x.s + '"' : '';
+        const f = x.xml.match(/<f>([^<]*)<\/f>/);
+        return f ? '<c r="' + ref + '"' + sa + '><f>' + xEsc_(XD_.shift(xUnesc_(f[1]), nr - tr, 0)) + '</f></c>' : '<c r="' + ref + '"' + sa + '/>';
+      }).join('') + '</row>';
+    }
+    const am = s.match(rowRe(after));
+    if (am) { const i = s.indexOf(am[0]) + am[0].length; s = s.slice(0, i) + add + s.slice(i); }
+    else throw new Error('Không thấy dòng ' + after);
+    dirty = true;
+    return rows;
+  }
+  /** Các dòng liền nhau có mã phòng (cột D) = ma: [{row, ten}] */
+  function findBlock(ma) {
+    ma = cmp_(ma); const out = [];
+    const a = s.indexOf('<sheetData'), b = s.indexOf('>', a) + 1, e = s.indexOf('</sheetData>');
+    s.slice(b, e).replace(/<row\b[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g, rx => {
+      const r = +(rx.match(/ r="(\d+)"/) || [])[1]; if (r <= 8) return rx;
+      const cs = parseRow(rx), m = cmp_(cellVal(cs[colNum_('D')]));
+      if (m === ma && (!out.length || out[out.length - 1].row === r - 1)) out.push({ row: r, ten: cmp_(cellVal(cs[colNum_('E')])), toa: String(cellVal(cs[colNum_('C')]) || '').trim() });
+      return rx;
+    });
+    return out;
+  }
 
   /** Các dòng khách có số liệu lệch vào cột kỳ tính tiền Y..AC (không phải ngày / AA không phải công thức). */
   function scanShifted() {
@@ -303,25 +340,25 @@ function xlsmSession_() {
     if (!dirty) return { ok: true, nothing: true };
     const changed = {}, D = Object.keys(DEL).map(Number).sort((a, b) => a - b);
     let wbx = wb;
-    if (D.length) {
-      s = xdSheet_(s, D, QLKH_SHEET);
+    if (D.length) { const M = XD_.mk(D); s = xdSheetM_(s, M, QLKH_SHEET); OPS.push(M); }
+    if (OPS.length) {
       const rp = sheetPath.replace(/worksheets\/(sheet\d+\.xml)$/, 'worksheets/_rels/$1.rels');
       (get(rp) || '').replace(/<Relationship\b[^>]*>/g, t => {
         const ty = (t.match(/ Type="([^"]*)"/) || [])[1] || '', tg = (t.match(/ Target="([^"]*)"/) || [])[1] || '';
         if (/TargetMode="External"/.test(t)) return t;
         const path = tg.charAt(0) === '/' ? tg.slice(1) : ('xl/' + tg.replace(/^\.\.\//, '')).replace('xl/worksheets/', 'xl/worksheets/');
         const kind = /\/drawing$/.test(ty) ? 'drawing' : /vmlDrawing$/.test(ty) ? 'vml' : /\/comments$/.test(ty) ? 'comments' : '';
-        if (kind && get(path) != null) changed[path] = xdAnchors_(get(path), D, kind);
+        if (kind && get(path) != null) { let x = get(path); OPS.forEach(M => { x = xdAnchorsM_(x, M, kind); }); changed[path] = x; }
         return t;
       });
-      wbx = wb.replace(/(<definedName\b[^>]*>)([^<]*)(<\/definedName>)/g, (m, o, f, c) => o + xEsc_(XD_.fixFormula(xUnesc_(f), XD_.mk(D), QLKH_SHEET, false)) + c);
+      wbx = wb.replace(/(<definedName\b[^>]*>)([^<]*)(<\/definedName>)/g, (m, o, f, c) => { let x = xUnesc_(f); OPS.forEach(M => { x = XD_.fixFormula(x, M, QLKH_SHEET, false); }); return o + xEsc_(x) + c; });
     }
     changed[sheetPath] = s;
     if (stDirty) { changed['xl/styles.xml'] = st.replace(xfsM[0], '<cellXfs count="' + (xfs.length + added.length) + '">' + xfs.join('') + added.join('') + '</cellXfs>'); }
     changed['xl/workbook.xml'] = /<calcPr\b[^>]*\/>/.test(wbx)
       ? wbx.replace(/<calcPr\b([^>]*)\/>/, (m, a) => '<calcPr' + a.replace(/ fullCalcOnLoad="\w+"/, '') + ' fullCalcOnLoad="1"/>')
       : wbx.replace('</workbook>', '<calcPr fullCalcOnLoad="1"/></workbook>');
-    const backupId = KH_TARGET === QLKH_ID ? maybeBackup_(meta.name, D.length > 0) : null;
+    const backupId = KH_TARGET === QLKH_ID ? maybeBackup_(meta.name, OPS.length > 0) : null;
     const blobs = [], first = '[Content_Types].xml';
     [first].concat(order.filter(n => n !== first)).forEach(n => {
       if (!byName[n]) return;
@@ -332,7 +369,7 @@ function xlsmSession_() {
     if (up.getResponseCode() !== 200) throw new Error('Ghi file lên Drive không được (HTTP ' + up.getResponseCode() + ')');
     return { ok: true, backupId: backupId, deleted: D.length };
   }
-  return { edit: edit, commit: commit, scanShifted: scanShifted, blockExtras: blockExtras, delRows: delRows };
+  return { edit: edit, commit: commit, scanShifted: scanShifted, blockExtras: blockExtras, delRows: delRows, insRows: insRows, findBlock: findBlock };
 }
 /** Sửa 1 dòng và ghi ngay (dùng cho hàm thử). */
 function xlsmEditRow_(rowNum, expect, setV, kinds, opt) {
@@ -361,7 +398,16 @@ function outSpec_() {
   for (let c = colNum_('E'); c <= colNum_('AC'); c++) { setV[colName_(c)] = ''; kinds[colName_(c)] = 'text'; }
   return { setV: setV, kinds: kinds };
 }
+const K_ADD = ['ten', 'ns', 'qt', 'gt', 'cccd', 'hc', 'dc', 'bd', 'kt', 'lt', 'coc', 'tp', 'sn', 'dck', 'nuoc', 'bt', 'ttnp', 'sale', 'lh', 'sdt'];
 function khQueue_(p) {
+  if (p.type === 'add') {
+    const guests = (p.guests || []).map(g => { const f = {}; K_ADD.forEach(k => { if (g[k] != null && String(g[k]).trim() !== '') f[k] = String(g[k]).trim(); }); return f; }).filter(f => f.ten);
+    if (!p.ma || !guests.length) return { ok: false, err: 'nothing', msg: 'Chưa có mã phòng hoặc khách' };
+    const item = { t: Date.now(), type: 'add', ma: String(p.ma).toUpperCase().trim(), guests: guests, force: !!p.force, file: String(p.file || '').slice(0, 200), by: p.by || 'Chủ' };
+    const key = KQ_PREFIX + item.t + '_' + Math.random().toString(36).slice(2, 7);
+    PropertiesService.getScriptProperties().setProperty(key, JSON.stringify(item));
+    return { ok: true, id: key, t: item.t, pending: khPending_().length };
+  }
   const row = +p.row;
   if (!(row > 8)) return { ok: false, err: 'badrow' };
   const item = { t: Date.now(), type: p.type === 'out' ? 'out' : 'save', row: row, expect: p.expect || {} };
@@ -385,8 +431,10 @@ function khErrors_() { try { return JSON.parse(PropertiesService.getScriptProper
 /** Áp mọi thay đổi đang chờ vào file (1 lần tải + 1 lần ghi). Gọi bên trong khoá. */
 function khApply_() {
   const P = PropertiesService.getScriptProperties();
-  const items = khPending_();
-  if (!items.length) return { ok: true, applied: 0, errors: khErrors_() };
+  const all = khPending_();
+  if (!all.length) return { ok: true, applied: 0, errors: khErrors_() };
+  const items = all.filter(it => it.type !== 'add'), adds = all.filter(it => it.type === 'add');
+  if (!items.length) return khApplyAdds_(adds);
   const S = xlsmSession_(), done = [], errs = khErrors_(), after = [], outRows = [];
   items.forEach(it => {
     const sp = it.type === 'out' ? outSpec_() : editSpec_(it.fields);
@@ -414,7 +462,74 @@ function khApply_() {
         if (i >= 0 && t.C.tt >= 0) t.sh.getRange(i + 1, t.C.tt + 1).setValue('Đang có sẵn'); } catch (e) {}
     }
   });
-  return { ok: true, applied: done.length, failed: items.length - done.length, deleted: delList.length, backupId: c.backupId || null, errors: errs.slice(0, 30) };
+  const res = { ok: true, applied: done.length, failed: items.length - done.length, deleted: delList.length, backupId: c.backupId || null, errors: errs.slice(0, 30) };
+  if (adds.length) { const r2 = khApplyAdds_(adds); res.applied += r2.applied; res.failed += r2.failed; res.added = r2.added; res.errors = r2.errors; }
+  return res;
+}
+/** Bổ sung khách check-in vào file: khách chính vào dòng chính của căn (bỏ màu đỏ), khách thêm chèn dòng ngay dưới. */
+function khApplyAdds_(adds) {
+  const P = PropertiesService.getScriptProperties(), errs = khErrors_(), added = [];
+  let done = 0, failed = 0;
+  const S = xlsmSession_();
+  let reg = {}; try { reg = JSON.parse(P.getProperty('khadd_reg') || '{}'); } catch (e) {}
+  adds.forEach(it => {
+    const fail = msg => { failed++; errs.unshift({ t: it.t, row: 0, ma: it.ma, ten: (it.guests[0] || {}).ten || '', type: 'add', msg: msg }); };
+    try {
+      if (it.file && reg[it.file] && !it.force) return fail('Hợp đồng ' + it.file + ' đã được bổ sung vào file lúc ' + reg[it.file].at + ' (dòng ' + reg[it.file].rows.join(', ') + ')');
+      const blk = S.findBlock(it.ma);
+      if (!blk.length) return fail('Không thấy căn ' + it.ma + ' trong file Quản lý khách hàng — thêm căn vào file trước');
+      const occ = blk.filter(x => x.ten);
+      if (occ.length && !it.force) return fail('Căn ' + it.ma + ' còn ' + occ.length + ' khách chưa OUT: ' + occ.map(x => x.ten).join(', ') + ' — OUT khách cũ trước, hoặc chọn "Vẫn bổ sung"');
+      const slots = blk.filter(x => !x.ten).map(x => x.row), need = it.guests.length - slots.length;
+      const toa = blk[0].toa || (it.ma.split('-')[1] || '');
+      const rows = slots.slice(0, it.guests.length).concat(need > 0 ? S.insRows(blk[blk.length - 1].row, need, blk[blk.length - 1].row) : []);
+      rows.forEach((r, i) => {
+        const sp = editSpec_(it.guests[i]);
+        sp.setV.D = it.ma; sp.kinds.D = 'text'; sp.setV.C = toa; sp.kinds.C = 'text';
+        const x = S.edit(r, {}, sp.setV, sp.kinds, { colFill: { E: 'none' }, skipFormula: true });
+        if (!x.ok) throw new Error(x.msg || x.err);
+      });
+      done++; added.push({ t: it.t, ma: it.ma, rows: rows, file: it.file });
+    } catch (e) { fail(String(e.message || e)); }
+  });
+  if (done) S.commit();
+  adds.forEach(it => P.deleteProperty(it.key));
+  P.setProperty(KQ_ERR, JSON.stringify(errs.slice(0, 30)));
+  if (added.length) {
+    const at = Utilities.formatDate(new Date(), 'Asia/Ho_Chi_Minh', 'dd/MM/yyyy HH:mm');
+    added.forEach(a => { if (a.file) { reg[a.file] = { at: at, rows: a.rows }; tdMarkAdd_(a.file, 'Đã bổ sung ' + at + ' · dòng ' + a.rows.join(', ')); } });
+    const ks = Object.keys(reg); if (ks.length > 600) ks.slice(0, ks.length - 600).forEach(k => delete reg[k]);
+    P.setProperty('khadd_reg', JSON.stringify(reg));
+  }
+  return { ok: true, applied: done, failed: failed, added: added, errors: errs.slice(0, 30) };
+}
+/** App check-in: bổ sung khách của hợp đồng vào file. Chủ → ghi ngay; nhân viên → đề xuất chờ duyệt. */
+function khAddRoute_(p) {
+  const who = hdAuth_(p, ['checkin', 'checkinout']);
+  if (!who) return { ok: false, err: 'noperm' };
+  const add = { type: 'add', ma: p.ma, guests: p.guests, force: !!p.force, file: p.file };
+  if (!who.owner) {
+    if (!(p.guests || []).length || !p.ma) return { ok: false, err: 'nothing' };
+    const o = { t: Date.now(), status: 'cho', who: { ma: who.ma, ten: who.ten }, type: 'add', add: add, kq: String(p.kq || '').slice(0, 300) };
+    o.id = KP_PREFIX + o.t + '_' + Math.random().toString(36).slice(2, 7);
+    kpSave_(o);
+    try { nkAppend_(who.ma, who.ten, kpLabel_(o), kpDetail_(o), 'checkin.html', p.devname); } catch (e) {}
+    return { ok: true, proposed: true, id: o.id };
+  }
+  add.by = 'Chủ';
+  const q = khQueue_(add); if (!q.ok) return q;
+  let r; try { r = withLock_(() => khApply_()); } catch (e) { return { ok: false, err: 'apply', msg: String(e.message || e) }; }
+  const a = (r.added || []).find(x => x.t === q.t), e = (r.errors || []).find(x => x.t === q.t);
+  if (a) return { ok: true, rows: a.rows };
+  return { ok: false, err: 'add', msg: e ? e.msg : 'Chưa ghi được — thử lại' };
+}
+function khAddStatus_(p) {
+  const who = hdAuth_(p, ['checkin', 'checkinout']);
+  if (!who) return { ok: false, err: 'noperm' };
+  let reg = {}; try { reg = JSON.parse(PropertiesService.getScriptProperties().getProperty('khadd_reg') || '{}'); } catch (e) {}
+  const pend = {}; kpAll_().forEach(o => { if (o.type === 'add' && o.status === 'cho' && o.add && o.add.file) pend[o.add.file] = 1; });
+  const out = {}; [].concat(p.files || []).forEach(f => { if (reg[f]) out[f] = { done: reg[f] }; else if (pend[f]) out[f] = { pend: 1 }; });
+  return { ok: true, files: out };
 }
 function khStatus_() { return { ok: true, pending: khPending_().length, errors: khErrors_() }; }
 function khClearErr_() { PropertiesService.getScriptProperties().deleteProperty(KQ_ERR); return { ok: true }; }
@@ -459,6 +574,11 @@ const XD_ = {
       one: r => del[r] ? null : r - below(r),
       range: (a, b) => { const s = a - below(a), e = b - upTo(b); return e < s ? null : [s, e]; }
     };
+  },
+  // ánh xạ khi CHÈN n dòng ngay sau dòng `after`
+  mkIns(after, n) {
+    const f = r => r > after ? r + n : r;
+    return { del: {}, one: f, range: (a, b) => [f(a), f(b)] };
   },
   // tham chiếu ô/vùng trong công thức: (sheet!)?A1(:B2)? hoặc 9:12
   RE: /('(?:[^']|'')+'!|[A-Za-z_][\w.]*!)?(\$?)([A-Z]{1,3})(\$?)(\d+)(?::(\$?)([A-Z]{1,3})(\$?)(\d+))?|('(?:[^']|'')+'!|[A-Za-z_][\w.]*!)?(\$?)(\d+):(\$?)(\d+)/g,
@@ -518,8 +638,8 @@ const XD_ = {
 };
 
 /** Xoá dòng trong chuỗi XML của sheet (D tăng dần). Trả XML mới. */
-function xdSheet_(s, D, own) {
-  const M = XD_.mk(D);
+function xdSheet_(s, D, own) { return xdSheetM_(s, XD_.mk(D), own); }
+function xdSheetM_(s, M, own) {
   s = XD_.unshare(s);
   const a = s.indexOf('<sheetData'), b = s.indexOf('>', a) + 1, e = s.indexOf('</sheetData>');
   const body = s.slice(b, e).replace(/<row\b[^>]*?(?:\/>|>[\s\S]*?<\/row>)/g, rx => {
@@ -548,8 +668,9 @@ function xdSheet_(s, D, own) {
   return head + body + tail;
 }
 /** Hình vẽ / ghi chú gắn theo dòng (0-based trong drawing & vml) */
-function xdAnchors_(xml, D, kind) {
-  const M = XD_.mk(D), z = r => { const n = M.one(r + 1); return n == null ? (M.one(r + 2) || r + 1) - 1 : n - 1; };
+function xdAnchors_(xml, D, kind) { return xdAnchorsM_(xml, XD_.mk(D), kind); }
+function xdAnchorsM_(xml, M, kind) {
+  const z = r => { const n = M.one(r + 1); return n == null ? (M.one(r + 2) || r + 1) - 1 : n - 1; };
   if (kind === 'drawing') return xml.replace(/<xdr:row>(\d+)<\/xdr:row>/g, (m, r) => '<xdr:row>' + z(+r) + '</xdr:row>');
   if (kind === 'vml') return xml.replace(/<x:Row>(\d+)<\/x:Row>/g, (m, r) => '<x:Row>' + z(+r) + '</x:Row>')
     .replace(/(<x:Anchor>\s*\d+\s*,\s*\d+\s*,\s*)(\d+)(\s*,\s*\d+\s*,\s*\d+\s*,\s*\d+\s*,\s*)(\d+)/g, (m, a, r1, b, r2) => a + z(+r1) + b + z(+r2));
@@ -609,6 +730,39 @@ function donDongTrong(chiXem) {
     if (chiXem || !del.length) return;
     const S = xlsmSession_(); S.delRows(del); Logger.log('Đã xoá -> ' + JSON.stringify(S.commit()));
   } finally { lock.releaseLock(); }
+}
+
+/* Chạy tay: thử BỔ SUNG KHÁCH CHECK-IN (2 khách vào 1 căn trống → chèn 1 dòng) trên BẢN SAO, kiểm tra bằng Google Sheets. */
+function thuBoSungBanSao() {
+  const cp = JSON.parse(drive_('/drive/v3/files/' + QLKH_ID + '/copy?supportsAllDrives=true&fields=id', { method: 'post', contentType: 'application/json',
+    payload: JSON.stringify({ name: 'THU_BO_SUNG_XOA_DUOC.xlsm' }) }).getContentText());
+  KH_TARGET = cp.id; let gs = null;
+  try {
+    const L0 = khList_().rows, by = {};
+    L0.forEach(r => { if (r.ma) (by[r.ma] = by[r.ma] || []).push(r); });
+    const ma = Object.keys(by).find(k => by[k].length === 1 && !by[k][0].ten && by[k][0].row > 300 && by[k][0].row < 560);
+    const r0 = by[ma][0].row, below = L0.find(r => r.row === r0 + 1) || {};
+    Logger.log('Căn trống thử: ' + ma + ' dòng ' + r0 + ' · dòng dưới: ' + below.ma + ' ' + below.ten);
+    const S = xlsmSession_(), blk = S.findBlock(ma);
+    const rows = [r0].concat(S.insRows(blk[blk.length - 1].row, 1, blk[blk.length - 1].row));
+    const G = [{ ten: 'THU KHACH MOT', ns: '01/01/1990', qt: 'NN', gt: 'Nam', hc: 'X1234567', bd: '27/11/2026', kt: '26/02/2027', lt: '20/02/2027', coc: '7500000', tp: '7500000', sn: '2', sdt: '0900000000' },
+               { ten: 'THU KHACH HAI', ns: '02/02/1992', qt: 'NN', gt: 'Nữ', hc: 'Y7654321', lt: '20/02/2027' }];
+    rows.forEach((r, i) => { const sp = editSpec_(G[i]); sp.setV.D = ma; sp.kinds.D = 'text'; sp.setV.C = blk[0].toa; sp.kinds.C = 'text';
+      Logger.log('Ghi dòng ' + r + ' -> ' + JSON.stringify(S.edit(r, {}, sp.setV, sp.kinds, { colFill: { E: 'none' }, skipFormula: true }))); });
+    Logger.log('Ghi file -> ' + JSON.stringify(S.commit()));
+    const L1 = khList_().rows;
+    Logger.log('Số dòng: ' + L0.length + ' -> ' + L1.length + ' · căn ' + ma + ': ' + JSON.stringify(L1.filter(r => r.ma === ma).map(r => [r.row, r.ten, r.hc, r.bd, r.lt, r.tp])));
+    const b2 = L1.find(r => r.ma === below.ma && r.ten === below.ten); Logger.log('Dòng dưới giờ ở: ' + (b2 ? b2.row + ' (trước ' + below.row + ')' : 'KHÔNG THẤY'));
+    gs = JSON.parse(drive_('/drive/v3/files/' + cp.id + '/copy?supportsAllDrives=true&fields=id', { method: 'post', contentType: 'application/json',
+      payload: JSON.stringify({ name: 'THU_BO_SUNG_GS', mimeType: 'application/vnd.google-apps.spreadsheet' }) }).getContentText()).id;
+    const sh = SpreadsheetApp.openById(gs).getSheetByName(QLKH_SHEET), v = sh.getDataRange().getDisplayValues(), f = sh.getDataRange().getFormulas();
+    let errN = 0; v.forEach((row, i) => row.forEach((c, j) => { if (/^#(REF|VALUE|N.A|NAME|DIV)/.test(c) && f[i][j]) errN++; }));
+    Logger.log('Google Sheets mở được · ô công thức lỗi: ' + errN + ' (file gốc: 33) · AA dòng mới: ' + (f[rows[1] - 1][26] || '(trống)') + ' · màu E dòng chính: ' + sh.getRange(rows[0], 5).getBackground());
+  } finally {
+    KH_TARGET = QLKH_ID;
+    [cp.id, gs].filter(Boolean).forEach(id => drive_('/drive/v3/files/' + id + '?supportsAllDrives=true', { method: 'patch', contentType: 'application/json', payload: JSON.stringify({ trashed: true }) }));
+    Logger.log('Đã chuyển bản sao vào thùng rác.');
+  }
 }
 
 /* Chạy tay trong trình soạn thảo: thử đọc danh sách (không ghi gì). */

@@ -91,6 +91,12 @@
   .tkS div{border:1px solid var(--line);border-radius:12px;padding:8px 10px} .tkS span{display:block;font-size:.76rem;color:var(--muted);font-weight:700} .tkS b{font-size:1.1rem}
   .tkT{margin-top:12px} .tkT summary{cursor:pointer;font-weight:800} .tkT table{width:100%;border-collapse:collapse;margin-top:6px;font-size:.86rem}
   .tkT th,.tkT td{border-bottom:1px solid var(--line);padding:6px 4px;text-align:left} .tkT td.n,.tkT th:not(:first-child){text-align:right}
+.bkB{display:flex;align-items:center;gap:10px;margin:18px 0 8px;font-weight:800;font-size:1.02rem;color:var(--ink,#0f2a33)}
+.bkB span{display:inline-flex;align-items:center;justify-content:center;width:28px;height:28px;border-radius:50%;background:linear-gradient(135deg,#22b8d6,#0f7fae);color:#fff;font-size:.9rem}
+.bkC{border-radius:14px;padding:12px 14px;margin:8px 0;border:2px solid #e2e8f0;background:#fff}
+.bkC.xanh{background:#ecfdf3;border-color:#16a34a}.bkC.do{background:#fef2f2;border-color:#dc2626}.bkC.vang{background:#fffbeb;border-color:#d97706}
+.bkC .t{font-weight:800}.bkC .l{font-size:.84rem;margin-top:3px}
+.bkC .btn{margin-top:10px;width:100%}
 </style>
 </head>
 <body>
@@ -118,9 +124,8 @@
     <!-- GỬI DANH SÁCH -->
     <div id="v_gui" style="display:none">
       <div class="napTab">
-        <button class="napB" data-n="pdf" onclick="napChon('pdf')"><b>1</b>📑 Hợp đồng checkin PDF</button>
+        <button class="napB" data-n="pdf" onclick="napChon('pdf')"><b>1</b>🛎️ Bổ sung khách check-in</button>
         <button class="napB" data-n="le" onclick="napChon('le')"><b>2</b>👤 Bổ sung khách ở thêm</button>
-        <button class="napB" data-n="tt" onclick="napChon('tt')"><b>3</b>💳 Kiểm tra thanh toán đợt 1 khi checkin</button>
       </div>
       <div class="card napP" id="napExcel" style="display:none">
         <div class="lb">Nạp theo file Excel DS Check-in</div>
@@ -146,13 +151,19 @@
         <p class="hint">Đúng định dạng file DS Check-in: cột A (STT) → AC (Ngày nhập cảnh). Dòng có số căn hộ ở cột B là khách chính; dòng trống cột B là người ở cùng.</p>
       </div>
       <div class="card napP" id="napPdf" style="display:none">
-        <div class="lb">Hợp đồng checkin PDF</div>
+        <div class="lb">Bổ sung khách check-in</div>
+        <div class="bkB"><span>1</span>Nạp hợp đồng PDF</div>
         <div id="pdfLoi"></div>
         <input type="file" id="hdFile" accept="application/pdf,.pdf" multiple style="display:none" onchange="hdChon(this.files)">
         <button class="btn big" onclick="document.getElementById('hdFile').click()">📑 Chọn hợp đồng PDF (bản quét)</button>
         <p class="hint">Đặt tên file dạng <b>P301_T121_17.11-16.2.27_-_Megas.pdf</b> (căn hộ_tòa_ngày vào-ngày kết thúc_môi giới). App tự đọc hộ chiếu/CCCD, dấu nhập cảnh, phụ lục 03 &amp; 04 và ảnh chuyển khoản trong file; nhân viên kiểm tra rồi bấm <b>Đưa vào danh sách gửi</b>. Chọn được nhiều file một lúc.</p>
         <div id="hdList"></div>
-        <details id="tdWrap" class="hdC" style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">📋 Theo dõi thanh toán đợt 1 của các hợp đồng <span id="tdDem"></span></summary><div id="tdBox" style="margin-top:8px"><p class="muted">Đang tải…</p></div></details>
+        <div class="bkB"><span>2</span>Tải sao kê đối chiếu</div>
+        <div id="bkSK"></div>
+        <div class="bkB"><span>3</span>Đối chiếu thanh toán</div>
+        <div id="bkKQ"><p class="muted">Nạp hợp đồng ở bước 1 để đối chiếu.</p></div>
+        <div id="bkThang"></div>
+        <details id="tdWrap" class="hdC" style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">📒 Nhật ký nạp hợp đồng &amp; theo dõi thanh toán đợt 1 <span id="tdDem"></span></summary><div id="tdBox" style="margin-top:8px"><p class="muted">Đang tải…</p></div></details>
       </div>
       <div class="card" id="preview" style="display:none">
         <div class="lb">Kiểm tra trước khi gửi</div>
@@ -1168,10 +1179,12 @@ function hdCanhBao(h){
   else if(!ROOM_RE.test(h.room)) w.push('⛔ Mã phòng "'+h.room+'" sai định dạng — cần dạng 301-T121');
   // thanh toán đợt 1: luôn nhắc cho tới khi mục 3 xác nhận Đạt
   var td=tdTim(h); var tst=(h.tt||'')||(td?td.st:'');
+  if(h.kq) tst = !h.kq.ok ? 'Chưa đúng' : h.kq.sk ? 'Đạt' : (tst==='Đạt'?'Đạt':'Tạm đạt');
+  if(h.dup) w.push('⚠️ ĐÃ NẠP TRƯỚC ĐÓ: '+h.dup.file+' · phòng '+h.dup.room+' vào '+h.dup.start+' · nạp '+h.dup.at+(h.dup.by?' bởi '+h.dup.by:'')+' · '+h.dup.st+(h.dup.qlkh?' · '+h.dup.qlkh:'')+' — kiểm tra có nạp nhầm kỳ cũ không');
   if(/^Đạt$/.test(tst)) w.push('✅ Thanh toán đợt 1 đã kiểm tra: Đạt');
-  else if(/^Chưa đúng/.test(tst)) w.push('⚠️ THANH TOÁN ĐỢT 1 CHƯA ĐÚNG'+(td&&td.detail?': '+td.detail:'')+' — xem mục 3');
-  else if(/^Tạm đạt/.test(tst)) w.push('⚠️ Thanh toán đợt 1 mới tạm đạt theo bill — chưa đối chiếu sao kê (mục 3)');
-  else w.push('⚠️ Hợp đồng này CHƯA QUA bước Kiểm tra thanh toán đợt 1 khi checkin (mục 3) — đã đưa vào danh sách theo dõi');
+  else if(/^Chưa đúng/.test(tst)) w.push('⚠️ THANH TOÁN ĐỢT 1 CHƯA ĐÚNG'+(h.kq?': '+h.kq.loi.join(' · '):(td&&td.detail?': '+td.detail:''))+' — xem bước 3');
+  else if(/^Tạm đạt/.test(tst)) w.push('⚠️ Thanh toán đợt 1 mới tạm đạt theo bill — chưa đối chiếu sao kê (bước 2)');
+  else w.push('⚠️ Hợp đồng này CHƯA QUA bước đối chiếu thanh toán đợt 1 (bước 2 + 3) — đã ghi vào nhật ký nạp');
   if(h.coPL3===false) w.push('⚠️ Không thấy Phụ lục 03 (bảng đơn giá) — kiểm tra tiền phòng, cọc, điện, nước');
   if(h.coPL4===false) w.push('⚠️ Không thấy Phụ lục 04 (thanh toán đợt 1) — kiểm tra tiền phòng đợt 1, tổng đợt 1');
   if(!kpDate(h.start)) w.push('⛔ Chưa có ngày bắt đầu HĐ');
@@ -1286,6 +1299,7 @@ function hdDocFile(h){
   });
 }
 function hdVe(){
+  setTimeout(bkVe,0);
   var el=document.getElementById('hdList');
   el.innerHTML=HD.map(function(h,i){
     var head='<div class="hdH"><b>📑 '+esc(h.file)+'</b><button class="btn o kpX" onclick="hdBo('+i+')">✕</button></div>'+hdLuuTag(h);
@@ -1366,7 +1380,7 @@ function hdLuu(h, room, start){
   if(TOK){ a.tok=TOK; a.dev=devId(); a.devname=devName(); } else a.ckpw=PW;
   luxApi('hdsession',a,true).then(function(r){
     if(!r||!r.ok) throw new Error((r&&r.msg)||(r&&r.err)||'lỗi máy chủ');
-    if(r.tt) h.tt=r.tt; tdTai();
+    if(r.tt) h.tt=r.tt; if(r.dup && !h.dup){ h.dup=r.dup; toast('⚠️ '+h.file+': hợp đồng này đã nạp trước đó ('+r.dup.at+') — xem cảnh báo',6000); } tdTai();
     if(r.exists){ h.luu={st:'ok',path:r.path,exists:true}; hdVe(); return; }
     return new Promise(function(res,rej){
       var x=new XMLHttpRequest(); x.open('PUT',r.url); x.setRequestHeader('Content-Type','application/pdf');
@@ -1400,9 +1414,13 @@ function tdVe(){
   document.getElementById('tdDem').innerHTML=chua.length?'<span style="background:#b91c1c;color:#fff;border-radius:999px;padding:1px 8px;font-size:.78rem">'+chua.length+' chưa đạt</span>':'<span style="color:#15803d">✓ tất cả đạt</span>';
   var mau=function(st){ return /^Đạt$/.test(st)?'#15803d':/^Chưa đúng/.test(st)?'#b91c1c':/^Tạm/.test(st)?'#b45309':'#5f727a'; };
   var row=function(x){ return '<div style="border-top:1px solid var(--line);padding:7px 0;font-size:.86rem"><b>'+esc(x.room)+'</b> · vào '+esc(x.start||'?')+' <span style="font-weight:800;color:'+mau(x.st)+'">'+esc(x.st)+'</span>'
+    +(x.qlkh?' <span style="font-size:.76rem;font-weight:700;color:#0f7fae">· 📁 '+esc(x.qlkh)+'</span>':' <span style="font-size:.76rem;color:#b45309">· 📁 chưa bổ sung file QLKH</span>')
     +'<div class="muted" style="font-size:.78rem">'+esc(x.file)+' · nạp '+esc(x.at)+(x.by?' bởi '+esc(x.by):'')+(x.checked?' · kiểm tra '+esc(x.checked):'')+'</div>'+(x.detail&&x.st!=='Đạt'?'<div style="font-size:.78rem;color:'+mau(x.st)+'">'+esc(x.detail)+'</div>':'')+'</div>'; };
-  el.innerHTML=(chua.length?chua.map(row).join(''):'<p class="muted">Không có hợp đồng nào đang chờ kiểm tra / chưa đúng.</p>')
-    +(TD.length>chua.length?'<details style="margin-top:6px"><summary class="muted" style="cursor:pointer">Đã đạt ('+(TD.length-chua.length)+')</summary>'+TD.filter(function(x){ return x.st==='Đạt'; }).slice(0,200).map(row).join('')+'</details>':'')
+  var thang={}; TD.forEach(function(x){ (thang[x.thang||'Khác']=thang[x.thang||'Khác']||[]).push(x); });
+  el.innerHTML=(chua.length?'<div class="lb" style="margin-top:0">Cần xử lý ('+chua.length+')</div>'+chua.map(row).join(''):'<p class="muted">Không có hợp đồng nào đang chờ kiểm tra / chưa đúng.</p>')
+    +'<div class="lb" style="margin-top:12px">Nhật ký nạp theo tháng check-in</div>'
+    +Object.keys(thang).map(function(k){ var a=thang[k], n=a.filter(function(x){ return x.st!=='Đạt'; }).length;
+      return '<details style="margin-top:4px"><summary style="cursor:pointer;font-weight:700">'+esc(k)+' — '+a.length+' hợp đồng'+(n?' <span style="color:#b91c1c">· '+n+' chưa đạt</span>':' <span style="color:#15803d">· tất cả đạt</span>')+'</summary>'+a.slice(0,300).map(row).join('')+'</details>'; }).join('')
     +(TOK?'':'<details style="margin-top:8px" ontoggle="if(this.open)tdMailTai()"><summary style="cursor:pointer;font-weight:700">📧 Email báo cáo hằng ngày</summary><div id="tdMail" style="margin-top:6px"><p class="muted">Đang tải…</p></div></details>')
     +'<p class="hint">Hợp đồng nạp ở mục 1 tự vào danh sách này. Trạng thái cập nhật khi chủ chạy mục 3 (Kiểm tra thanh toán đợt 1 khi checkin) với sao kê ngân hàng.'+(TD_URL&&!TOK?' <a href="'+esc(TD_URL)+'" target="_blank" rel="noopener">Mở bảng Google Sheets</a>':'')+'</p>';
 }
@@ -1428,6 +1446,85 @@ function tdMailBo(k,i){ if(TDM[k].length<=1){ toast('Cần giữ ít nhất 1 '+
 function tdMailThem(k,id){ var v=(document.getElementById(id).value||'').trim(); if(!v) return; if(k==='emails'&&v.indexOf('@')<1){ toast('Email không hợp lệ'); return; } if(TDM[k].indexOf(v)<0) TDM[k].push(v); tdMailLuu(); }
 function tdMailLuu(test){ var m=document.getElementById('tdMMsg'); if(m) m.textContent=test?'Đang gửi…':'Đang lưu…';
   luxApi('tdmail',tdAuth(TDM.follow?{follow:1,test:test?1:0}:{follow:0,emails:TDM.emails,times:TDM.times,test:test?1:0}),true).then(function(d){ if(d&&d.ok){ TDM=d; tdMailVe(test?d.sent:'✓ Đã lưu'); } else if(m) m.textContent='Lỗi: '+((d&&d.err)||''); }).catch(function(){ if(m) m.textContent='Không kết nối được'; }); }
+/* ===== BỔ SUNG KHÁCH CHECK-IN: bước 2 (sao kê) + bước 3 (đối chiếu, nút bổ sung file QLKH) ===== */
+function bkHD(){ return HD.filter(function(h){ return h.st==='xong' && h.room && ROOM_RE.test(h.room) && h.khach && h.khach.length; }); }
+function bkVe(){
+  var s2=document.getElementById('bkSK'), s3=document.getElementById('bkKQ'); if(!s2||!s3) return;
+  if(TOK){
+    s2.innerHTML='<p class="hint" style="margin:0">Chủ sẽ tải sao kê ngân hàng để đối chiếu. Kết quả hiện ở bước 3 và trong nhật ký nạp.</p>';
+  } else {
+    s2.innerHTML=(TT.skFiles.length?TT.skFiles.map(function(f,i){ return '<div class="kpFile"><div class="kpFn">📄 '+esc(f.name)+' — '+f.n+' giao dịch tiền vào</div><button class="btn o kpX" onclick="ttBoSK('+i+')">✕</button></div>'; }).join(''):'<p class="hint" style="margin:0 0 6px">Chưa tải sao kê — bước 3 tạm đối chiếu theo ảnh chuyển khoản trong hợp đồng.</p>')
+      +((TT.choMK&&TT.choMK.length)?'<div class="hdC"><b>🔒 File sao kê có mật khẩu</b>'+(TT.saiMK?'<div class="kpW r">⛔ Mật khẩu không đúng, nhập lại</div>':'')
+        +'<div class="row2"><input type="password" id="bkMK" placeholder="Mật khẩu file sao kê" autocomplete="off" style="flex:1 1 180px" onkeydown="if(event.key===\'Enter\')bkMoKhoa()"><button class="btn ok" onclick="bkMoKhoa()">🔓 Mở file</button></div>'
+        +'<label class="hint" style="display:flex;gap:8px;align-items:center"><input type="checkbox" id="bkNho" checked> Nhớ mật khẩu trên máy này</label></div>':'')
+      +'<button class="btn" onclick="document.getElementById(\'ttSK\').click()">🏦 Chọn file sao kê (Excel tải từ ngân hàng)</button>';
+  }
+  var ds=bkHD();
+  if(!ds.length){ s3.innerHTML='<p class="muted">Nạp hợp đồng ở bước 1 để đối chiếu.</p>'; bkThangLink(); return; }
+  var gs=ds.map(function(h){ var r=chuanHoa(hdRows(h)[0]); return { c:r, dot:null, thang:'', _h:h }; });
+  var bills=[]; ds.forEach(function(h){ (h.ck||[]).forEach(function(c){ bills.push({ room:String(h.room).toUpperCase(), so:c.so, ngay:c.ngay||'', nd:c.nd||'' }); }); });
+  var KQ=[]; try{ KQ=ttKiemTra(gs, bills, TOK?[]:TT.sk); }catch(e){ KQ=[]; }
+  KQ.forEach(function(k){ var h=k.g._h; h.kq={ ok:!k.loi.length, sk:!TOK&&TT.sk.length>0, loi:k.loi, okL:k.ok, canh:k.canh, can:k.expAB, nhan:k.tong }; });
+  if(!TOK && TT.sk.length) tdGui(KQ);
+  bkTrangThai(ds);
+  s3.innerHTML=ds.map(function(h){
+    var q=h.kq||{ ok:false, loi:['Chưa tính được'], okL:[], canh:[] }, td=tdTim(h);
+    var mau = !q.ok ? 'do' : q.sk ? 'xanh' : 'vang', nhan;
+    if(TOK && td){ mau = td.st==='Đạt' ? 'xanh' : /^Chưa đúng/.test(td.st) ? 'do' : mau; }
+    nhan = mau==='xanh' ? '✅ ĐẠT YÊU CẦU — thanh toán đợt 1 khớp sao kê' : mau==='do' ? '⛔ KHÔNG ĐẠT — thanh toán đợt 1 chưa đúng' : '⚠️ Tạm khớp theo ảnh chuyển khoản — chưa đối chiếu sao kê';
+    var btn;
+    if(h.qlkh==='ok') btn='<div class="kpW g">📁 Đã bổ sung vào file Quản lý khách hàng'+(h.qlkhRows?' (dòng '+h.qlkhRows.join(', ')+')':'')+'</div>';
+    else if(h.qlkh==='pend') btn='<div class="kpW y">📨 Đã gửi đề xuất bổ sung — chờ chủ duyệt</div>';
+    else if(h.qlkh==='dang') btn='<button class="btn" disabled>⏳ Đang ghi vào file…</button>';
+    else btn='<button class="btn'+(mau==='xanh'?' ok':' red')+'" onclick="bkAdd('+h.id+')">'
+      +(TOK?'📨 Đề xuất bổ sung vào file Quản lý khách hàng':mau==='xanh'?'✅ Đạt yêu cầu — Bổ sung vào file Quản lý khách hàng':'⚠️ Chưa đạt — vẫn nạp vào file Quản lý khách hàng')+'</button>';
+    return '<div class="bkC '+mau+'"><div class="t">🚪 '+esc(h.room)+' · '+esc((h.khach[0]||{}).ten||'')+(h.khach.length>1?' +'+(h.khach.length-1)+' khách':'')+'</div>'
+      +'<div class="l muted">Vào '+esc(h.start||'?')+' · phải thu đợt 1 '+fm0(q.can||0)+' · đã nhận '+fm0(q.nhan||0)+'</div>'
+      +'<div class="l" style="font-weight:800;color:'+(mau==='xanh'?'#15803d':mau==='do'?'#b91c1c':'#b45309')+'">'+nhan+'</div>'
+      +(q.loi||[]).map(function(x){ return '<div class="l" style="color:#b91c1c">⛔ '+esc(x)+'</div>'; }).join('')
+      +(q.okL||[]).map(function(x){ return '<div class="l" style="color:#15803d">✓ '+esc(x)+'</div>'; }).join('')
+      +(q.canh||[]).map(function(x){ return '<div class="l" style="color:#b45309">⚠️ '+esc(x)+'</div>'; }).join('')
+      +btn+'</div>';
+  }).join('');
+  bkThangLink();
+}
+function bkMoKhoa(){ var v=document.getElementById('bkMK').value; if(!v){ toast('Nhập mật khẩu file sao kê'); return; }
+  TT_PW=v; try{ if(document.getElementById('bkNho').checked) localStorage.setItem('tt_skpw',v); else localStorage.removeItem('tt_skpw'); }catch(e){}
+  var f=TT.choMK||[]; TT.choMK=[]; ttSaoKe(f); }
+// đối chiếu cả tháng (danh sách khách đã duyệt) — chức năng cũ của mục 3
+function bkThangLink(){ var el=document.getElementById('bkThang'); if(!el) return; el.innerHTML=TOK?'':'<button class="btn o" style="margin-top:8px" onclick="bkThangMo()">📅 '+(bkThangMo._on?'Ẩn':'Mở')+' đối chiếu cả tháng (khách đã duyệt)</button>'; }
+function bkThangMo(){ bkThangMo._on=!bkThangMo._on; var v=document.getElementById('v_tt'); v.style.display=bkThangMo._on?'block':'none'; if(bkThangMo._on){ if(!napChon._tt){ napChon._tt=1; ttMo(); } else ttVe(); v.scrollIntoView({behavior:'smooth'}); } bkThangLink(); }
+// trạng thái bổ sung file (cho hợp đồng đã nạp/bổ sung ở lần trước)
+function bkTrangThai(ds){
+  var f=ds.filter(function(h){ return !h.qlkhChk; }); if(!f.length||!window.luxApi) return;
+  f.forEach(function(h){ h.qlkhChk=1; });
+  luxApi('khaddst',tdAuth({files:f.map(function(h){ return h.file; })}),true).then(function(d){
+    if(!d||!d.ok) return; var ch=false;
+    f.forEach(function(h){ var x=d.files[h.file]; if(!x||h.qlkh) return; if(x.done){ h.qlkh='ok'; h.qlkhRows=x.done.rows; ch=true; } else if(x.pend){ h.qlkh='pend'; ch=true; } });
+    if(ch) bkVe();
+  }).catch(function(){});
+}
+function bkAdd(id, force){
+  var h=HD.filter(function(x){ return x.id===id; })[0]; if(!h) return;
+  var q=h.kq||{}, ok=q.ok&&q.sk;
+  if(!force && !TOK && !ok && !confirm('Hợp đồng '+h.room+' CHƯA ĐẠT đối chiếu thanh toán đợt 1:\n\n'+(q.loi&&q.loi.length?q.loi.join('\n'):'Chưa đối chiếu sao kê')+'\n\nVẫn nạp khách vào file Quản lý khách hàng?')) return;
+  if(!h.daThem) hdThem(HD.indexOf(h));
+  var K=['','','','','ten','ns','qt','gt','cccd','hc','dc','bd','kt','lt','coc','tp','sn','dck','nuoc','bt','ttnp','sale','lh','sdt'];
+  var guests=hdRows(h).map(function(r){ r=chuanHoa(r); var g={}; K.forEach(function(k,j){ if(k && r[j]!=null && String(r[j]).trim()!=='') g[k]=String(r[j]).trim(); }); return g; });
+  var kq=(q.ok?(q.sk?'Đạt':'Tạm đạt theo bill'):'Chưa đúng: '+(q.loi||[]).join(' · '));
+  h.qlkh='dang'; bkVe();
+  luxApi('khadd',tdAuth({ ma:String(h.room).toUpperCase(), guests:guests, file:h.file, force:!!force, kq:kq }),true).then(function(d){
+    if(d&&d.ok){
+      if(d.proposed){ h.qlkh='pend'; toast('📨 Đã gửi đề xuất bổ sung '+h.room+' — chờ chủ duyệt',4000); }
+      else { h.qlkh='ok'; h.qlkhRows=d.rows; toast('✅ Đã bổ sung '+guests.length+' khách '+h.room+' vào file Quản lý khách hàng (dòng '+d.rows.join(', ')+')',5000); }
+      bkVe(); tdTai(); return;
+    }
+    h.qlkh=''; bkVe();
+    var m=(d&&(d.msg||d.err))||'Lỗi máy chủ';
+    if(!force && /chưa OUT|đã được bổ sung/.test(m)){ if(confirm(m+'\n\nVẫn bổ sung vào file?')) bkAdd(id, true); return; }
+    toast('⛔ '+m,7000);
+  }).catch(function(){ h.qlkh=''; bkVe(); toast('Không kết nối được máy chủ — chưa ghi',5000); });
+}
 // mục 3 tính xong → ghi kết quả từng phòng vào bảng theo dõi (chỉ chủ)
 var TD_SIG='';
 function tdGui(KQ){
@@ -1441,10 +1538,10 @@ function hdGiay(){ var a=[]; HD.forEach(function(h){ if(h.daThem) a=a.concat((h.
 
 
 // ===== Nạp danh sách khách: 3 cách =====
-var NAP='pdf'; try{ NAP=localStorage.getItem('ck_nap')||'pdf'; }catch(e){} if(NAP!=='le'&&NAP!=='pdf'&&NAP!=='tt') NAP='pdf';   // đã bỏ mục File Excel
+var NAP='pdf'; try{ NAP=localStorage.getItem('ck_nap')||'pdf'; }catch(e){} if(NAP!=='le') NAP='pdf';   // đã bỏ mục File Excel
 function napChon(n){
   if(n!=='le'&&n!=='pdf'&&n!=='tt') n='pdf';
-  if(n==='tt'&&TOK) n='pdf';   // nhân viên không dùng mục đối chiếu sao kê
+  if(n==='tt'){ n='pdf'; if(!TOK) setTimeout(bkThangMo,50); }   // mục 3 cũ đã gộp vào Bổ sung khách check-in
   NAP=n; try{ localStorage.setItem('ck_nap',n); }catch(e){}
   [].forEach.call(document.querySelectorAll('.napB'),function(b){ b.classList.toggle('on', b.getAttribute('data-n')===n); });
   document.getElementById('napExcel').style.display = 'none';
@@ -1452,9 +1549,9 @@ function napChon(n){
   document.getElementById('v_phu').style.display = n==='le'?'block':'none';
   document.getElementById('preview').style.display = (n==='pdf' && PARSED && PARSED.length)?'block':'none';
   // mục 3: nạp sao kê ngân hàng → đối chiếu tiền khách check-in chuyển (dùng lại chức năng Kiểm tra thanh toán đợt 1)
-  document.getElementById('v_tt').style.display = n==='tt'?'block':'none';
-  if(n==='tt' && !napChon._tt){ napChon._tt=1; ttMo(); }
+  if(n!=='pdf' && !bkThangMo._on) document.getElementById('v_tt').style.display = 'none';
   if(n==='pdf' && !napChon._td){ napChon._td=1; tdTai(); }
+  if(n==='pdf') bkVe();
   if(n==='le') kpMo();
 }
 
@@ -1901,7 +1998,7 @@ function ttSaoKe(list){
       TT.skFiles=TT.skFiles.filter(function(x){ return x.name!==f.name; }).concat([{ name:f.name, n:rows.length }]);
       TT.sk=TT.sk.filter(function(x){ return x.file!==f.name; }).concat(rows);
     }).catch(function(e){ if(e&&e.canMK){ canMK.push(f); if(e.sai) sai=true; } else loi.push('⛔ '+String(e&&e.message||e)); }); }))
-  .then(function(){ TT.choMK=canMK; TT.saiMK=sai; napLoi('ttLoi', loi); ttVe(); if(canMK.length) setTimeout(function(){ var p=document.getElementById('ttMK'); if(p) p.focus(); },50); });
+  .then(function(){ TT.choMK=canMK; TT.saiMK=sai; napLoi('ttLoi', loi); napLoi('pdfLoi', loi); ttVe(); bkVe(); if(canMK.length) setTimeout(function(){ var p=document.getElementById('ttMK'); if(p) p.focus(); },50); });
 }
 function ttMoKhoa(){
   var v=document.getElementById('ttMK').value; if(!v){ toast('Nhập mật khẩu file sao kê'); return; }
@@ -1909,7 +2006,7 @@ function ttMoKhoa(){
   var f=TT.choMK||[]; TT.choMK=[]; ttSaoKe(f);
 }
 function ttQuenMK(){ TT_PW=''; try{ localStorage.removeItem('tt_skpw'); }catch(e){} toast('Đã xoá mật khẩu sao kê lưu trên máy này'); ttVe(); }
-function ttBoSK(i){ var n=TT.skFiles[i].name; TT.skFiles.splice(i,1); TT.sk=TT.sk.filter(function(x){ return x.file!==n; }); ttVe(); }
+function ttBoSK(i){ var n=TT.skFiles[i].name; TT.skFiles.splice(i,1); TT.sk=TT.sk.filter(function(x){ return x.file!==n; }); ttVe(); bkVe(); }
 // thêm ảnh bill: đọc → tự nhận phòng theo nội dung CK → lưu
 function ttBill(list){
   var files=[].slice.call(list||[]); document.getElementById('ttBF').value='';

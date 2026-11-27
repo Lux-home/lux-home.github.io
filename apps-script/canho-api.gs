@@ -52,6 +52,8 @@ function handle_(a, p) {
   if (a === 'hdsearch')  return hdSearch_(p);
   if (a === 'hdget')     return hdGet_(p);
   if (a === 'tdlist')    return tdList_(p);
+  if (a === 'khadd')     return khAddRoute_(p);
+  if (a === 'khaddst')   return khAddStatus_(p);
   if (a === 'tdsave')    return tdSave_(p);
   if (a === 'tdmail')    return tdMailCfg_(p);
   // nhân viên (token app phụ) — chỉ xem / gửi đề xuất, chủ duyệt
