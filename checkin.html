@@ -1658,7 +1658,7 @@ function bkAdd(id, force){
   bkGhi(h, force).then(function(r){
     bkVe(); tdTai();
     if(r.ok){ toast(r.proposed?'📨 Đã gửi đề xuất bổ sung '+h.room+' — chờ chủ duyệt':'✅ Đã bổ sung '+r.n+' khách '+h.room+' vào file Quản lý khách hàng (dòng '+r.rows.join(', ')+')',5000); return; }
-    if(!force && /chưa OUT|đã được bổ sung/.test(r.msg)){ if(confirm(r.msg+'\n\nVẫn bổ sung vào file?')) bkAdd(id, true); return; }
+    if(!force && (r.dup || /chưa OUT|đã được bổ sung|TRÙNG/.test(r.msg))){ if(confirm(r.msg+'\n\n'+(r.dup?'Ghi đè thông tin mới lên dòng khách cũ?':'Vẫn bổ sung vào file?'))) bkAdd(id, true); return; }
     toast('⛔ '+r.msg,7000);
   });
 }
@@ -1674,7 +1674,7 @@ function bkGhi(h, force){
       if(d.proposed){ h.qlkh='pend'; return { ok:true, proposed:true, n:guests.length }; }
       h.qlkh='ok'; h.qlkhRows=d.rows; return { ok:true, rows:d.rows, n:guests.length };
     }
-    h.qlkh=''; return { ok:false, msg:(d&&(d.msg||d.err))||'Lỗi máy chủ' };
+    h.qlkh=''; return { ok:false, dup:!!(d&&d.dup), msg:(d&&(d.msg||d.err))||'Lỗi máy chủ' };
   }).catch(function(){ h.qlkh=''; return { ok:false, msg:'Không kết nối được máy chủ — chưa ghi' }; });
 }
 /* ===== Bước 4: NẠP DANH SÁCH ĐÃ KIỂM TRA → ghi tất cả hợp đồng Đạt vào file QUAN LY KHACH HANG ===== */
@@ -1693,7 +1693,7 @@ function bkNapVe(){
   dsVe();
 }
 /* ----- Nạp file DS Check-in (.xlsx) đã kiểm tra → ghi vào file QUAN LY KHACH HANG ----- */
-var DS={ wb:null, ten:'', sheet:'', nhom:[], chon:{}, kq:{}, dang:'' };
+var DS={ wb:null, ten:'', sheet:'', nhom:[], chon:{}, kq:{}, dang:'', ghide:false };
 var DS_COT={ ma:['ma ch','ma can ho'], can:['can ho'], toa:['toa nha','toa'], ten:['ten khach'], ns:['nam sinh','ngay sinh'], qt:['quoc tich'], gt:['gioi tinh'],
   cccd:['cccd','cccd/ho chieu'], hc:['ho chieu'], dc:['dia chi'], bd:['bat dau hd'], kt:['ngay ket thuc hd'], lt:['thoi han luu tru'], coc:['tien coc'], tp:['tien phong'],
   sn:['so nguoi o'], dck:['chi so dien check in'], nuoc:['don gia nuoc'], bt:['don gia bao tri'], ttnp:['thanh toan khi nhan phong'], sale:['moi gioi'], lh:['lien he khach'], sdt:['sdt khach hang'] };
@@ -1745,12 +1745,20 @@ function dsVe(){
   var sel=DS.chon, n=DS.nhom.filter(function(x,i){ return sel[i] && !(DS.kq[i]&&DS.kq[i].ok); }).length, nk=DS.nhom.reduce(function(a,x){ return a+x.khach.length; },0);
   el.innerHTML='<div class="row2" style="margin-top:8px"><span class="hint" style="margin:0">📄 '+esc(DS.ten)+' · sheet</span><select onchange="DS.sheet=this.value;dsDoc()">'+DS.wb.SheetNames.map(function(t){ return '<option'+(t===DS.sheet?' selected':'')+'>'+esc(t)+'</option>'; }).join('')+'</select></div>'
     +'<p class="hint" style="margin:6px 0">'+DS.nhom.length+' căn · '+nk+' khách. Bỏ chọn căn đã có trong file Quản lý khách hàng.</p>'
+    +'<label class="hint" style="display:flex;gap:6px;align-items:center;margin:0 0 6px"><input type="checkbox" '+(DS.ghide?'checked':'')+' onchange="DS.ghide=this.checked"> Khách đã có trong file (trùng tên) → <b>tự ghi đè</b> thông tin mới. Bỏ chọn = chỉ báo lại để bạn quyết từng căn.</label>'
     +'<div style="max-height:340px;overflow:auto;border:1px solid var(--line);border-radius:10px;padding:4px 8px">'+DS.nhom.map(function(x,i){
-      var k=DS.kq[i], tt=k?(k.ok?'<span style="color:#15803d;font-weight:700">✓ đã ghi dòng '+esc(k.rows.join(', '))+'</span>':k.dang?'<span class="muted">⏳ đang ghi…</span>':'<span style="color:#b91c1c">⛔ '+esc(k.msg)+'</span>'+(/chưa OUT|đã được bổ sung/.test(k.msg)?' <button class="btn o" style="padding:3px 8px;font-size:.78rem" onclick="dsGhi(['+i+'],true)">Vẫn ghi</button>':'')):'';
+      var nb='padding:3px 8px;font-size:.78rem';
+      var k=DS.kq[i], tt=k?(k.ok?'<span style="color:#15803d;font-weight:700">✓ '+(k.upd&&k.upd.length?'ghi đè dòng '+esc(k.upd.join(', '))+(k.rows.length>k.upd.length?' · thêm dòng '+esc(k.rows.filter(function(r){ return k.upd.indexOf(r)<0; }).join(', ')):''):'đã ghi dòng '+esc(k.rows.join(', ')))+'</span>'
+        :k.dang?'<span class="muted">⏳ đang ghi…</span>'
+        :k.boqua?'<span class="muted">⏭ đã bỏ qua (khách trùng)</span>'
+        :'<span style="color:'+(k.dup?'#b45309':'#b91c1c')+'">'+(k.dup?'⚠️ ':'⛔ ')+esc(k.msg)+'</span>'
+          +(k.dup?' <button class="btn o" style="'+nb+'" onclick="dsGhi(['+i+'],false,\'ghide\')">✏️ Ghi đè</button> <button class="btn o" style="'+nb+'" onclick="DS.kq['+i+']={boqua:true};DS.chon['+i+']=false;dsVe()">Bỏ qua</button>'
+            :(/chưa OUT/.test(k.msg)?' <button class="btn o" style="'+nb+'" onclick="dsGhi(['+i+'],true)">Vẫn ghi</button>':''))):'';
       return '<label style="display:flex;gap:8px;align-items:flex-start;padding:5px 0;border-bottom:1px solid var(--line);font-size:.86rem"><input type="checkbox" '+(sel[i]?'checked':'')+' '+(k&&k.ok?'disabled':'')+' onchange="DS.chon['+i+']=this.checked;dsVe()"><span><b>'+esc(x.ma)+'</b> · '+esc(x.khach.map(function(q){ return q.ten; }).join(', '))+(x.bd?' · vào '+esc(x.bd):'')+(tt?'<br>'+tt:'')+'</span></label>'; }).join('')+'</div>'
     +'<button class="btn big ok" style="margin-top:8px" '+(n&&!DS.dang?'':'disabled style="margin-top:8px;opacity:.45;cursor:not-allowed"')+' onclick="dsGhi()">'+(DS.dang?'⏳ '+DS.dang:'📁 Ghi '+n+' căn vào file QUAN LY KHACH HANG')+'</button>';
 }
-function dsGhi(chiSo, force){
+function dsGhi(chiSo, force, mode){
+  mode=mode||(DS.ghide?'ghide':'');
   var ds=chiSo || DS.nhom.map(function(x,i){ return i; }).filter(function(i){ return DS.chon[i] && !(DS.kq[i]&&DS.kq[i].ok); });
   if(!ds.length) return;
   if(!chiSo && !confirm('Ghi '+ds.length+' căn từ sheet '+DS.sheet+' vào file QUAN LY KHACH HANG?')) return;
@@ -1759,7 +1767,7 @@ function dsGhi(chiSo, force){
   var xep=function(){
     if(j>=ds.length) return chay();
     var i=ds[j++], x=DS.nhom[i]; DS.kq[i]={ dang:true }; DS.dang='Đang chuẩn bị '+j+'/'+ds.length+'…'; dsVe();
-    luxApi('khadd', tdAuth({ ma:x.ma, guests:x.khach, file:x.key, force:!!force, queueOnly:1, kq:'Đã kiểm tra (file DS Check-in)' }), true).then(function(d){
+    luxApi('khadd', tdAuth({ ma:x.ma, guests:x.khach, file:x.key, force:!!force, mode:mode, queueOnly:1, kq:'Đã kiểm tra (file DS Check-in)' }), true).then(function(d){
       if(d&&d.ok&&d.t) theoT[d.t]=i; else DS.kq[i]={ msg:(d&&(d.msg||d.err))||'Lỗi máy chủ' };
     }).catch(function(){ DS.kq[i]={ msg:'Không kết nối được máy chủ' }; }).then(xep);
   };
@@ -1768,13 +1776,13 @@ function dsGhi(chiSo, force){
     DS.dang='Đang ghi '+ts.length+' căn vào file (1–3 phút)…'; dsVe();
     luxApi('khaddrun', tdAuth({}), true).then(function(d){
       if(!d||!d.ok){ ts.forEach(function(t){ DS.kq[theoT[t]]={ msg:(d&&(d.msg||d.err))||'Lỗi ghi file' }; }); return; }
-      (d.added||[]).forEach(function(a){ if(theoT[a.t]!=null) DS.kq[theoT[a.t]]={ ok:true, rows:a.rows||[] }; });
-      (d.errors||[]).forEach(function(e){ if(theoT[e.t]!=null && !(DS.kq[theoT[e.t]]&&DS.kq[theoT[e.t]].ok)) DS.kq[theoT[e.t]]={ msg:e.msg }; });
+      (d.added||[]).forEach(function(a){ if(theoT[a.t]!=null) DS.kq[theoT[a.t]]={ ok:true, rows:a.rows||[], upd:a.upd||[] }; });
+      (d.errors||[]).forEach(function(e){ if(theoT[e.t]!=null && !(DS.kq[theoT[e.t]]&&DS.kq[theoT[e.t]].ok)) DS.kq[theoT[e.t]]={ msg:e.msg, dup:!!e.dup }; });
       ts.forEach(function(t){ var k=DS.kq[theoT[t]]; if(k&&k.dang) DS.kq[theoT[t]]={ msg:'Không rõ kết quả — tải lại trang để xem' }; });
     }).catch(function(){ ts.forEach(function(t){ var k=DS.kq[theoT[t]]; if(k&&k.dang) DS.kq[theoT[t]]={ msg:'Mất kết nối khi ghi — máy chủ vẫn có thể đã ghi, kiểm tra lại' }; }); })
     .then(function(){
-      DS.dang=''; var ok=ds.filter(function(i){ return DS.kq[i]&&DS.kq[i].ok; }).length; dsVe(); tdTai();
-      toast((ok<ds.length?'⚠️ ':'✅ ')+'Đã ghi '+ok+'/'+ds.length+' căn'+(ok<ds.length?' — xem lý do ở các căn chưa ghi':''),7000);
+      DS.dang=''; var ok=ds.filter(function(i){ return DS.kq[i]&&DS.kq[i].ok; }).length, trung=ds.filter(function(i){ return DS.kq[i]&&DS.kq[i].dup; }).length; dsVe(); tdTai();
+      toast((ok<ds.length?'⚠️ ':'✅ ')+'Đã ghi '+ok+'/'+ds.length+' căn'+(trung?' · '+trung+' căn TRÙNG KHÁCH — chọn Ghi đè hoặc Bỏ qua':'')+(ok+trung<ds.length?' · còn căn lỗi, xem lý do':''),8000);
     });
   };
   xep();

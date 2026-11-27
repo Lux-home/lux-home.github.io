@@ -463,33 +463,46 @@ function khApply_() {
     }
   });
   const res = { ok: true, applied: done.length, failed: items.length - done.length, deleted: delList.length, backupId: c.backupId || null, errors: errs.slice(0, 30) };
-  if (adds.length) { const r2 = khApplyAdds_(adds); res.applied += r2.applied; res.failed += r2.failed; res.added = r2.added; res.errors = r2.errors; }
+  if (adds.length) { const r2 = khApplyAdds_(adds); res.applied += r2.applied; res.failed += r2.failed; res.added = r2.added; res.errors = r2.errors; res.runErrors = r2.runErrors; }
   return res;
 }
 /** Bổ sung khách check-in vào file: khách chính vào dòng chính của căn (bỏ màu đỏ), khách thêm chèn dòng ngay dưới. */
 function khApplyAdds_(adds) {
   const P = PropertiesService.getScriptProperties(), errs = khErrors_(), added = [];
-  let done = 0, failed = 0;
+  let done = 0, failed = 0; const runErr = [];
   const S = xlsmSession_();
+  // khoá so tên: bỏ dấu, chỉ chữ/số, xếp từ theo ABC (tên đảo thứ tự vẫn khớp)
+  const nk = t => String(t || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'D').toUpperCase()
+    .replace(/\(.*?\)/g, ' ').replace(/[^A-Z0-9]+/g, ' ').trim().split(' ').filter(Boolean).sort().join(' ');
   let reg = {}; try { reg = JSON.parse(P.getProperty('khadd_reg') || '{}'); } catch (e) {}
   adds.forEach(it => {
-    const fail = msg => { failed++; errs.unshift({ t: it.t, row: 0, ma: it.ma, ten: (it.guests[0] || {}).ten || '', type: 'add', msg: msg }); };
+    const fail = (msg, dup) => { failed++; const e = { t: it.t, row: 0, ma: it.ma, ten: (it.guests[0] || {}).ten || '', type: 'add', msg: msg, dup: !!dup }; errs.unshift(e); runErr.push(e); };
+    const ghide = it.mode === 'ghide' || !!it.force;      // khách trùng tên → ghi đè dòng cũ
     try {
-      if (it.file && reg[it.file] && !it.force) return fail('Hợp đồng ' + it.file + ' đã được bổ sung vào file lúc ' + reg[it.file].at + ' (dòng ' + reg[it.file].rows.join(', ') + ')');
       const blk = S.findBlock(it.ma);
       if (!blk.length) return fail('Không thấy căn ' + it.ma + ' trong file Quản lý khách hàng — thêm căn vào file trước');
-      const occ = blk.filter(x => x.ten);
-      if (occ.length && !it.force) return fail('Căn ' + it.ma + ' còn ' + occ.length + ' khách chưa OUT: ' + occ.map(x => x.ten).join(', ') + ' — OUT khách cũ trước, hoặc chọn "Vẫn bổ sung"');
-      const slots = blk.filter(x => !x.ten).map(x => x.row), need = it.guests.length - slots.length;
+      const occ = blk.filter(x => x.ten), dung = {}, khop = it.guests.map(g => {
+        const o = occ.find(x => !dung[x.row] && nk(x.ten) && nk(x.ten) === nk(g.ten)); if (o) dung[o.row] = 1; return o || null; });
+      const nTrung = khop.filter(Boolean).length;
+      if (nTrung && !ghide) return fail('TRÙNG KHÁCH: căn ' + it.ma + ' đã có ' + khop.filter(Boolean).map(o => o.ten + ' (dòng ' + o.row + ')').join(', ') + ' — bấm "Ghi đè" để cập nhật thông tin mới, hoặc bỏ qua', true);
+      if (!nTrung && it.file && reg[it.file] && !ghide) return fail('Hợp đồng này đã được bổ sung vào file lúc ' + reg[it.file].at + ' (dòng ' + reg[it.file].rows.join(', ') + ') — bấm "Ghi đè" nếu muốn ghi lại', true);
+      const conLai = occ.filter(x => !dung[x.row]);
+      if (!nTrung && conLai.length && !it.force) return fail('Căn ' + it.ma + ' còn ' + conLai.length + ' khách chưa OUT: ' + conLai.map(x => x.ten).join(', ') + ' — OUT khách cũ trước, hoặc chọn "Vẫn bổ sung"');
       const toa = blk[0].toa || (it.ma.split('-')[1] || '');
-      const rows = slots.slice(0, it.guests.length).concat(need > 0 ? S.insRows(blk[blk.length - 1].row, need, blk[blk.length - 1].row) : []);
-      rows.forEach((r, i) => {
-        const sp = editSpec_(it.guests[i]);
+      const moi = it.guests.filter((g, i) => !khop[i]);
+      const slots = blk.filter(x => !x.ten).map(x => x.row), need = moi.length - slots.length;
+      const ghi = (r, g) => {
+        const sp = editSpec_(g);
         sp.setV.D = it.ma; sp.kinds.D = 'text'; sp.setV.C = toa; sp.kinds.C = 'text';
         const x = S.edit(r, {}, sp.setV, sp.kinds, { colFill: { E: 'none' }, skipFormula: true });
         if (!x.ok) throw new Error(x.msg || x.err);
-      });
-      done++; added.push({ t: it.t, ma: it.ma, rows: rows, file: it.file });
+      };
+      const upd = [];
+      it.guests.forEach((g, i) => { if (khop[i]) { ghi(khop[i].row, g); upd.push(khop[i].row); } });
+      const newRows = moi.length ? slots.slice(0, moi.length).concat(need > 0 ? S.insRows(blk[blk.length - 1].row, need, blk[blk.length - 1].row) : []) : [];
+      newRows.forEach((r, i) => ghi(r, moi[i]));
+      const rows = upd.concat(newRows).sort((a, b) => a - b);
+      done++; added.push({ t: it.t, ma: it.ma, rows: rows, upd: upd, file: it.file });
     } catch (e) { fail(String(e.message || e)); }
   });
   if (done) S.commit();
@@ -501,13 +514,13 @@ function khApplyAdds_(adds) {
     const ks = Object.keys(reg); if (ks.length > 600) ks.slice(0, ks.length - 600).forEach(k => delete reg[k]);
     P.setProperty('khadd_reg', JSON.stringify(reg));
   }
-  return { ok: true, applied: done, failed: failed, added: added, errors: errs.slice(0, 30) };
+  return { ok: true, applied: done, failed: failed, added: added, errors: errs.slice(0, 30), runErrors: runErr };
 }
 /** App check-in: bổ sung khách của hợp đồng vào file. Chủ → ghi ngay; nhân viên → đề xuất chờ duyệt. */
 function khAddRoute_(p) {
   const who = hdAuth_(p, ['checkin', 'checkinout']);
   if (!who) return { ok: false, err: 'noperm' };
-  const add = { type: 'add', ma: p.ma, guests: p.guests, force: !!p.force, file: p.file };
+  const add = { type: 'add', ma: p.ma, guests: p.guests, force: !!p.force, file: p.file, mode: p.mode === 'ghide' ? 'ghide' : '' };
   if (!who.owner) {
     if (!(p.guests || []).length || !p.ma) return { ok: false, err: 'nothing' };
     const o = { t: Date.now(), status: 'cho', who: { ma: who.ma, ten: who.ten }, type: 'add', add: add, kq: String(p.kq || '').slice(0, 300) };
@@ -520,16 +533,16 @@ function khAddRoute_(p) {
   const q = khQueue_(add); if (!q.ok) return q;
   if (p.queueOnly) return { ok: true, queued: true, t: q.t };     // nạp nhiều căn: xếp hàng hết rồi gọi khaddrun ghi 1 lần
   let r; try { r = withLock_(() => khApply_()); } catch (e) { return { ok: false, err: 'apply', msg: String(e.message || e) }; }
-  const a = (r.added || []).find(x => x.t === q.t), e = (r.errors || []).find(x => x.t === q.t);
-  if (a) return { ok: true, rows: a.rows };
-  return { ok: false, err: 'add', msg: e ? e.msg : 'Chưa ghi được — thử lại' };
+  const a = (r.added || []).find(x => x.t === q.t), e = (r.runErrors || r.errors || []).find(x => x.t === q.t);
+  if (a) return { ok: true, rows: a.rows, upd: a.upd || [] };
+  return { ok: false, err: 'add', dup: !!(e && e.dup), msg: e ? e.msg : 'Chưa ghi được — thử lại' };
 }
 /** Chủ: ghi tất cả khách đang xếp hàng vào file trong 1 lần (1 lần tải / ghi file) */
 function khAddRun_(p) {
   const who = hdAuth_(p, []);
   if (!who || !who.owner) return { ok: false, err: 'noperm' };
   let r; try { r = withLock_(() => khApply_()); } catch (e) { return { ok: false, err: 'apply', msg: String(e.message || e) }; }
-  return { ok: true, added: r.added || [], errors: r.errors || [] };
+  return { ok: true, added: r.added || [], errors: r.runErrors || r.errors || [] };
 }
 function khAddStatus_(p) {
   const who = hdAuth_(p, ['checkin', 'checkinout']);

@@ -1,5 +1,5 @@
 // LUXHOME app tổng — service worker (shell cache cho cài đặt PWA)
-const CACHE = "luxhome-v145";
+const CACHE = "luxhome-v146";
 const SHELL = ["./index.html", "./modules.js", "./luutru.html", "./bill.html", "./nv.html", "./nvadmin.html", "./thongbao.html", "./noibo.html", "./hopdong.html", "./congno.html", "./catalog.html", "./canho.html", "./quanlycanho.html", "./quanlythanhtoan.html", "./checkin.html", "./canhoql.html", "./khach.html", "./checkinout.html", "./nhatky.html", "./phanquyen.html", "./hdkho.html", "./canho-api.js", "./manifest.webmanifest", "./manifest-nv.webmanifest", "./icon-192.png", "./icon-512.png"];
 
 // Cài đặt: chiếm quyền NGAY, nạp shell từng file (một file lỗi do mạng yếu không làm hỏng cập nhật)
