@@ -164,6 +164,7 @@
         <div class="bkB"><span>3</span>Kiểm tra danh sách checkin</div>
         <div id="bkNut"></div>
         <div id="bkKQ"></div>
+        <div id="bkB4" style="display:none"><div class="bkB"><span>4</span>Nạp danh sách đã kiểm tra</div><div id="bkNap"></div></div>
         <div id="bkThang"></div>
         <details id="tdWrap" class="hdC" style="margin-top:12px"><summary style="cursor:pointer;font-weight:800">📒 Nhật ký nạp hợp đồng &amp; theo dõi thanh toán đợt 1 <span id="tdDem"></span></summary><div id="tdBox" style="margin-top:8px"><p class="muted">Đang tải…</p></div></details>
       </div>
@@ -1609,6 +1610,7 @@ function bkVe(){
   KQ.forEach(function(k){ var h=k.g._h; h.kq={ ok:!k.loi.length, sk:!TOK&&TT.sk.length>0, loi:k.loi, okL:k.ok, canh:k.canh, can:k.expAB, nhan:k.tong }; });
   if(!TOK && TT.sk.length) tdGui(KQ);
   bkTrangThai(ds);
+  setTimeout(bkNapVe,0);
   s3.innerHTML=ds.map(function(h){
     var q=h.kq||{ ok:false, loi:['Chưa tính được'], okL:[], canh:[] }, td=tdTim(h);
     var mau = !q.ok ? 'do' : q.sk ? 'xanh' : 'vang', nhan;
@@ -1652,22 +1654,54 @@ function bkAdd(id, force){
   var h=HD.filter(function(x){ return x.id===id; })[0]; if(!h) return;
   var q=h.kq||{}, ok=q.ok&&q.sk;
   if(!force && !TOK && !ok && !confirm('Hợp đồng '+h.room+' CHƯA ĐẠT đối chiếu thanh toán đợt 1:\n\n'+(q.loi&&q.loi.length?q.loi.join('\n'):'Chưa đối chiếu sao kê')+'\n\nVẫn nạp khách vào file Quản lý khách hàng?')) return;
+  h.qlkh='dang'; bkVe();
+  bkGhi(h, force).then(function(r){
+    bkVe(); tdTai();
+    if(r.ok){ toast(r.proposed?'📨 Đã gửi đề xuất bổ sung '+h.room+' — chờ chủ duyệt':'✅ Đã bổ sung '+r.n+' khách '+h.room+' vào file Quản lý khách hàng (dòng '+r.rows.join(', ')+')',5000); return; }
+    if(!force && /chưa OUT|đã được bổ sung/.test(r.msg)){ if(confirm(r.msg+'\n\nVẫn bổ sung vào file?')) bkAdd(id, true); return; }
+    toast('⛔ '+r.msg,7000);
+  });
+}
+/** Ghi khách của 1 hợp đồng vào file QUAN LY KHACH HANG → Promise {ok, rows, n, proposed, msg} */
+function bkGhi(h, force){
   if(!h.daThem) hdThem(HD.indexOf(h));
+  var q=h.kq||{};
   var K=['','','','','ten','ns','qt','gt','cccd','hc','dc','bd','kt','lt','coc','tp','sn','dck','nuoc','bt','ttnp','sale','lh','sdt'];
   var guests=hdRows(h).map(function(r){ r=chuanHoa(r); var g={}; K.forEach(function(k,j){ if(k && r[j]!=null && String(r[j]).trim()!=='') g[k]=String(r[j]).trim(); }); return g; });
   var kq=(q.ok?(q.sk?'Đạt':'Tạm đạt theo bill'):'Chưa đúng: '+(q.loi||[]).join(' · '));
-  h.qlkh='dang'; bkVe();
-  luxApi('khadd',tdAuth({ ma:String(h.room).toUpperCase(), guests:guests, file:h.file, force:!!force, kq:kq }),true).then(function(d){
+  return luxApi('khadd',tdAuth({ ma:String(h.room).toUpperCase(), guests:guests, file:h.file, force:!!force, kq:kq }),true).then(function(d){
     if(d&&d.ok){
-      if(d.proposed){ h.qlkh='pend'; toast('📨 Đã gửi đề xuất bổ sung '+h.room+' — chờ chủ duyệt',4000); }
-      else { h.qlkh='ok'; h.qlkhRows=d.rows; toast('✅ Đã bổ sung '+guests.length+' khách '+h.room+' vào file Quản lý khách hàng (dòng '+d.rows.join(', ')+')',5000); }
-      bkVe(); tdTai(); return;
+      if(d.proposed){ h.qlkh='pend'; return { ok:true, proposed:true, n:guests.length }; }
+      h.qlkh='ok'; h.qlkhRows=d.rows; return { ok:true, rows:d.rows, n:guests.length };
     }
-    h.qlkh=''; bkVe();
-    var m=(d&&(d.msg||d.err))||'Lỗi máy chủ';
-    if(!force && /chưa OUT|đã được bổ sung/.test(m)){ if(confirm(m+'\n\nVẫn bổ sung vào file?')) bkAdd(id, true); return; }
-    toast('⛔ '+m,7000);
-  }).catch(function(){ h.qlkh=''; bkVe(); toast('Không kết nối được máy chủ — chưa ghi',5000); });
+    h.qlkh=''; return { ok:false, msg:(d&&(d.msg||d.err))||'Lỗi máy chủ' };
+  }).catch(function(){ h.qlkh=''; return { ok:false, msg:'Không kết nối được máy chủ — chưa ghi' }; });
+}
+/* ===== Bước 4: NẠP DANH SÁCH ĐÃ KIỂM TRA → ghi tất cả hợp đồng Đạt vào file QUAN LY KHACH HANG ===== */
+function bkDat(){ return bkHD().filter(function(h){ return h.kq && h.kq.ok && h.kq.sk && !h.qlkh; }); }
+function bkNapVe(){
+  var w=document.getElementById('bkB4'), el=document.getElementById('bkNap'); if(!w||!el) return;
+  if(TOK || !BK.daKiem){ w.style.display='none'; return; }
+  w.style.display='block';
+  var ds=bkDat(), da=bkHD().filter(function(h){ return h.qlkh==='ok'; }).length, kd=bkHD().filter(function(h){ return h.kq && !(h.kq.ok && h.kq.sk) && !h.qlkh; }).length;
+  el.innerHTML='<p class="hint" style="margin:0 0 6px">✅ <b>'+ds.length+'</b> hợp đồng ĐẠT chờ ghi vào file'+(da?' · 📁 '+da+' đã ghi':'')+(kd?' · ⛔ '+kd+' không đạt (bấm nút đỏ trên từng thẻ nếu vẫn muốn nạp)':'')+'</p>'
+    +'<button class="btn big ok" '+(ds.length&&!BK.dangNap?'':'disabled style="opacity:.45;cursor:not-allowed"')+' onclick="bkNapTatCa()">'+(BK.dangNap?'⏳ '+BK.dangNap:'📁 NẠP DANH SÁCH ĐÃ KIỂM TRA ('+ds.length+')')+'</button>';
+}
+function bkNapTatCa(){
+  var ds=bkDat(); if(!ds.length) return;
+  if(!confirm('Ghi '+ds.length+' hợp đồng ĐẠT vào file QUAN LY KHACH HANG?\n\n'+ds.map(function(h){ return '• '+h.room+' — '+h.khach.map(function(k){ return k.ten; }).join(', '); }).join('\n'))) return;
+  var i=0, ok=0, loi=[];
+  var tiep=function(){
+    if(i>=ds.length){
+      BK.dangNap=''; bkVe(); tdTai();
+      if(loi.length) alert('Đã ghi '+ok+'/'+ds.length+' hợp đồng.\n\nChưa ghi được:\n'+loi.join('\n')+'\n\n(Căn còn khách cũ chưa OUT: OUT trước rồi bấm nút trên thẻ đó.)');
+      else toast('✅ Đã ghi '+ok+' hợp đồng vào file Quản lý khách hàng',5000);
+      return;
+    }
+    var h=ds[i++]; BK.dangNap='Đang ghi '+i+'/'+ds.length+': '+h.room+'…'; h.qlkh='dang'; bkVe();
+    bkGhi(h,false).then(function(r){ if(r.ok) ok++; else loi.push('• '+h.room+': '+r.msg); tiep(); });
+  };
+  tiep();
 }
 // mục 3 tính xong → ghi kết quả từng phòng vào bảng theo dõi (chỉ chủ)
 var TD_SIG='';
