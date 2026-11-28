@@ -76,6 +76,14 @@
   .kpW.r{background:var(--badbg);color:var(--bad)} .kpW.y{background:var(--warnbg);color:var(--warn)}
   .kpTag{display:inline-block;font-size:.72rem;font-weight:800;padding:2px 7px;border-radius:999px;background:rgba(14,123,168,.14);color:var(--cyan);margin-left:4px}
   .hdC{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-top:10px}
+  .hdBar2{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:10px 0;padding:10px 12px;background:var(--card);border:1px solid var(--line);border-radius:12px}
+  .hdBar2 label{display:flex;align-items:center;gap:6px;font-weight:700;margin-right:auto}
+  .hdBar2 .btn,.hdLanH .btn{width:auto;padding:7px 12px;font-size:.84rem}
+  .hdBar2 .btn:disabled,.hdLanH .btn:disabled{opacity:.45;cursor:not-allowed}
+  .hdLan{border:1px dashed #9fd6e6;border-radius:14px;padding:10px;margin:10px 0;background:rgba(14,123,168,.03)}
+  .hdLanH{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin-bottom:8px}
+  .hdLanH label{display:flex;align-items:center;gap:6px;margin-right:auto}
+  .hdRow{display:flex;gap:8px;align-items:flex-start}.hdRow>.hdC{flex:1;min-width:0}.hdRow>.hdCk{margin-top:16px;width:20px;height:20px;flex:none;accent-color:#0e7ba8}
   .hdH{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;flex-wrap:wrap}
   .hdH>b{flex:1 1 200px;min-width:0;overflow-wrap:anywhere}
   .hdH span{display:flex;gap:6px;flex-wrap:wrap}
@@ -1319,11 +1327,11 @@ function hdTaiPdfJs(){
 }
 function hdChon(list){
   var files=[].slice.call(list||[]); document.getElementById('hdFile').value='';
-  var loi=[];
+  var loi=[], lan=Date.now(), nguoi=(window.ME&&ME.owner)?'Chủ':((window.ME&&ME.ten)||'');
   files.forEach(function(f){
     if(!/\.pdf$/i.test(f.name) && f.type!=='application/pdf'){ loi.push('⛔ "'+f.name+'" không phải file PDF — mục Hợp đồng checkin PDF chỉ nhận hợp đồng dạng PDF'+(/\.xls/i.test(f.name)?' (không nhận file Excel)':/\.(jpe?g|png|heic)$/i.test(f.name)?' (ảnh giấy tờ hãy dùng mục Bổ sung khách ở thêm)':'')); return; }
     if(!hdTenFile(f.name).room) loi.push('⚠️ Tên file "'+f.name+'" sai định dạng — cần dạng P301_T121_17.11-16.2.27_-_MôiGiới.pdf; app vẫn đọc nhưng phải gõ tay mã phòng và ngày HĐ.');
-    var _h={ id:++HD_SEQ, file:f.name, st:'cho', xong:0, tong:0, f:f, fobj:f }; HD.push(_h);
+    var _h={ id:++HD_SEQ, file:f.name, st:'cho', xong:0, tong:0, f:f, fobj:f, lan:lan, nguoi:nguoi }; HD.push(_h);
     var _t=hdTenFile(f.name); if(_t.room) hdLuu(_h, _t.room, _t.start);   // tự lưu PDF gốc lên Drive
   });
   napLoi('pdfLoi', loi);
@@ -1334,7 +1342,7 @@ function hdChay(){
   if(hdDangChay) return;
   var h=HD.filter(function(x){ return x.st==='cho'; })[0]; if(!h) return;
   hdDangChay=true; h.st='doc'; hdVe();
-  hdDocFile(h).then(function(){ h.st='xong'; bkLuuDL(h); }).catch(function(e){ h.st='loi'; h.err=String(e&&e.message||e); })
+  hdDocFile(h).then(function(){ h.st='xong'; if(!h.huy) bkLuuDL(h); }).catch(function(e){ h.st='loi'; h.err=String(e&&e.message||e); })
     .then(function(){ delete h.f; hdDangChay=false; hdVe(); hdTuDua(h); hdChay(); });
 }
 function hdDocFile(h){
@@ -1375,7 +1383,7 @@ function hdDocFile(h){
 function hdVe(){
   setTimeout(bkVe,0);
   var el=document.getElementById('hdList');
-  el.innerHTML=HD.map(function(h,i){
+  var the=HD.map(function(h,i){
     if(h.fromSv && h.moSua) return '<div class="hdC" id="hdC'+h.id+'"><div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="HD['+i+'].moSua=false;hdVe()">Thu gọn</button></span></div>'+hdForm(h,i)+'</div>';
     if(h.fromSv) return '<div class="hdC" id="hdC'+h.id+'" style="padding:10px 12px"><div class="hdH"><b>📑 '+esc(h.file)+'</b><span style="display:flex;gap:6px;flex:none"><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdMoSua('+h.id+')">✏️ Sửa / bổ sung</button><button class="btn o" style="padding:6px 12px;font-size:.84rem" onclick="hdXem('+h.id+')">👁 Xem lại hợp đồng</button></span></div>'
       +'<div class="muted" style="font-size:.82rem">🚪 '+esc(h.room||'?')+' · '+((h.khach||[]).length?esc(h.khach.map(function(k){ return k.ten; }).join(', ')):'⚠️ chưa đọc được khách')+(h.nap?' · 📥 nạp '+esc(h.nap.at)+(h.nap.by?' bởi '+esc(h.nap.by):''):'')+'</div>'
@@ -1385,7 +1393,82 @@ function hdVe(){
     if(h.st==='doc') return '<div class="hdC">'+head+'<div class="muted">⏳ Đang đọc trang '+h.xong+'/'+(h.tong||'?')+'… (mỗi trang ~5–10 giây)</div><div class="hdBar"><i style="width:'+(h.tong?Math.round(h.xong*100/h.tong):3)+'%"></i></div></div>';
     if(h.st==='loi') return '<div class="hdC">'+head+'<div class="err">❌ '+esc(h.err)+'</div></div>';
     return '<div class="hdC" id="hdC'+h.id+'">'+head+hdForm(h,i)+'</div>';
+  });
+  el.innerHTML=hdNhom(the);
+}
+/* ---- nhóm theo LẦN NẠP: chọn / xoá hợp đồng, xuất Excel từng lần nạp ---- */
+function hdLanKey(h){ return h.lan ? 'L'+h.lan : 'D'+(h.nap&&h.nap.at?String(h.nap.at).slice(0,10):'?')+'|'+((h.nap&&h.nap.by)||h.nguoi||''); }
+function hdLanTen(h){
+  if(h.lan){ var d=new Date(h.lan); return 'Lần nạp '+kp2(d.getDate())+'/'+kp2(d.getMonth()+1)+'/'+d.getFullYear()+' '+kp2(d.getHours())+':'+kp2(d.getMinutes())+((h.nguoi||(h.nap&&h.nap.by))?' · '+(h.nguoi||h.nap.by):''); }
+  return 'Nạp ngày '+((h.nap&&h.nap.at)?String(h.nap.at).slice(0,10):'?')+((h.nap&&h.nap.by)?' · '+h.nap.by:'');
+}
+function hdNhom(the){
+  if(!HD.length) return '';
+  var nh=[], idx={};
+  HD.forEach(function(h,i){ var k=hdLanKey(h); if(!(k in idx)){ idx[k]=nh.length; nh.push({ k:k, ten:hdLanTen(h), ds:[] }); } nh[idx[k]].ds.push(i); });
+  var nChon=HD.filter(function(h){ return h.chon; }).length, het=HD.length&&nChon===HD.length;
+  var bar='<div class="hdBar2"><label><input type="checkbox" '+(het?'checked':'')+' onchange="hdChonHet(this.checked)"> Chọn tất cả ('+HD.length+')</label>'
+    +'<button class="btn o" '+(nChon?'':'disabled')+' onclick="hdXoaDS(\'chon\')">🗑 Xoá đã chọn'+(nChon?' ('+nChon+')':'')+'</button>'
+    +'<button class="btn o" style="color:#b91c1c;border-color:#fca5a5" onclick="hdXoaDS(\'het\')">🗑 Xoá tất cả</button></div>';
+  return bar+nh.map(function(g){
+    var xong=g.ds.filter(function(i){ return HD[i].st==='xong'; }).length, tatCa=g.ds.every(function(i){ return HD[i].chon; });
+    return '<div class="hdLan"><div class="hdLanH"><label><input type="checkbox" '+(tatCa?'checked':'')+' onchange="hdChonLan(\''+g.k+'\',this.checked)"> <b>📥 '+esc(g.ten)+'</b> <span class="muted">· '+g.ds.length+' hợp đồng</span></label>'
+      +'<button class="btn o" '+(xong?'':'disabled')+' onclick="hdXuatLan(\''+g.k+'\')">📤 Xuất Excel lần này</button></div>'
+      +g.ds.map(function(i){ var h=HD[i]; return '<div class="hdRow"><input type="checkbox" class="hdCk" '+(h.chon?'checked':'')+' onchange="HD['+i+'].chon=this.checked;hdVe()" title="Chọn để xoá">'+the[i]+'</div>'; }).join('')+'</div>';
   }).join('');
+}
+function hdChonHet(v){ HD.forEach(function(h){ h.chon=v; }); hdVe(); }
+function hdChonLan(k,v){ HD.forEach(function(h){ if(hdLanKey(h)===k) h.chon=v; }); hdVe(); }
+function hdXoaDS(kieu){
+  var ds=kieu==='het'?HD.slice():HD.filter(function(h){ return h.chon; });
+  var dang=ds.filter(function(h){ return h.st==='doc'||h.st==='cho'; }); ds=ds.filter(function(h){ return dang.indexOf(h)<0; });
+  if(!ds.length){ toast(dang.length?'Hợp đồng đang đọc — đợi đọc xong rồi xoá':'Chưa chọn hợp đồng nào'); return; }
+  if(!confirm('Xoá '+ds.length+' hợp đồng khỏi danh sách check-in?\n\n'+ds.slice(0,10).map(function(h){ return '• '+h.file; }).join('\n')+(ds.length>10?'\n…':'')+'\n\nHợp đồng sẽ không còn chờ kiểm tra (trên mọi máy). File PDF gốc trong kho hợp đồng vẫn giữ.')) return;
+  var files=ds.map(function(h){ return h.file; });
+  var xong=function(){
+    var bo={}; ds.forEach(function(h){ bo[h.id]=1; h.huy=true; });
+    PARSED=PARSED.filter(function(r){ return !bo[r._hd]; }); if(PARSED.length) hienThu(PARSED); else { var pv=document.getElementById('preview'); if(pv) pv.style.display='none'; }
+    HD=HD.filter(function(h){ return !bo[h.id]; }); hdVe(); tdTai();
+    toast('🗑 Đã xoá '+ds.length+' hợp đồng'+(dang.length?' · '+dang.length+' hợp đồng đang đọc chưa xoá':''),4000);
+  };
+  if(!window.luxApi){ xong(); return; }
+  luxApi('tddel', tdAuth({ files:files }), true).then(function(d){ if(d&&d.ok) xong(); else toast('⛔ '+((d&&(d.msg||d.err))||'Không xoá được'),5000); })
+    .catch(function(){ toast('⛔ Không kết nối được máy chủ — chưa xoá',5000); });
+}
+function hdXuatLan(k){
+  var ds=HD.filter(function(h){ return hdLanKey(h)===k && h.st==='xong' && h.khach && h.khach.length; });
+  if(!ds.length){ toast('Lần nạp này chưa có hợp đồng đọc xong'); return; }
+  var ten=hdLanTen(ds[0]);
+  tkExcelJS().then(function(ExcelJS){
+    var wb=new ExcelJS.Workbook(), ws=wb.addWorksheet('DS nạp'), F={ name:'Times New Roman', size:13 }, B={ top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
+    TK_W.forEach(function(w,i){ ws.getColumn(i+1).width=w; });
+    ws.mergeCells('A1:V1'); var t=ws.getCell('A1'); t.value='DANH SÁCH CHECK IN — '+ten.toUpperCase(); t.font=Object.assign({},F,{bold:true,size:14}); t.alignment={horizontal:'center',vertical:'middle'}; ws.getRow(1).height=36;
+    TK_H.forEach(function(h,i){ var c=ws.getCell(tkCot(i+1)+'2'); c.value=h; c.font=Object.assign({},F,{bold:true}); c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}}; c.alignment={horizontal:'center',vertical:'middle',wrapText:true}; c.border=B; });
+    ws.getRow(2).height=42;
+    var rn=3, stt=0;
+    ds.forEach(function(h){
+      hdRows(h).forEach(function(c,gi){
+        stt++; var row=ws.getRow(rn); row.height=24;
+        for(var j=0;j<NCOL;j++){
+          var cell=row.getCell(j+1), v=j===0?stt:tkGiaTri(c[j],j);
+          cell.value=v; cell.font=F; cell.border=B; cell.alignment={horizontal:'center',vertical:'middle',wrapText:j===23||j===10};
+          if(TK_DATE.indexOf(j)>=0) cell.numFmt='d/mm/yyyy'; else if(TK_MONEY.indexOf(j)>=0) cell.numFmt='#,##0'; else if(j===24) cell.numFmt='0%'; else if(j===8||j===9||j===23) cell.numFmt='@';
+        }
+        if(gi===0){ var L=kpDate(c[11]), U=kpDate(c[20]), P=tkSo(c[15]), O=tkSo(c[14]);
+          if(L&&U&&P){ var aa=Math.round((Math.round((U-L)/864e5)+1)*P/30/1000)*1000;
+            row.getCell(27).value={ formula:'ROUND((U'+rn+'-L'+rn+'+1)*P'+rn+'/30,-3)', result:aa }; row.getCell(28).value={ formula:'O'+rn+'+AA'+rn, result:O+aa }; } }
+        rn++;
+      });
+    });
+    if(rn>3) ws.autoFilter='A2:AC'+(rn-1);
+    ws.views=[{ state:'frozen', ySplit:2 }];
+    return wb.xlsx.writeBuffer().then(function(buf){
+      var d=ds[0].lan?new Date(ds[0].lan):new Date(), name='DS_nap_'+kp2(d.getDate())+'.'+kp2(d.getMonth()+1)+'_'+kp2(d.getHours())+'h'+kp2(d.getMinutes())+'_'+ds.length+'HD.xlsx';
+      var url=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+      var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); },4000); toast('✅ Đã xuất '+name+' ('+stt+' khách)',4000);
+    });
+  }).catch(function(e){ toast('❌ '+String(e&&e.message||e)); });
 }
 function hdO(i,k,lbl,date,w){
   var v=HD[i][k]; v=v==null?'':String(v);
@@ -1553,7 +1636,7 @@ function tdMailLuu(test){ var m=document.getElementById('tdMMsg'); if(m) m.textC
 var BK={ daKiem:false };
 // lưu dữ liệu đã đọc của hợp đồng lên máy chủ → chủ kiểm tra sau (kể cả hợp đồng nhân viên nạp ở máy khác)
 function bkDL(h){
-  var o={}; Object.keys(h).forEach(function(k){ if(/^(f|fobj|url|kq|qlkh|qlkhRows|qlkhChk|fromSv|id|st|xong|tong_|err)$/.test(k)) return; o[k]=h[k]; });
+  var o={}; Object.keys(h).forEach(function(k){ if(/^(f|fobj|url|kq|qlkh|qlkhRows|qlkhChk|fromSv|id|st|xong|tong_|err|chon|huy|moSua)$/.test(k)) return; o[k]=h[k]; });
   return JSON.stringify(o, function(k,v){ return typeof v==='string' && v.length>3000 ? undefined : v; });
 }
 function bkLuuDL(h){

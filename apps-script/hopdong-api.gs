@@ -263,11 +263,26 @@ function tdSaveData_(p) {
   if (!file || !data) return { ok: false, err: 'need' };
   if (data.length > 45000) return { ok: false, err: 'big', msg: 'Dữ liệu hợp đồng quá lớn' };
   const sh = tdSheet_(), n = sh.getLastRow(), v = n > 1 ? sh.getRange(2, 1, n - 1, 1).getDisplayValues() : [];
-  for (let i = v.length - 1; i >= 0; i--) if (v[i][0] === file) { sh.getRange(i + 2, 12).setValue(data); return { ok: true }; }
+  for (let i = v.length - 1; i >= 0; i--) if (v[i][0] === file) {
+    sh.getRange(i + 2, 12).setValue(data);
+    if (String(sh.getRange(i + 2, 8).getValue()) === 'Đã xoá') sh.getRange(i + 2, 8).setValue('Chưa kiểm tra');   // nạp lại sau khi xoá
+    return { ok: true };
+  }
   const room = String(p.room || '').toUpperCase(), toa = (room.split('-')[1] || '');
   const now = new Date(Date.now()), thang = 'Tháng ' + (+Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'M')) + '-' + Utilities.formatDate(now, 'Asia/Ho_Chi_Minh', 'yyyy');
   sh.appendRow(["'" + file, "'" + room, "'" + toa, "'" + thang, "'" + (p.start || ''), tdNow_(), who.owner ? 'Chủ' : who.ten, 'Chưa kiểm tra', '', '', '', data]);
   return { ok: true, added: true };
+}
+/** Xoá hợp đồng khỏi danh sách chờ (nhân viên / chủ): đánh dấu "Đã xoá" + bỏ dữ liệu — file PDF gốc trong kho vẫn giữ */
+function tdDel_(p) {
+  const who = hdAuth_(p, ['checkin', 'checkinout', 'hopdong']);
+  if (!who) return { ok: false, err: 'noperm' };
+  const files = [].concat(p.files || []).map(String).filter(Boolean); if (!files.length) return { ok: false, err: 'need' };
+  const sh = tdSheet_(), n = sh.getLastRow(); if (n < 2) return { ok: true, n: 0 };
+  const v = sh.getRange(2, 1, n - 1, 1).getDisplayValues(); let k = 0;
+  v.forEach((r, i) => { if (files.indexOf(r[0]) >= 0) { sh.getRange(i + 2, 8).setValue('Đã xoá'); sh.getRange(i + 2, 9).setValue('Xoá bởi ' + (who.owner ? 'Chủ' : who.ten) + ' lúc ' + tdNow_()); sh.getRange(i + 2, 12).setValue(''); k++; } });
+  try { nkAppend_(who.ma || 'CHỦ', who.ten || 'Chủ', 'Xoá hợp đồng khỏi danh sách check-in', files.length + ' hợp đồng: ' + files.slice(0, 8).join(', ') + (files.length > 8 ? '…' : ''), 'checkin.html', p.devname); } catch (e) {}
+  return { ok: true, n: k };
 }
 /** Các hợp đồng còn chờ kiểm tra (chưa Đạt hoặc chưa bổ sung file QLKH), có dữ liệu — 150 ngày gần nhất */
 function tdPending_(p) {
