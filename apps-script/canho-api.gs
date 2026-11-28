@@ -54,6 +54,9 @@ function handle_(a, p) {
   if (a === 'tdlist')    return tdList_(p);
   if (a === 'tdsavedata') return tdSaveData_(p);
   if (a === 'tddel')      return tdDel_(p);
+  if (a === 'ltlist')     return ltList_(p);
+  if (a === 'ltnhac')     return ltNhac_(p);
+  if (a === 'ltnote')     return ltNote_(p);
   if (a === 'tddotsave')  return tdDotSave_(p);
   if (a === 'tddotlist')  return tdDotList_(p);
   if (a === 'tddotget')   return tdDotGet_(p);

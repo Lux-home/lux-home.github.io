@@ -326,3 +326,58 @@ function tdPending_(p) {
     .map(r => ({ file: r[0], room: r[1], start: r[4], at: r[5], by: r[6], st: r[7] || 'Chưa kiểm tra', qlkh: r[10] || '', data: r[11] }));
   return { ok: true, rows: rows };
 }
+
+/* ===== LƯU TRÚ: ĐẾM SỐ LẦN NHẮC + GHI CHÚ TÌNH TRẠNG KHÁCH (dùng chung chủ & nhân viên) ===== */
+const LT_HDR = ['Khoá', 'Mã căn', 'Tên khách', 'Nhắc hạn lưu trú', 'Nhắc hết HĐ', 'Lần nhắc cuối', 'Người nhắc cuối', 'Tình trạng', 'Ghi chú', 'Ghi chú bởi', 'Ghi chú lúc', 'Lịch sử nhắc'];
+function ltSheet_() {
+  const ss = tdSheet_().getParent(); let sh = ss.getSheetByName('NHẮC LƯU TRÚ');
+  if (!sh) { sh = ss.insertSheet('NHẮC LƯU TRÚ'); sh.appendRow(LT_HDR); sh.setFrozenRows(1); }
+  return sh;
+}
+function ltKey_(ma, ten) {
+  return String(ma || '').toUpperCase().replace(/\s/g, '') + '|' + String(ten || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/gi, 'd')
+    .toLowerCase().replace(/\(.*?\)/g, ' ').replace(/[^a-z0-9]+/g, ' ').trim();
+}
+function ltAuth_(p) { return hdAuth_(p, ['luutru', 'checkin', 'checkinout']); }
+function ltRow_(sh, key) {
+  const n = sh.getLastRow(); if (n < 2) return 0;
+  const v = sh.getRange(2, 1, n - 1, 1).getValues(); for (let i = 0; i < v.length; i++) if (v[i][0] === key) return i + 2;
+  return 0;
+}
+function ltList_(p) {
+  const who = ltAuth_(p); if (!who) return { ok: false, err: 'noperm' };
+  const sh = ltSheet_(), n = sh.getLastRow(), items = {};
+  if (n > 1) sh.getRange(2, 1, n - 1, 11).getDisplayValues().forEach(r => {
+    items[r[0]] = { tt: +r[3] || 0, hd: +r[4] || 0, last: r[5], by: r[6], st: r[7], note: r[8], nby: r[9], nat: r[10] };
+  });
+  return { ok: true, items: items, me: who.owner ? 'Chủ' : who.ten };
+}
+function ltNhac_(p) {
+  const who = ltAuth_(p); if (!who) return { ok: false, err: 'noperm' };
+  return withLock_(() => {
+    const sh = ltSheet_(), key = ltKey_(p.ma, p.ten), now = tdNow_(), by = who.owner ? 'Chủ' : who.ten;
+    let r = ltRow_(sh, key);
+    if (!r) { sh.appendRow([key, "'" + String(p.ma || '').toUpperCase(), "'" + String(p.ten || ''), 0, 0, '', '', '', '', '', '', '[]']); r = sh.getLastRow(); }
+    const v = sh.getRange(r, 1, 1, 12).getValues()[0], col = p.kind === 'hd' ? 5 : 4;
+    let h = []; try { h = JSON.parse(v[11] || '[]'); } catch (e) {}
+    h.unshift({ t: now, by: by, k: p.kind === 'hd' ? 'hd' : 'tt', kenh: String(p.kenh || '').slice(0, 10) }); h = h.slice(0, 30);
+    sh.getRange(r, col).setValue((+v[col - 1] || 0) + 1);
+    sh.getRange(r, 6, 1, 2).setValues([["'" + now, by]]);
+    sh.getRange(r, 12).setValue(JSON.stringify(h));
+    const x = sh.getRange(r, 1, 1, 11).getDisplayValues()[0];
+    return { ok: true, key: key, item: { tt: +x[3] || 0, hd: +x[4] || 0, last: x[5], by: x[6], st: x[7], note: x[8], nby: x[9], nat: x[10] } };
+  });
+}
+function ltNote_(p) {
+  const who = ltAuth_(p); if (!who) return { ok: false, err: 'noperm' };
+  return withLock_(() => {
+    const sh = ltSheet_(), key = ltKey_(p.ma, p.ten), now = tdNow_(), by = who.owner ? 'Chủ' : who.ten;
+    let r = ltRow_(sh, key);
+    if (!r) { sh.appendRow([key, "'" + String(p.ma || '').toUpperCase(), "'" + String(p.ten || ''), 0, 0, '', '', '', '', '', '', '[]']); r = sh.getLastRow(); }
+    const st = String(p.st || '').slice(0, 60), note = String(p.note || '').slice(0, 500);
+    sh.getRange(r, 8, 1, 4).setValues([[st, note, st || note ? by : '', st || note ? "'" + now : '']]);
+    try { nkAppend_(who.ma || 'CHỦ', who.ten || 'Chủ', 'Ghi chú lưu trú', String(p.ma || '') + ' · ' + String(p.ten || '') + ' · ' + (st || '(xoá)') + (note ? ' — ' + note : ''), 'luutru.html', p.devname); } catch (e) {}
+    const x = sh.getRange(r, 1, 1, 11).getDisplayValues()[0];
+    return { ok: true, key: key, item: { tt: +x[3] || 0, hd: +x[4] || 0, last: x[5], by: x[6], st: x[7], note: x[8], nby: x[9], nat: x[10] } };
+  });
+}
