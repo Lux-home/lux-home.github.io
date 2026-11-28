@@ -189,9 +189,11 @@ function kpUndo_(p) {
     const e = ((a && (a.runErrors || a.errors)) || []).find(x => x.t === q.t);
     r = e ? { ok: false, msg: e.msg } : { ok: true };
   } else return { ok: false, err: 'nosupport', msg: 'Lệnh loại này chưa huỷ được tự động — sửa trực tiếp trong danh sách khách' };
-  if (!r || !r.ok) return { ok: false, err: 'undo', msg: (r && (r.msg || r.err)) || 'Không huỷ được' };
+  const daThuHoi = r && !r.ok && /chưa thu hồi|đã được thu hồi/.test(String(r.msg || ''));   // đã bấm Thu hồi ở Khách đã trả phòng
+  if ((!r || !r.ok) && !daThuHoi) return { ok: false, err: 'undo', msg: (r && (r.msg || r.err)) || 'Không huỷ được' };
+  if (daThuHoi) r = { ok: true, catalog: [], note: 'đã thu hồi trước đó' };
   o.status = 'huy'; o.huyAt = Date.now(); kpSave_(o);
   try { nkAppend_('CHỦ', 'Chủ', 'Huỷ lệnh đã duyệt: ' + kpLabel_(o), (o.who ? o.who.ten + ' · ' : '') + kpDetail_(o), 'khach.html', ''); } catch (e) {}
-  return { ok: true, catalog: r.catalog || [] };
+  return { ok: true, catalog: r.catalog || [], note: r.note || '' };
 }
 function kpCount_() { return { ok: true, n: kpAll_().filter(o => o.status === 'cho').length }; }

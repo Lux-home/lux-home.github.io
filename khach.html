@@ -498,7 +498,7 @@ function huyLenh(id){
   api('khundo',{id:id},true).then(function(d){
     busy(false);
     if(!d||!d.ok) return toast('⛔ '+errMsg(d),6000);
-    toast('↩️ Đã huỷ lệnh'+(d.catalog&&d.catalog.length?' · catalog: '+d.catalog.join(', '):''),5000);
+    toast('↩️ Đã huỷ lệnh'+(d.note?' ('+d.note+')':'')+(d.catalog&&d.catalog.length?' · catalog: '+d.catalog.join(', '):''),5000);
     load(true).then(function(){ VIEW='props'; render(); });
   }).catch(function(){ busy(false); toast('Mất kết nối — tải lại để xem kết quả',6000); });
 }
