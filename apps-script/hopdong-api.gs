@@ -273,6 +273,37 @@ function tdSaveData_(p) {
   sh.appendRow(["'" + file, "'" + room, "'" + toa, "'" + thang, "'" + (p.start || ''), tdNow_(), who.owner ? 'Chủ' : who.ten, 'Chưa kiểm tra', '', '', '', data]);
   return { ok: true, added: true };
 }
+/* ---- ĐỢT KIỂM TRA (bước 3): mỗi lần bấm Kiểm tra lưu 1 dòng → xuất Excel lại được theo từng đợt ---- */
+function tdDotSheet_() {
+  const ss = tdSheet_().getParent(); let sh = ss.getSheetByName('ĐỢT KIỂM TRA');
+  if (!sh) { sh = ss.insertSheet('ĐỢT KIỂM TRA'); sh.appendRow(['Mã đợt', 'Kiểm tra lúc', 'Người kiểm tra', 'File sao kê', 'Số hợp đồng', 'Đạt', 'Không đạt', 'Kết quả (JSON)']); sh.setFrozenRows(1); }
+  return sh;
+}
+function tdDotSave_(p) {
+  const who = hdAuth_(p, ['checkin', 'checkinout', 'hopdong']); if (!who) return { ok: false, err: 'noperm' };
+  const kq = [].concat(p.kq || []); if (!kq.length) return { ok: false, err: 'need' };
+  const id = 'D' + Date.now(), dat = kq.filter(x => x.ok).length, js = JSON.stringify(kq);
+  if (js.length > 48000) return { ok: false, err: 'big', msg: 'Đợt kiểm tra quá lớn để lưu' };
+  tdDotSheet_().appendRow([id, tdNow_(), who.owner ? 'Chủ' : who.ten, "'" + String(p.sk || '').slice(0, 300), kq.length, dat, kq.length - dat, js]);
+  return { ok: true, id: id };
+}
+function tdDotList_(p) {
+  const who = hdAuth_(p, ['checkin', 'checkinout', 'hopdong']); if (!who) return { ok: false, err: 'noperm' };
+  const sh = tdDotSheet_(), n = sh.getLastRow(); if (n < 2) return { ok: true, dots: [] };
+  const v = sh.getRange(Math.max(2, n - 199), 1, Math.min(199, n - 1), 7).getDisplayValues();
+  return { ok: true, dots: v.reverse().map(r => ({ id: r[0], at: r[1], by: r[2], sk: r[3], n: +r[4] || 0, dat: +r[5] || 0, kd: +r[6] || 0 })) };
+}
+function tdDotGet_(p) {
+  const who = hdAuth_(p, ['checkin', 'checkinout', 'hopdong']); if (!who) return { ok: false, err: 'noperm' };
+  const sh = tdDotSheet_(), n = sh.getLastRow(); if (n < 2) return { ok: false, err: 'notfound' };
+  const ids = sh.getRange(2, 1, n - 1, 1).getDisplayValues(); let i = ids.length - 1; while (i >= 0 && ids[i][0] !== p.id) i--;
+  if (i < 0) return { ok: false, err: 'notfound', msg: 'Không thấy đợt kiểm tra' };
+  const r = sh.getRange(i + 2, 1, 1, 8).getDisplayValues()[0]; let kq = []; try { kq = JSON.parse(r[7]); } catch (e) {}
+  const files = {}; kq.forEach(x => { if (x.file) files[x.file] = 1; });
+  const ts = tdSheet_(), m = ts.getLastRow(), data = {};
+  if (m > 1) ts.getRange(2, 1, m - 1, TD_HDR.length).getDisplayValues().forEach(x => { if (files[x[0]] && x[11]) data[x[0]] = x[11]; });
+  return { ok: true, dot: { id: r[0], at: r[1], by: r[2], sk: r[3] }, kq: kq, data: data };
+}
 /** Xoá hợp đồng khỏi danh sách chờ (nhân viên / chủ): đánh dấu "Đã xoá" + bỏ dữ liệu — file PDF gốc trong kho vẫn giữ */
 function tdDel_(p) {
   const who = hdAuth_(p, ['checkin', 'checkinout', 'hopdong']);

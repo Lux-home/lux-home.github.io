@@ -54,6 +54,9 @@ function handle_(a, p) {
   if (a === 'tdlist')    return tdList_(p);
   if (a === 'tdsavedata') return tdSaveData_(p);
   if (a === 'tddel')      return tdDel_(p);
+  if (a === 'tddotsave')  return tdDotSave_(p);
+  if (a === 'tddotlist')  return tdDotList_(p);
+  if (a === 'tddotget')   return tdDotGet_(p);
   if (a === 'tdpending') return tdPending_(p);
   if (a === 'khadd')     return khAddRoute_(p);
   if (a === 'setavail')  return withLock_(() => setAvail_(p));
