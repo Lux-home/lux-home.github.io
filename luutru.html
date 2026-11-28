@@ -342,9 +342,9 @@ function rowNhac(x,tag,kind,urg){
     : '';
   var done = isNhac(x.phong,kind);
   var nb = '<span class="nhacb" data-nhac="'+nkey(x.phong,kind)+'">'+(done?NHACB:'')+'</span>';
-  var li=ltGet(x.phong,x.ten), ltv=li&&li.st;
+  var li=ltGet(x.phong,x.ten), ltv=li&&(li.note||li.st);
   return '<div class="row '+(done?'dnhac':'cnhac')+(ltv?' ltv':'')+'"><span class="ph" style="cursor:pointer" data-ph="'+esc(x.phong)+'" data-ten="'+esc(x.ten)+'" onclick="moNhatKyKhach(this.getAttribute(\'data-ph\'),this.getAttribute(\'data-ten\'))" title="Xem nhật ký nhắc của khách này">'+esc(x.phong)+' 🕑</span>'
-    +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small>'+(li&&(li.st||li.note)?'<span class="ltst">📝 '+esc(li.st||'Ghi chú')+(li.note?' — <i>'+esc(li.note)+'</i>':'')+'<i> · '+esc(li.nby||'')+' '+esc(li.nat||'')+'</i></span>':'')+'</span>'
+    +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small>'+(li&&(li.st||li.note)?'<span class="ltst">📝 '+esc([li.st,li.note].filter(Boolean).join(' — '))+'<i> · '+esc(li.nby||'')+' '+esc(li.nat||'')+'</i></span>':'')+'</span>'
     +'<span class="tag">'+ab+nb+ltBadge(li,kind,x)+tag(x)+acts+ltNutGC(x)+'</span></div>';
 }
 /* ===== ĐẾM SỐ LẦN NHẮC + GHI CHÚ TÌNH TRẠNG (lưu trên máy chủ, chủ & nhân viên dùng chung) ===== */
@@ -373,9 +373,8 @@ function ltMo(el){
   var m=document.getElementById('ltM'); if(!m){ m=document.createElement('div'); m.id='ltM'; m.onclick=function(e){ if(e.target===m) m.style.display='none'; }; document.body.appendChild(m); }
   m.innerHTML='<div class="bx"><h3>📝 '+esc(LTC.ma)+' · '+esc(LTC.ten)+'</h3>'
     +'<div style="font-size:.82rem;color:#5f727a">🔔 Đã nhắc: hạn lưu trú <b>'+(li.tt||0)+'</b> lần · hết HĐ <b>'+(li.hd||0)+'</b> lần'+(li.last?' · lần cuối '+esc(li.last)+' ('+esc(li.by)+')':'')+'</div>'
-    +'<div style="font-weight:800;margin-top:12px;font-size:.88rem">Tình trạng (dòng sẽ tô vàng để không nhắc trùng)</div>'
-    +'<div class="ch">'+LT_ST.map(function(t){ return '<button class="'+(LTC.st===t?'on':'')+'" onclick="LTC.st=(LTC.st===this.textContent?\'\':this.textContent);[].forEach.call(this.parentNode.children,function(b){b.classList.toggle(\'on\',b.textContent===LTC.st);})">'+esc(t)+'</button>'; }).join('')+'</div>'
-    +'<textarea id="ltNote" placeholder="Ghi chú thêm: VD đã nộp hồ sơ gia hạn 25/11, hẹn 5/12 có visa mới…">'+esc(li.note||'')+'</textarea>'
+    +'<div style="font-weight:800;margin-top:12px;font-size:.88rem">Ghi chú (có ghi chú thì dòng khách tô vàng)</div>'
+    +'<textarea id="ltNote" style="margin-top:6px">'+esc([li.st,li.note].filter(Boolean).join(' — '))+'</textarea>'
     +(li.nby?'<div style="font-size:.74rem;color:#92400e;margin-top:4px">Ghi chú hiện tại bởi '+esc(li.nby)+' lúc '+esc(li.nat)+'</div>':'')
     +'<div class="ft"><button style="background:#f3f4f6" onclick="document.getElementById(\'ltM\').style.display=\'none\'">Đóng</button>'
     +((li.st||li.note)?'<button style="background:#fee2e2;color:#b91c1c" onclick="ltLuu(1)">Xoá ghi chú</button>':'')
@@ -383,8 +382,8 @@ function ltMo(el){
   m.style.display='flex';
 }
 function ltLuu(xoa){
-  var note=xoa?'':document.getElementById('ltNote').value.trim(), st=xoa?'':LTC.st;
-  if(!xoa && !st && !note){ toast('Chọn tình trạng hoặc ghi chú'); return; }
+  var note=xoa?'':document.getElementById('ltNote').value.trim(), st='';
+  if(!xoa && !note){ toast('Nhập nội dung ghi chú'); return; }
   luxApi('ltnote', ltAuth({ ma:LTC.ma, ten:LTC.ten, st:st, note:note }), true).then(function(d){
     if(!d||!d.ok){ toast('⛔ Không lưu được: '+((d&&(d.msg||d.err))||'')); return; }
     LT.items[d.key]=d.item; document.getElementById('ltM').style.display='none'; if(LT.last) render(LT.last);
