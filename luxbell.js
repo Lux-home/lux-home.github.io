@@ -1,6 +1,6 @@
 /* LUXHOME · CHUÔNG THÔNG BÁO việc chờ duyệt (góc trên bên phải) — chỉ hiện trên máy của CHỦ
    Nguồn: đề xuất của nhân viên (máy chủ Quản lý căn hộ), đợt check-in chờ duyệt (máy chủ Check-in),
-   hợp đồng chờ kiểm tra / đạt chờ ghi file, máy nhân viên chờ duyệt (máy chủ Lưu trú). */
+   máy nhân viên chờ duyệt (máy chủ Lưu trú). */
 (function () {
   var CK = "https://script.google.com/macros/s/AKfycbylsYx2qOuQgp92bb5o_Q0Pg7K3I6FYfjvhlyBxUvBYgcE5yOOBth3PyniM3wgGtT4y/exec";
   var NV = "https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
@@ -43,12 +43,12 @@
       + (items.length ? '<ul>' + items.join('') + '</ul>' : '') + '<div class="go">' + go + ' ›</div></a>';
   }
   function tong() {
-    return (D.de ? D.de.length : 0) + (D.dots ? D.dots.length : 0) + (D.dev ? D.dev.length : 0) + (D.hd ? D.hd.cho + D.hd.ghi : 0);
+    return (D.de ? D.de.length : 0) + (D.dots ? D.dots.length : 0) + (D.dev ? D.dev.length : 0);
   }
   function ve() {
     var n = tong(), c = bell.querySelector('.c');
     c.textContent = n > 99 ? '99+' : n; c.style.display = n ? 'block' : 'none';
-    var h = '<h4>🔔 Việc chờ duyệt<button onclick="event.stopPropagation();window.lxBellTai(1)">↻ Làm mới</button></h4>';
+    var h = '<h4>🔔 Yêu cầu chờ duyệt<button onclick="event.stopPropagation();window.lxBellTai(1)">↻ Làm mới</button></h4>';
     if (D.de && D.de.length) {
       var lo = {}, le = [];
       D.de.forEach(function (o) { if (o.lo) { (lo[o.lo] = lo[o.lo] || { who: o.who, src: o.src, t: o.t, n: 0 }).n++; } else le.push(o); });
@@ -60,12 +60,9 @@
     if (D.dots && D.dots.length) h += sec('🛎️', '#ea580c', 'Đợt check-in chờ duyệt', D.dots.length,
       D.dots.slice(0, 5).map(function (x) { return '<li><b>' + esc(x.ten || 'Nhân viên') + '</b>' + (x.so ? ' · ' + esc(x.so) + ' khách' : '') + (x.ngay ? ' · ' + esc(x.ngay) : '') + '</li>'; }),
       'checkin.html?tab=cho', 'Mở Chờ duyệt');
-    if (D.hd && (D.hd.cho || D.hd.ghi)) h += sec('📄', '#0e7ba8', 'Hợp đồng check-in', D.hd.cho + D.hd.ghi,
-      [D.hd.cho ? '<li>⏳ <b>' + D.hd.cho + '</b> hợp đồng chờ kiểm tra thanh toán (bước 2–3)</li>' : '', D.hd.ghi ? '<li>✅ <b>' + D.hd.ghi + '</b> hợp đồng ĐẠT chờ ghi file Quản lý khách hàng</li>' : ''].filter(Boolean),
-      'checkin.html', 'Mở Cập nhật khách check-in');
     if (D.dev && D.dev.length) h += sec('📱', '#7c3aed', 'Máy nhân viên chờ duyệt', D.dev.length,
       D.dev.slice(0, 5).map(function (x) { return '<li><b>' + esc(x.nv) + '</b> · ' + esc(x.name || 'máy mới') + '</li>'; }), 'nvadmin.html', 'Mở Phân quyền trợ lý');
-    if (!tong()) h += '<div class="lxE">' + (D.at ? '✅ Không có việc nào đang chờ' : '⏳ Đang tải…') + '</div>';
+    if (!tong()) h += '<div class="lxE">' + (D.at ? '✅ Không có yêu cầu nào của nhân viên đang chờ' : '⏳ Đang tải…') + '</div>';
     h += '<div class="lxF">' + (D.at ? 'Cập nhật lúc ' + tf(D.at) + ' · tự làm mới mỗi phút' : '') + '</div>';
     panel.innerHTML = h;
   }
@@ -73,7 +70,7 @@
   function tai(force) {
     if (dangTai) return; dangTai = true;
     var jobs = [];
-    if (PW && window.luxApi) jobs.push(window.luxApi('thongbao', { pw: PW }).then(function (d) { if (d && d.ok) { D.de = d.de || []; D.hd = d.hd || null; } }).catch(function () {}));
+    if (PW && window.luxApi) jobs.push(window.luxApi('thongbao', { pw: PW }).then(function (d) { if (d && d.ok) { D.de = d.de || []; } }).catch(function () {}));
     if (CKPW) jobs.push(jsonp(CK + '?list=1&pw=' + encodeURIComponent(CKPW)).then(function (d) { if (d && d.ok) D.dots = (d.dots || []).filter(function (x) { return x.st === 'CHỜ DUYỆT'; }); }).catch(function () {}));
     if (MG) jobs.push(jsonp(NV + '?nvadmin=list&pw=' + encodeURIComponent(MG)).then(function (d) {
       if (d && d.ok) { var a = []; (d.list || []).forEach(function (nv) { (nv.devices || []).forEach(function (x) { if (x.status !== 'ok') a.push({ nv: nv.ten || nv.ma || '', name: x.name }); }); }); D.dev = a; } }).catch(function () {}));
