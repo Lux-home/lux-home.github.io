@@ -72,7 +72,7 @@ function staffRoute_(a, p) {
   }
   if (a === 'khmyreqs') {
     return { ok: true, items: kpAll_().filter(o => o.who && o.who.ma === who.ma).slice(0, 50).map(o => ({
-      id: o.id, t: o.t, type: o.type, status: o.status, row: o.row, expect: o.expect, fields: o.fields, before: o.before, note: o.note,
+      id: o.id, t: o.t, type: o.type, status: o.status, row: o.row, expect: o.expect, fields: o.fields, before: o.before, note: o.note, ma: o.ma || (o.add || {}).ma || '', lo: o.lo || '', src: o.src || '', huyAt: o.huyAt || 0,
       reason: o.reason || '', err: o.err || '', decidedAt: o.decidedAt || 0,
       canDownload: o.type === 'export' && o.status === 'duyet' && !o.used && Date.now() - o.decidedAt < KP_EXPORT_HOURS * 3600000 })) };
   }

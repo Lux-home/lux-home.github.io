@@ -101,7 +101,7 @@
 <script src="canho-api.js"></script>
 <script>
 var PWKEY="luxAdminPw";
-var ROWS=[], AT='', CUR=null, VIEW=(new URLSearchParams(location.search).get('view')==='props'?'props':'list'), FQ='', FT='', FF='';
+var ROWS=[], AT='', CUR=null, VIEW=(function(v){ return v==='props'||v==='mine'?v:'list'; })(new URLSearchParams(location.search).get('view')), FQ='', FT='', FF='';
 
 /* Trường sửa được: [khoá, nhãn, loại, nhóm] — loại: t=chữ, d=ngày, n=số, m=tiền, s:… = chọn */
 var FIELDS=[

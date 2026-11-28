@@ -5,9 +5,10 @@
   var CK = "https://script.google.com/macros/s/AKfycbylsYx2qOuQgp92bb5o_Q0Pg7K3I6FYfjvhlyBxUvBYgcE5yOOBth3PyniM3wgGtT4y/exec";
   var NV = "https://script.google.com/macros/s/AKfycbyFhO_xjflBHiofIY_XuQCcUNKd1VCwTUKhW5Jvaya51WBD5IId5owYfZM_Q9DY0aZoWQ/exec";
   function ls(k) { try { return localStorage.getItem(k) || ''; } catch (e) { return ''; } }
-  if (/[?&]tok=/.test(location.search)) return;                        // trang mở từ app nhân viên
   var PW = ls('luxAdminPw'), CKPW = ls('ck_pw'), MG = ls('mg_pin');
-  if (!PW && !CKPW && !MG) return;                                       // không phải máy chủ nhà
+  var TOK = new URLSearchParams(location.search).get('tok') || ((!PW && !CKPW && !MG) ? ls('nv_tok') : '');
+  var NV_MODE = !!TOK;                                                   // máy / trang nhân viên → chuông "lệnh của tôi đã được xử lý"
+  if (!NV_MODE && !PW && !CKPW && !MG) return;
   var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); };
   function jsonp(url) { return fetch(url + (url.indexOf('?') < 0 ? '?' : '&') + 'callback=cb&t=' + Date.now(), { cache: 'no-store' }).then(function (r) { return r.text(); }).then(function (t) { return JSON.parse(t.slice(t.indexOf('{'), t.lastIndexOf('}') + 1)); }); }
 
@@ -79,6 +80,60 @@
       if (truoc >= 0 && n > truoc) { bell.classList.remove('rung'); void bell.offsetWidth; bell.classList.add('rung'); }
       truoc = n; ve();
     });
+  }
+  if (NV_MODE) {
+    var dev = ls('nv_devid'), ua = navigator.userAgent || '', dn = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) ? 'iPad' : /Android/.test(ua) ? 'Android' : (navigator.platform || 'Máy');
+    var q = '&tok=' + encodeURIComponent(TOK) + '&dev=' + encodeURIComponent(dev) + '&devname=' + encodeURIComponent(dn), tq = '?tok=' + encodeURIComponent(TOK);
+    var SEEN = {}; try { SEEN = JSON.parse(ls('lx_seen') || '{}'); } catch (e) {}
+    var NV = { items: [], at: 0, moi: {} };
+    var LAB = { save: '✏️ Sửa thông tin khách', out: '🗑 Xoá khách khỏi căn', unitout: '🏁 Check-out cả căn', add: '🛎️ Bổ sung khách', export: '⬇️ Xuất Excel' };
+    var STL = { duyet: ['✅ Đã duyệt', '#15803d'], tuchoi: ['✕ Từ chối', '#b91c1c'], loi: ['⚠️ Lỗi ghi file', '#b45309'], huy: ['↩️ Chủ đã huỷ lệnh', '#b45309'],
+      'ĐÃ DUYỆT': ['✅ Đã duyệt', '#15803d'], 'ĐÃ CẬP NHẬT FILE': ['✅ Đã duyệt · đã ghi file', '#15803d'], 'TRẢ LẠI': ['↩️ Chủ trả lại', '#b91c1c'], 'ĐÃ NHẬP EXCEL': ['✅ Đã nhập Excel', '#15803d'] };
+    var chuaXem = function () { return NV.items.filter(function (x) { return !SEEN[x.k]; }).length; };
+    tong = chuaXem;
+    ve = function () {
+      var n = chuaXem(), c = bell.querySelector('.c');
+      c.textContent = n > 99 ? '99+' : n; c.style.display = n ? 'block' : 'none';
+      var h = '<h4>🔔 Yêu cầu của tôi đã được xử lý<button onclick="event.stopPropagation();window.lxBellTai(1)">↻ Làm mới</button></h4>';
+      if (!NV.items.length) h += '<div class="lxE">' + (NV.at ? 'Chưa có yêu cầu nào được chủ xử lý' : '⏳ Đang tải…') + '</div>';
+      NV.items.slice(0, 25).forEach(function (x) {
+        var st = STL[x.st] || [x.st, '#5f727a'];
+        h += '<a class="lxS" href="' + x.href + '"><div class="t"><i style="background:' + st[1] + '22">' + x.ic + '</i><span>' + esc(x.lb) + '</span>'
+          + (SEEN[x.k] && !NV.moi[x.k] ? '' : '<b style="background:#dc2626">Mới</b>') + '</div><ul><li><b style="color:' + st[1] + '">' + st[0] + '</b>' + (x.at ? ' · ' + esc(x.at) : '') + '</li>'
+          + (x.dt ? '<li>' + esc(x.dt) + '</li>' : '') + (x.ly ? '<li>📝 ' + esc(x.ly) + '</li>' : '') + '</ul></a>';
+      });
+      h += '<div class="lxF">' + (NV.at ? 'Cập nhật lúc ' + tf(NV.at) + ' · tự làm mới mỗi phút' : '') + '</div>';
+      panel.innerHTML = h;
+    };
+    tai = function () {
+      if (dangTai) return; dangTai = true;
+      var a = [], jobs = [];
+      if (window.luxApi) jobs.push(window.luxApi('khmyreqs', { tok: TOK, dev: dev, devname: dn }).then(function (d) {
+        if (d && d.ok) (d.items || []).forEach(function (o) {
+          if (o.status === 'cho') return;
+          var g = o.expect || {};
+          a.push({ k: 'K' + o.id + o.status, t: o.huyAt || o.decidedAt || o.t, st: o.status, ic: (LAB[o.type] || '📋').split(' ')[0], lb: (LAB[o.type] || o.type).replace(/^\S+\s/, '') + (o.lo ? ' (lô DS Check-in)' : ''),
+            dt: [o.ma || g.ma, g.ten].filter(Boolean).join(' · '), ly: o.reason || o.err || '', at: tf(o.huyAt || o.decidedAt || o.t), href: 'khach.html' + tq + '&view=mine' });
+        });
+      }).catch(function () {}));
+      jobs.push(jsonp(CK + '?list=1' + q).then(function (d) {
+        if (d && d.ok) (d.dots || []).forEach(function (x) {
+          if (!x.st || x.st === 'CHỜ DUYỆT') return;
+          a.push({ k: 'D' + x.id + x.st, t: 0, st: x.st, ic: '🛎️', lb: 'Đợt check-in' + (x.so ? ' · ' + x.so + ' khách' : ''), dt: x.ngay ? 'Gửi ' + x.ngay : '', ly: x.dnote || '', at: '', href: 'checkin.html' + tq + '&tab=cua' });
+        });
+      }).catch(function () {}));
+      Promise.all(jobs).then(function () {
+        dangTai = false; a.sort(function (x, y) { return (y.t || 0) - (x.t || 0); }); NV.items = a; NV.at = Date.now();
+        if (!ls('lx_seen_init')) { a.forEach(function (x) { SEEN[x.k] = 1; }); try { localStorage.setItem('lx_seen', JSON.stringify(SEEN)); localStorage.setItem('lx_seen_init', '1'); } catch (e) {} }
+        var n = chuaXem(); if (truoc >= 0 && n > truoc) { bell.classList.remove('rung'); void bell.offsetWidth; bell.classList.add('rung'); }
+        truoc = n; ve();
+      });
+    };
+    bell.title = 'Yêu cầu của tôi đã được xử lý';
+    bell.onclick = function (e) {
+      e.stopPropagation(); panel.classList.toggle('on');
+      if (panel.classList.contains('on')) { NV.moi = {}; NV.items.forEach(function (x) { if (!SEEN[x.k]) NV.moi[x.k] = 1; SEEN[x.k] = 1; }); ve(); try { localStorage.setItem('lx_seen', JSON.stringify(SEEN)); } catch (er) {} var c = bell.querySelector('.c'); c.style.display = 'none'; tai(); }
+    };
   }
   window.lxBellTai = tai;
   ve(); tai();
