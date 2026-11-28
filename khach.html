@@ -434,7 +434,7 @@ function exportX(){
 var LAB={}; FIELDS.forEach(function(f){ LAB[f[0]]=f[1]; });
 function tf(t){ var d=new Date(t); return ('0'+d.getDate()).slice(-2)+'/'+('0'+(d.getMonth()+1)).slice(-2)+' '+('0'+d.getHours()).slice(-2)+':'+('0'+d.getMinutes()).slice(-2); }
 function typeLab(o){ return o.type==='unitout'?'🏁 Đề xuất CHECK-OUT cả căn':o.type==='out'?'🗑 Đề xuất xoá khách':o.type==='export'?'⬇️ Yêu cầu xuất Excel':o.type==='add'?'🛎️ Bổ sung khách check-in':'✏️ Đề xuất sửa'; }
-function stLab(o){ return o.status==='cho'?'<span class="tag t-amb">⏳ Chờ duyệt</span>':o.status==='duyet'?'<span class="tag t-ok">✓ Đã duyệt</span>':o.status==='tuchoi'?'<span class="tag t-red">✕ Từ chối</span>':'<span class="tag t-red">⚠️ Lỗi ghi file</span>'; }
+function stLab(o){ return o.status==='cho'?'<span class="tag t-amb">⏳ Chờ duyệt</span>':o.status==='duyet'?'<span class="tag t-ok">✓ Đã duyệt</span>':o.status==='tuchoi'?'<span class="tag t-red">✕ Từ chối</span>':o.status==='huy'?'<span class="tag t-amb">↩️ Đã huỷ lệnh</span>':'<span class="tag t-red">⚠️ Lỗi ghi file</span>'; }
 function propBody(o){
   var h='';
   if(o.type==='unitout'){ h+='<div class="muted">Căn <b>'+esc(o.ma||'')+'</b> · '+(o.guests||[]).length+' khách</div><div style="font-size:.86rem;margin-top:4px">'+(o.guests||[]).map(function(g){ return '• <b>'+esc(g.ten)+'</b>'; }).join('<br>')+'</div><div style="font-size:.86rem;margin-top:4px">Xoá trắng dòng chính (tô đỏ), xoá các dòng khách phụ · catalog → Đang có sẵn'+(o.note?' · 📝 '+esc(o.note):'')+'</div>'; return h+(o.reason?'<div style="font-size:.84rem;color:var(--red)">Lý do từ chối: '+esc(o.reason)+'</div>':'')+(o.err?'<div style="font-size:.84rem;color:var(--red)">'+esc(o.err)+'</div>':''); }
@@ -467,7 +467,7 @@ function renderProps(){
   api('khproplist',{}).then(function(d){
     if(!d||!d.ok){ $('main').innerHTML=backBar()+'<div class="warn">'+esc(errMsg(d))+'</div>'; return; }
     PROPN=d.pending.length;
-    var card=function(o,act){ return '<div class="olist"><b>'+esc(o.who?o.who.ten:'?')+'</b> <span class="muted">'+esc(o.who?o.who.ma:'')+' · '+tf(o.t)+'</span><div><b>'+typeLab(o)+'</b> '+stLab(o)+'</div>'+propBody(o)
+    var card=function(o,act){ return '<div class="olist"><b>'+esc(o.who?o.who.ten:'?')+'</b> <span class="muted">'+esc(o.who?o.who.ma:'')+' · '+tf(o.t)+'</span><div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap"><b>'+typeLab(o)+'</b> '+stLab(o)+(o.status==='duyet'&&['unitout','out','save'].indexOf(o.type)>=0?'<button class="btn red sm" style="padding:4px 12px;font-size:.8rem;margin-left:auto" onclick="huyLenh(\''+o.id+'\')">↩️ Huỷ lệnh</button>':'')+'</div>'+propBody(o)
       +(act?'<div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1;background:#15803d" onclick="decide(\''+o.id+'\',1)">✓ Duyệt</button><button class="btn red" style="flex:1" onclick="decide(\''+o.id+'\',0)">✕ Từ chối</button></div>':'')+'</div>'; };
     var lo={}, le=[]; d.pending.forEach(function(o){ if(o.type==='add'&&o.lo){ (lo[o.lo]=lo[o.lo]||[]).push(o); } else le.push(o); });
     var loHtml=Object.keys(lo).map(function(k){ var g=lo[k], o=g[0], nk=g.reduce(function(a,x){ return a+((x.add||{}).guests||[]).length; },0);
@@ -490,6 +490,16 @@ function decideLo(lo,ok,n){
     if(ok){ if(d.loi) alert('Đã ghi '+d.ghi+'/'+d.n+' căn.\n\nChưa ghi được:\n'+(d.errs||[]).join('\n')); else toast('✓ Đã duyệt và ghi '+d.ghi+' căn'+(d.pending?' — đang chờ ghi file':''),6000); }
     else toast('Đã từ chối '+d.n+' căn');
     if(ok) load(true).then(function(){ VIEW='props'; render(); }); else renderProps();
+  }).catch(function(){ busy(false); toast('Mất kết nối — tải lại để xem kết quả',6000); });
+}
+function huyLenh(id){
+  if(!confirm('Huỷ lệnh đã duyệt này?\n\nFile Quản lý khách hàng sẽ trở về như trước khi duyệt (khách check-out được ghi lại vào căn, thông tin sửa được trả về giá trị cũ). Catalog trả về tình trạng cũ nếu có lưu.')) return;
+  busy(true,'Đang huỷ lệnh và ghi lại file…');
+  api('khundo',{id:id},true).then(function(d){
+    busy(false);
+    if(!d||!d.ok) return toast('⛔ '+errMsg(d),6000);
+    toast('↩️ Đã huỷ lệnh'+(d.catalog&&d.catalog.length?' · catalog: '+d.catalog.join(', '):''),5000);
+    load(true).then(function(){ VIEW='props'; render(); });
   }).catch(function(){ busy(false); toast('Mất kết nối — tải lại để xem kết quả',6000); });
 }
 function decide(id,ok){

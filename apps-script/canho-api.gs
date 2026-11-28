@@ -92,6 +92,7 @@ function handle_(a, p) {
   if (a === 'thongbao')     return tbSum_(p);
   if (a === 'khdecide')     return kpDecide_(p);
   if (a === 'khdecidelo')   return kpDecideLo_(p);
+  if (a === 'khundo')       return kpUndo_(p);
   if (a === 'khqueue')      return khQueue_(p);
   if (a === 'khapply')      return withLock_(() => khApply_());
   if (a === 'khstatus')     return khStatus_();

@@ -114,7 +114,7 @@ function kpDecide_(p) {
       ? { type: 'out', row: o.row, guest: Object.assign({}, o.guest, { ma: o.expect.ma, ten: o.expect.ten }), note: (o.note || '') + ' (NV ' + (o.who ? o.who.ten : '') + ' đề xuất)', openUnit: o.openUnit }
       : { type: 'save', row: o.row, expect: o.expect, fields: o.fields });
     if (!q.ok) return { ok: false, err: 'queue', msg: 'Không đưa được vào hàng chờ' };
-    o.status = 'duyet'; kpSave_(o);            // đánh dấu ngay để không bị duyệt 2 lần
+    o.status = 'duyet'; o.qt = q.t; kpSave_(o);            // đánh dấu ngay để không bị duyệt 2 lần · qt: mã lệnh ghi file (để huỷ lệnh)
     let r = null;
     try { r = withLock_(() => khApply_()); } catch (err) { r = { ok: false, msg: String(err.message || err) }; }
     const e = ((r && r.errors) || []).find(x => x.t === q.t);
@@ -165,5 +165,33 @@ function tbSum_(p) {
     }
   } catch (e) {}
   return { ok: true, de: de, hd: hd, at: Date.now() };
+}
+/** Chủ: HUỶ LỆNH đã duyệt — trả file Quản lý khách hàng về như trước khi duyệt */
+function kpUndo_(p) {
+  const o = kpAll_().find(x => x.id === p.id);
+  if (!o) return { ok: false, err: 'notfound' };
+  if (o.status !== 'duyet') return { ok: false, err: 'done', msg: o.status === 'huy' ? 'Lệnh này đã huỷ rồi' : 'Chỉ huỷ được lệnh đã duyệt' };
+  let r;
+  if (o.type === 'unitout' || o.type === 'out') {
+    const ma = String(o.type === 'unitout' ? o.ma : (o.expect || {}).ma || '').toUpperCase();
+    if (o.qt) {
+      const id = PropertiesService.getScriptProperties().getProperty('kh_outlog'), sh = id ? SpreadsheetApp.openById(id).getSheets()[0] : null;
+      const v = sh ? sh.getDataRange().getDisplayValues() : [], rows = [];
+      v.forEach((x, i) => { if (i && String(x[21]) === String(o.qt) && !x[23]) rows.push(i + 1); });
+      r = rows.length ? khOutUndo_({ rows: rows }) : khOutUndoCan_(ma);
+    } else r = khOutUndoCan_(ma);
+  } else if (o.type === 'save') {
+    const f = {}; Object.keys(o.fields || {}).forEach(k => { f[k] = (o.before || {})[k] == null ? '' : (o.before || {})[k]; });
+    const exp = { ma: (o.fields && o.fields.ma) || (o.expect || {}).ma || '', ten: (o.fields && o.fields.ten) || (o.expect || {}).ten || '' };
+    const q = khQueue_({ type: 'save', row: o.row, expect: exp, fields: f });
+    if (!q.ok) return { ok: false, err: 'queue', msg: 'Không đưa được vào hàng chờ' };
+    let a; try { a = withLock_(() => khApply_()); } catch (e) { return { ok: false, err: 'apply', msg: String(e.message || e) }; }
+    const e = ((a && (a.runErrors || a.errors)) || []).find(x => x.t === q.t);
+    r = e ? { ok: false, msg: e.msg } : { ok: true };
+  } else return { ok: false, err: 'nosupport', msg: 'Lệnh loại này chưa huỷ được tự động — sửa trực tiếp trong danh sách khách' };
+  if (!r || !r.ok) return { ok: false, err: 'undo', msg: (r && (r.msg || r.err)) || 'Không huỷ được' };
+  o.status = 'huy'; o.huyAt = Date.now(); kpSave_(o);
+  try { nkAppend_('CHỦ', 'Chủ', 'Huỷ lệnh đã duyệt: ' + kpLabel_(o), (o.who ? o.who.ten + ' · ' : '') + kpDetail_(o), 'khach.html', ''); } catch (e) {}
+  return { ok: true, catalog: r.catalog || [] };
 }
 function kpCount_() { return { ok: true, n: kpAll_().filter(o => o.status === 'cho').length }; }
