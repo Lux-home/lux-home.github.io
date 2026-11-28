@@ -1667,7 +1667,7 @@ function bkKiemTra(){
   if(!TT.sk.length){ toast('Tải sao kê ở bước 2 trước'); return; }
   var nut=document.querySelector('#bkNut button'); if(nut){ nut.disabled=true; nut.textContent='⏳ Đang lấy danh sách hợp đồng…'; }
   hdTaiCho().then(function(them){
-    BK.daKiem=true; bkVe();
+    BK.daKiem=true; BK.lan=Date.now(); bkVe();
     var kq=document.getElementById('bkKQ'); if(kq) kq.scrollIntoView({behavior:'smooth'});
     toast('🔎 Đã kiểm tra '+bkHD().length+' hợp đồng'+(them?' ('+them+' hợp đồng nhân viên đã nạp)':''),4000);
   }).catch(function(){ toast('Không kết nối được máy chủ'); }).then(function(){ var n=document.querySelector('#bkNut button'); if(n){ n.disabled=false; n.textContent='🔎 KIỂM TRA DANH SÁCH CHECKIN'; } });
@@ -1704,7 +1704,8 @@ function bkVe(){
   if(TT.sk.length) tdGui(KQ);
   bkTrangThai(ds);
   setTimeout(bkNapVe,0);
-  s3.innerHTML=ds.map(function(h){
+  var nDat=ds.filter(function(h){ return h.kq&&h.kq.ok; }).length;
+  s3.innerHTML='<div class="hdBar2" style="margin-top:0"><span style="margin-right:auto;font-weight:700">🔎 Đợt kiểm tra '+(BK.lan?tfLan(BK.lan):'')+' · '+ds.length+' hợp đồng · <span style="color:#15803d">'+nDat+' đạt</span> · <span style="color:#b91c1c">'+(ds.length-nDat)+' không đạt</span></span><button class="btn o" onclick="bkXuat()">📤 Xuất Excel đợt kiểm tra này</button></div>'+ds.map(function(h){
     var q=h.kq||{ ok:false, loi:['Chưa tính được'], okL:[], canh:[] }, td=tdTim(h);
     var mau = q.ok ? 'xanh' : 'do', nhan, thieu=q.thieu||[];
     nhan = mau==='xanh' ? '✅ ĐẠT YÊU CẦU — thanh toán đợt 1 khớp sao kê, đủ dữ liệu' : q.ttOk===false ? '⛔ KHÔNG ĐẠT — thanh toán đợt 1 chưa đúng'+(thieu.length?' · thiếu dữ liệu':'') : thieu.length ? '⛔ KHÔNG ĐẠT — THIẾU DỮ LIỆU (thanh toán đã khớp)' : '⚠️ Tạm khớp theo ảnh chuyển khoản — chưa đối chiếu sao kê';
@@ -1782,6 +1783,48 @@ function hdMoSua(id){
   var h=HD.filter(function(x){ return x.id===id; })[0]; if(!h) return;
   h.moSua=true; hdVe();
   setTimeout(function(){ var el=document.getElementById('hdC'+id); if(el){ el.scrollIntoView({behavior:'smooth',block:'start'}); el.style.boxShadow='0 0 0 3px #f59e0b'; setTimeout(function(){ el.style.boxShadow=''; },2500); } },60);
+}
+function tfLan(t){ var d=new Date(t); return kp2(d.getDate())+'/'+kp2(d.getMonth()+1)+'/'+d.getFullYear()+' '+kp2(d.getHours())+':'+kp2(d.getMinutes()); }
+/* Xuất Excel KẾT QUẢ của đợt kiểm tra (bước 3): sheet Kết quả + sheet DS ĐẠT theo mẫu DS Check-in */
+function bkXuat(){
+  var ds=bkHD().filter(function(h){ return h.kq; });
+  if(!ds.length){ toast('Chưa có kết quả kiểm tra'); return; }
+  var lan=BK.lan||Date.now(), nguoi=(window.ME&&ME.owner)?'Chủ':((window.ME&&ME.ten)||'');
+  tkExcelJS().then(function(ExcelJS){
+    var wb=new ExcelJS.Workbook(), F={ name:'Times New Roman', size:12 }, B={ top:{style:'thin'}, left:{style:'thin'}, bottom:{style:'thin'}, right:{style:'thin'} };
+    var ws=wb.addWorksheet('KẾT QUẢ KIỂM TRA');
+    var H=['STT','Mã căn','Khách','Ngày vào','Cần thu đợt 1 (X+Y)','Đã nhận (sao kê)','Chênh lệch','KẾT QUẢ','Lý do không đạt','Thiếu / sai dữ liệu','Khớp sao kê','Ghi chú','File hợp đồng','Người nạp','Đã ghi file QLKH'];
+    [6,12,34,12,16,16,14,14,46,40,46,34,40,16,14].forEach(function(w,i){ ws.getColumn(i+1).width=w; });
+    ws.mergeCells('A1:O1'); var t=ws.getCell('A1'); t.value='KẾT QUẢ KIỂM TRA THANH TOÁN ĐỢT 1 — '+tfLan(lan)+(nguoi?' · '+nguoi:'')+' · sao kê: '+(TT.skFiles||[]).map(function(f){ return f.ten||f.name||f; }).join(', ');
+    t.font=Object.assign({},F,{bold:true,size:14}); t.alignment={vertical:'middle'}; ws.getRow(1).height=30;
+    var hr=ws.getRow(2); H.forEach(function(x,i){ var c=hr.getCell(i+1); c.value=x; c.font=Object.assign({},F,{bold:true}); c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}}; c.border=B; c.alignment={horizontal:'center',vertical:'middle',wrapText:true}; });
+    hr.height=34;
+    ds.forEach(function(h,i){
+      var q=h.kq, can=Number(q.can)||0, nhan=Number(q.nhan)||0;
+      var r=ws.addRow([i+1, h.room, (h.khach||[]).map(function(k){ return k.ten; }).join(', '), h.start||'', can||'', nhan||'', (can||nhan)?nhan-can:'', q.ok?'ĐẠT':'KHÔNG ĐẠT',
+        (q.loi||[]).join('\n'), (q.thieu||[]).map(function(x){ return x.replace(/^(⛔|⚠️)\s*/,''); }).join('\n'), (q.okL||[]).join('\n'), (q.canh||[]).join('\n'), h.file, (h.nap&&h.nap.by)||h.nguoi||'', h.qlkh==='ok'?'Đã ghi':'']);
+      r.eachCell({ includeEmpty:true }, function(c,j){ c.font=F; c.border=B; c.alignment={vertical:'top',wrapText:true,horizontal:j<=2||j===4||j===8?'center':undefined}; if(j>=5&&j<=7) c.numFmt='#,##0'; });
+      var k=r.getCell(8); k.font=Object.assign({},F,{bold:true,color:{argb:q.ok?'FF15803D':'FFB91C1C'}}); k.fill={type:'pattern',pattern:'solid',fgColor:{argb:q.ok?'FFE7F6EC':'FFFDEAEA'}};
+    });
+    ws.autoFilter='A2:O'+(ds.length+2); ws.views=[{ state:'frozen', ySplit:2 }];
+    // sheet 2: khách ĐẠT theo mẫu DS Check-in
+    var dat=ds.filter(function(h){ return h.kq.ok; });
+    var w2=wb.addWorksheet('DS ĐẠT (mẫu Check-in)'); TK_W.forEach(function(w,i){ w2.getColumn(i+1).width=w; });
+    w2.mergeCells('A1:V1'); var t2=w2.getCell('A1'); t2.value='DANH SÁCH CHECK IN — KHÁCH ĐẠT · '+tfLan(lan); t2.font=Object.assign({},F,{bold:true,size:14}); t2.alignment={horizontal:'center'};
+    TK_H.forEach(function(x,i){ var c=w2.getCell(tkCot(i+1)+'2'); c.value=x; c.font=Object.assign({},F,{bold:true}); c.fill={type:'pattern',pattern:'solid',fgColor:{argb:'FFFFFF00'}}; c.border=B; c.alignment={horizontal:'center',vertical:'middle',wrapText:true}; });
+    w2.getRow(2).height=40; var rn=3, stt=0;
+    dat.forEach(function(h){ hdRows(h).forEach(function(c){ stt++; var row=w2.getRow(rn);
+      for(var j=0;j<NCOL;j++){ var cell=row.getCell(j+1); cell.value=j===0?stt:tkGiaTri(c[j],j); cell.font=F; cell.border=B; cell.alignment={horizontal:'center',vertical:'middle',wrapText:j===23||j===10};
+        if(TK_DATE.indexOf(j)>=0) cell.numFmt='d/mm/yyyy'; else if(TK_MONEY.indexOf(j)>=0) cell.numFmt='#,##0'; else if(j===24) cell.numFmt='0%'; else if(j===8||j===9||j===23) cell.numFmt='@'; }
+      rn++; }); });
+    if(rn>3) w2.autoFilter='A2:AC'+(rn-1);
+    return wb.xlsx.writeBuffer().then(function(buf){
+      var d=new Date(lan), name='Kiem_tra_dot1_'+kp2(d.getDate())+'.'+kp2(d.getMonth()+1)+'_'+kp2(d.getHours())+'h'+kp2(d.getMinutes())+'_'+dat.length+'dat_'+(ds.length-dat.length)+'khongdat.xlsx';
+      var url=URL.createObjectURL(new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+      var a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(function(){ URL.revokeObjectURL(url); },4000); toast('✅ Đã xuất '+name,4000);
+    });
+  }).catch(function(e){ toast('❌ '+String(e&&e.message||e)); });
 }
 function bkDat(){ return bkHD().filter(function(h){ return h.kq && h.kq.ok && h.kq.sk && (!h.qlkh || h.qlkh===''); }); }
 function bkNapVe(){
