@@ -345,7 +345,7 @@ function rowNhac(x,tag,kind,urg){
   var nb = '<span class="nhacb" data-nhac="'+nkey(x.phong,kind)+'">'+(done?NHACB:'')+'</span>';
   var li=ltGet(x.phong,x.ten), ltv=li&&(li.note||li.st);
   return '<div class="row '+(done?'dnhac':'cnhac')+(ltv?' ltv':'')+'"><span class="ph" style="cursor:pointer" data-ph="'+esc(x.phong)+'" data-ten="'+esc(x.ten)+'" onclick="moNhatKyKhach(this.getAttribute(\'data-ph\'),this.getAttribute(\'data-ten\'))" title="Xem nhật ký nhắc của khách này">'+esc(x.phong)+' 🕑</span>'
-    +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small>'+(li&&(li.st||li.note)?'<span class="ltst">📝 '+esc([li.st,li.note].filter(Boolean).join(' — '))+'<i> · '+esc(li.nby||'')+' '+esc(li.nat||'')+'</i></span>':'')+'</span>'
+    +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small>'+(li&&(li.st||li.note)?'<span class="ltst">📝 '+esc([li.st,li.note].filter(Boolean).join(' — '))+'<i style="display:block;font-size:.7rem;color:#92400e;opacity:.85">✍️ Người ghi: <b>'+esc(li.nby||'?')+'</b>'+(li.nat?' · '+esc(li.nat):'')+'</i></span>':'')+'</span>'
     +'<span class="tag">'+ab+nb+ltBadge(li,kind,x)+tag(x)+acts+ltNutGC(x)+'</span></div>';
 }
 /* ===== ĐẾM SỐ LẦN NHẮC + GHI CHÚ TÌNH TRẠNG (lưu trên máy chủ, chủ & nhân viên dùng chung) ===== */
