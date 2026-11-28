@@ -106,6 +106,17 @@ function kpDecide_(p) {
   }
   if (o.type === 'export') {
     o.status = 'duyet'; kpSave_(o);
+  } else if (p.queueOnly) {
+    // DUYỆT NHANH: chỉ xếp hàng (≈1 giây) — app tự ghi file ở nền (khapply), duyệt nhiều lệnh liền thì ghi chung 1 lần
+    const q = o.type === 'add' ? khQueue_(Object.assign({}, o.add, { by: 'NV ' + (o.who ? o.who.ten : '') }))
+      : o.type === 'unitout' ? khQueue_({ type: 'unitout', ma: o.ma, guests: o.guests, note: (o.note || '') + ' (NV ' + (o.who ? o.who.ten : '') + ' đề xuất)', openUnit: true, by: 'NV ' + (o.who ? o.who.ten : '') })
+      : khQueue_(o.type === 'out'
+      ? { type: 'out', row: o.row, guest: Object.assign({}, o.guest, { ma: o.expect.ma, ten: o.expect.ten }), note: (o.note || '') + ' (NV ' + (o.who ? o.who.ten : '') + ' đề xuất)', openUnit: o.openUnit }
+      : { type: 'save', row: o.row, expect: o.expect, fields: o.fields });
+    if (!q.ok) return { ok: false, err: 'queue', msg: 'Không đưa được vào hàng chờ' };
+    o.status = 'duyet'; o.qt = q.t; o.err = ''; kpSave_(o);
+    try { nkAppend_('CHỦ', 'Chủ', 'Duyệt: ' + kpLabel_(o), (o.who ? o.who.ten + ' · ' : '') + kpDetail_(o), 'khach.html', ''); } catch (e) {}
+    return { ok: true, status: o.status, queued: true };
   } else {
     // đưa vào hàng chờ ghi file và ghi ngay
     const q = o.type === 'add' ? khQueue_(Object.assign({}, o.add, { by: 'NV ' + (o.who ? o.who.ten : '') }))
@@ -195,5 +206,10 @@ function kpUndo_(p) {
   o.status = 'huy'; o.huyAt = Date.now(); kpSave_(o);
   try { nkAppend_('CHỦ', 'Chủ', 'Huỷ lệnh đã duyệt: ' + kpLabel_(o), (o.who ? o.who.ten + ' · ' : '') + kpDetail_(o), 'khach.html', ''); } catch (e) {}
   return { ok: true, catalog: r.catalog || [], note: r.note || '' };
+}
+/** khApply_ gọi: lệnh ghi lỗi → đề xuất tương ứng chuyển trạng thái "Lỗi ghi file" */
+function kpMarkErr_(bad) {
+  const byT = {}; bad.forEach(e => { if (e && e.t) byT[e.t] = e.msg || 'Lỗi ghi file'; });
+  kpAll_().forEach(o => { if (o.status === 'duyet' && o.qt && byT[o.qt]) { o.status = 'loi'; o.err = byT[o.qt]; kpSave_(o); } });
 }
 function kpCount_() { return { ok: true, n: kpAll_().filter(o => o.status === 'cho').length }; }

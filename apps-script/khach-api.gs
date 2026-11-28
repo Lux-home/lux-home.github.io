@@ -524,6 +524,12 @@ function khApply_() {
   });
   const res = { ok: true, applied: done.length, failed: items.length - done.length, deleted: delList.length, backupId: c.backupId || null, errors: errs.slice(0, 30) };
   if (adds.length) { const r2 = khApplyAdds_(adds); res.applied += r2.applied; res.failed += r2.failed; res.added = r2.added; res.errors = r2.errors; res.runErrors = r2.runErrors; }
+  // đề xuất đã duyệt (ghi nền) mà ghi file lỗi → đánh dấu lỗi trên đề xuất để chủ thấy
+  try {
+    const ts = {}; items.forEach(i => { ts[i.t] = 1; });
+    const bad = errs.filter(e => ts[e.t]).concat(res.runErrors || []);
+    if (bad.length && !KH_TEST) kpMarkErr_(bad);
+  } catch (e) {}
   return res;
 }
 /** Bổ sung khách check-in vào file: khách chính vào dòng chính của căn (bỏ màu đỏ), khách thêm chèn dòng ngay dưới. */

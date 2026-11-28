@@ -318,7 +318,7 @@ function saveG(){
   }).catch(function(){ b.disabled=false; b.textContent='💾 Lưu'; toast('Không kết nối được máy chủ — chưa lưu',5000); });
 }
 /* ---------- GHI NỀN VÀO FILE ---------- */
-var PENDING=0, APPLYING=false, AGAIN=false, ERRS=[], LASTOK='';
+var RELOAD_AFTER=false, PENDING=0, APPLYING=false, AGAIN=false, ERRS=[], LASTOK='';
 function kick(){
   if(APPLYING){ AGAIN=true; showSync(); return; }
   APPLYING=true; AGAIN=false; showSync();
@@ -327,6 +327,7 @@ function kick(){
     if(d&&d.ok){ if(d.applied||d.failed){ PENDING=Math.max(0,PENDING-(d.applied||0)-(d.failed||0)); }
       ERRS=d.errors||[]; if(!AGAIN) PENDING=0; LASTOK=new Date().toTimeString().slice(0,5);
       if(d.failed) toast('⚠️ '+d.failed+' thay đổi không ghi được vào file — bấm nút đỏ góc trên để xem',6000); 
+      if(RELOAD_AFTER && !AGAIN){ RELOAD_AFTER=false; var _v=VIEW; load(true).then(function(){ VIEW=_v; render(); }); }
       if(d.deleted){ toast('🧹 Đã xoá '+d.deleted+' dòng khách phụ trống — mỗi căn đã OUT chỉ còn 1 dòng',4000); if(!AGAIN&&!PENDING) load(true); } }
     else if(d&&d.err==='busy'){ AGAIN=true; }
     else { toast('Chưa ghi được vào file ('+errMsg(d)+') — sẽ thử lại',5000); setTimeout(kick,15000); }
@@ -504,10 +505,11 @@ function huyLenh(id){
 }
 function decide(id,ok){
   var reason=''; if(!ok){ reason=prompt('Lý do từ chối (nhân viên sẽ thấy):',''); if(reason===null) return; }
-  busy(true, ok?'Đang duyệt và ghi vào file…':'Đang từ chối…');
-  api('khdecide',{id:id,approve:!!ok,reason:reason},true).then(function(d){
+  busy(true, ok?'Đang duyệt…':'Đang từ chối…');
+  api('khdecide',{id:id,approve:!!ok,reason:reason,queueOnly:1},true).then(function(d){
     busy(false);
     if(!d||!d.ok) return toast(errMsg(d),5000);
+    if(ok && d.queued){ toast('✓ Đã duyệt — đang ghi vào file ở nền (xem góc trên)',3500); RELOAD_AFTER=true; PENDING++; kick(); renderProps(); return; }
     toast(ok?(d.status==='loi'?'⚠️ Đã duyệt nhưng không ghi được: '+d.err:'✓ Đã duyệt'+(d.err?' — '+d.err:'')):'Đã từ chối',5000);
     if(ok) load(true).then(function(){ VIEW='props'; render(); }); else renderProps();
   }).catch(function(){ busy(false); toast('Không kết nối được máy chủ'); });
