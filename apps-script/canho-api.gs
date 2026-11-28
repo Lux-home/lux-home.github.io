@@ -85,6 +85,7 @@ function handle_(a, p) {
   if (a === 'khlist')       { if (khPending_().length) withLock_(() => khApply_()); return Object.assign(khList_(), { errors: khErrors_(), pend: kpPendingByRow_() }); }
   if (a === 'khproplist')   return kpList_();
   if (a === 'khpropcount')  return kpCount_();
+  if (a === 'thongbao')     return tbSum_(p);
   if (a === 'khdecide')     return kpDecide_(p);
   if (a === 'khdecidelo')   return kpDecideLo_(p);
   if (a === 'khqueue')      return khQueue_(p);

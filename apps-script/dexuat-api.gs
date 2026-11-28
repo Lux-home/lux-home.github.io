@@ -153,4 +153,17 @@ function kpDecideLo_(p) {
   try { nkAppend_('CHỦ', 'Chủ', 'Duyệt lô DS Check-in', nv + ' · ' + src + ' · ghi ' + ok + '/' + ds.length + ' căn' + (loi ? ' · ' + loi + ' lỗi' : ''), 'khach.html', ''); } catch (e) {}
   return { ok: true, n: ds.length, ghi: ok, loi: loi, errs: ds.filter(o => o.status === 'loi').map(o => (o.add.ma || '') + ': ' + o.err), pending: !r || !r.ok };
 }
+/** Chủ: tóm tắt mọi việc đang chờ (chuông thông báo trên app) */
+function tbSum_(p) {
+  const de = kpAll_().filter(o => o.status === 'cho').map(o => ({ t: o.t, who: o.who ? o.who.ten : '', lb: kpLabel_(o), dt: String(kpDetail_(o) || '').slice(0, 160), lo: o.lo || '', src: o.src || '' }));
+  let hd = { cho: 0, ghi: 0, rows: [] };
+  try {
+    const r = tdPending_(p);
+    if (r && r.ok) {
+      r.rows.forEach(x => { if (x.st === 'Đạt') hd.ghi++; else hd.cho++; });
+      hd.rows = r.rows.slice(-15).reverse().map(x => ({ room: x.room, st: x.st, by: x.by, at: x.at, qlkh: x.qlkh }));
+    }
+  } catch (e) {}
+  return { ok: true, de: de, hd: hd, at: Date.now() };
+}
 function kpCount_() { return { ok: true, n: kpAll_().filter(o => o.status === 'cho').length }; }

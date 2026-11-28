@@ -352,7 +352,7 @@ function start(){
                        : [['gui','📥','Nạp khách'],['cua','📋','Đợt của tôi']];
     document.getElementById('tabs').innerHTML = tabs.map(function(t){ return '<button class="tab" data-k="'+t[0]+'" onclick="moTab(\''+t[0]+'\')"><i>'+t[1]+'</i>'+t[2]+(t[0]==='cho'?'<span class="n" id="nCho" style="display:none"></span>':'')+'</button>'; }).join('');
     show('app');
-    moTab('gui');
+    var _tb=QS.get('tab'); moTab(d.owner && /^(cho|ls|tk)$/.test(_tb||'') ? _tb : 'gui');
   }).catch(function(){ showMsg('Không kết nối được máy chủ. Kiểm tra mạng rồi tải lại trang.'); });
 }
 function dangNhap(){
@@ -2487,5 +2487,6 @@ function ttXuat(){
 }
 
 </script>
+<script src="luxbell.js"></script>
 </body>
 </html>

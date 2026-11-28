@@ -75,5 +75,6 @@
   if(!pw||!window.luxApi) return; luxApi('khpropcount',{pw:pw}).then(function(d){ if(d&&d.ok&&d.n){ var b=document.getElementById('propBadge'); b.textContent=d.n+' chờ duyệt'; b.style.display='inline-block'; } }).catch(function(){}); })();
 if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(function(){}); }
 </script>
+<script src="luxbell.js"></script>
 </body>
 </html>
