@@ -45,6 +45,7 @@
   .row.ltv{background:#fef3c7!important;box-shadow:inset 4px 0 0 #f59e0b}
   .ltc{display:inline-flex;align-items:center;gap:3px;font-size:.7rem;font-weight:800;padding:2px 8px;border-radius:999px;background:#e0f2fe;color:#0369a1;white-space:nowrap;cursor:pointer}
   .ltc.nhieu{background:#fee2e2;color:#b91c1c}
+  .mini.ltco{background:#d97706;border-color:#d97706;color:#fff}
   .ltn{display:inline-block;padding:3px 8px;font-size:.7rem;font-weight:800;border-radius:7px;border:1px solid #f59e0b;color:#92400e;background:#fffbeb;cursor:pointer;white-space:nowrap}
   .ltst{display:block;margin-top:3px;font-size:.74rem;color:#92400e;font-weight:700}
   .ltst i{font-style:normal;font-weight:500;color:#78350f}
@@ -357,7 +358,11 @@ function ltBadge(li,kind,x){
   var n=li?(kind==='hd'?li.hd:li.tt):0;
   return '<span class="ltc'+(n>=3?' nhieu':'')+'" title="'+(li&&li.last?'Lần cuối: '+esc(li.last)+' · '+esc(li.by):'Chưa nhắc lần nào')+'" data-ma="'+esc(x.phong)+'" data-ten="'+esc(x.ten)+'" onclick="ltMo(this)">🔔 '+n+' lần</span>';
 }
-function ltNutGC(x){ return LT.ok?'<span class="ltn" data-ma="'+esc(x.phong)+'" data-ten="'+esc(x.ten)+'" onclick="ltMo(this)">📝 Ghi chú</span>':''; }
+function ltNutGC(x){
+  if(!LT.ok) return '';
+  var li=ltGet(x.phong,x.ten), co=li&&(li.note||li.st), k=x.kenh==='zalo'?'za':x.kenh==='wechat'?'wc':'wa';
+  return '<span class="mini '+(co?'ltco':k)+'" data-ma="'+esc(x.phong)+'" data-ten="'+esc(x.ten)+'" onclick="ltMo(this)">📝 Ghi chú</span>';
+}
 function ltTai(){
   if(!window.luxApi) return;
   luxApi('ltlist', ltAuth({}), true).then(function(d){ if(d&&d.ok){ LT.items=d.items||{}; LT.ok=true; if(LT.last) render(LT.last); } }).catch(function(){});
