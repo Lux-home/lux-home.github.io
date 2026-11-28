@@ -1,4 +1,5 @@
-/* LUXHOME · phóng to giao diện trên màn hình máy tính lớn cho dễ nhìn (điện thoại giữ nguyên) */
-@media (min-width:1400px){ html{zoom:1.25} }
-@media (min-width:1900px){ html{zoom:1.45} }
-@media (min-width:2300px){ html{zoom:1.6} }
+/* LUXHOME · phóng to giao diện trên laptop / máy tính cho dễ nhìn (điện thoại giữ nguyên) */
+@media (min-width:1200px){ html{zoom:1.35} }
+@media (min-width:1500px){ html{zoom:1.5} }
+@media (min-width:1900px){ html{zoom:1.7} }
+@media (min-width:2300px){ html{zoom:1.9} }
