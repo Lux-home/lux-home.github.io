@@ -345,18 +345,19 @@ function rowNhac(x,tag,kind,urg){
   var nb = '<span class="nhacb" data-nhac="'+nkey(x.phong,kind)+'">'+(done?NHACB:'')+'</span>';
   var li=ltGet(x.phong,x.ten), ltv=li&&(li.note||li.st);
   return '<div class="row '+(done?'dnhac':'cnhac')+(ltv?' ltv':'')+'"><span class="ph" style="cursor:pointer" data-ph="'+esc(x.phong)+'" data-ten="'+esc(x.ten)+'" onclick="moNhatKyKhach(this.getAttribute(\'data-ph\'),this.getAttribute(\'data-ten\'))" title="Xem nhật ký nhắc của khách này">'+esc(x.phong)+' 🕑</span>'
-    +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small>'+(li&&(li.st||li.note)?'<span class="ltst">📝 '+esc([li.st,li.note].filter(Boolean).join(' — '))+'<i style="display:block;font-size:.7rem;color:#92400e;opacity:.85">✍️ Người ghi: <b>'+esc(li.nby||'?')+'</b>'+(li.nat?' · '+esc(li.nat):'')+'</i></span>':'')+'</span>'
+    +'<span class="nm">'+esc(x.ten)+' <small>('+esc(x.qt)+')</small>'+(li&&(li.st||li.note)?'<span class="ltst">📝 '+esc([li.st,li.note].filter(Boolean).join(' — '))+'<i style="display:block;font-size:.7rem;color:#92400e;opacity:.85">✍️ Người ghi: <b>'+esc(ltAi(li.nby)||'?')+'</b>'+(li.nat?' · '+esc(li.nat):'')+'</i></span>':'')+'</span>'
     +'<span class="tag">'+ab+nb+ltBadge(li,kind,x)+tag(x)+acts+ltNutGC(x)+'</span></div>';
 }
 /* ===== ĐẾM SỐ LẦN NHẮC + GHI CHÚ TÌNH TRẠNG (lưu trên máy chủ, chủ & nhân viên dùng chung) ===== */
 var LT={ items:{}, ok:false, last:null };
 function ltK(ma,ten){ return String(ma||'').toUpperCase().replace(/\s/g,'')+'|'+String(ten||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/gi,'d').toLowerCase().replace(/\(.*?\)/g,' ').replace(/[^a-z0-9]+/g,' ').trim(); }
 function ltGet(ma,ten){ return LT.items[ltK(ma,ten)]||null; }
+function ltAi(t){ return t==='Chủ'?'Admin':t; }
 function ltAuth(o){ o=o||{}; if(NVTOK){ o.tok=NVTOK; o.dev=devId(); o.devname=devName(); } else { var p=''; try{ p=localStorage.getItem('luxAdminPw')||''; }catch(e){} o.pw=p; } return o; }
 function ltBadge(li,kind,x){
   if(!LT.ok) return '';
   var n=li?(kind==='hd'?li.hd:li.tt):0;
-  return '<span class="ltc'+(n>=3?' nhieu':'')+'" title="'+(li&&li.last?'Lần cuối: '+esc(li.last)+' · '+esc(li.by):'Chưa nhắc lần nào')+'" data-ma="'+esc(x.phong)+'" data-ten="'+esc(x.ten)+'" onclick="ltMo(this)">🔔 '+n+' lần</span>';
+  return '<span class="ltc'+(n>=3?' nhieu':'')+'" title="'+(li&&li.last?'Lần cuối: '+esc(li.last)+' · '+esc(ltAi(li.by)):'Chưa nhắc lần nào')+'" data-ma="'+esc(x.phong)+'" data-ten="'+esc(x.ten)+'" onclick="ltMo(this)">🔔 '+n+' lần</span>';
 }
 function ltNutGC(x){
   if(!LT.ok) return '';
@@ -377,10 +378,10 @@ function ltMo(el){
   LTC.ma=el.getAttribute('data-ma'); LTC.ten=el.getAttribute('data-ten'); var li=ltGet(LTC.ma,LTC.ten)||{}; LTC.st=li.st||'';
   var m=document.getElementById('ltM'); if(!m){ m=document.createElement('div'); m.id='ltM'; m.onclick=function(e){ if(e.target===m) m.style.display='none'; }; document.body.appendChild(m); }
   m.innerHTML='<div class="bx"><h3>📝 '+esc(LTC.ma)+' · '+esc(LTC.ten)+'</h3>'
-    +'<div style="font-size:.82rem;color:#5f727a">🔔 Đã nhắc: hạn lưu trú <b>'+(li.tt||0)+'</b> lần · hết HĐ <b>'+(li.hd||0)+'</b> lần'+(li.last?' · lần cuối '+esc(li.last)+' ('+esc(li.by)+')':'')+'</div>'
+    +'<div style="font-size:.82rem;color:#5f727a">🔔 Đã nhắc: hạn lưu trú <b>'+(li.tt||0)+'</b> lần · hết HĐ <b>'+(li.hd||0)+'</b> lần'+(li.last?' · lần cuối '+esc(li.last)+' ('+esc(ltAi(li.by))+')':'')+'</div>'
     +'<div style="font-weight:800;margin-top:12px;font-size:.88rem">Ghi chú (có ghi chú thì dòng khách tô vàng)</div>'
     +'<textarea id="ltNote" style="margin-top:6px">'+esc([li.st,li.note].filter(Boolean).join(' — '))+'</textarea>'
-    +(li.nby?'<div style="font-size:.74rem;color:#92400e;margin-top:4px">Ghi chú hiện tại bởi '+esc(li.nby)+' lúc '+esc(li.nat)+'</div>':'')
+    +(li.nby?'<div style="font-size:.74rem;color:#92400e;margin-top:4px">Ghi chú hiện tại bởi '+esc(ltAi(li.nby))+' lúc '+esc(li.nat)+'</div>':'')
     +'<div class="ft"><button style="background:#f3f4f6" onclick="document.getElementById(\'ltM\').style.display=\'none\'">Đóng</button>'
     +((li.st||li.note)?'<button style="background:#fee2e2;color:#b91c1c" onclick="ltLuu(1)">Xoá ghi chú</button>':'')
     +'<button style="background:#f59e0b;color:#fff" onclick="ltLuu(0)">💾 Lưu</button></div></div>';
