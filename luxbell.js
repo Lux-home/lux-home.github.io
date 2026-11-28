@@ -17,7 +17,7 @@
     'background:rgba(255,255,255,.95);box-shadow:0 4px 16px rgba(0,40,60,.25);font-size:1.35rem;display:flex;align-items:center;justify-content:center}' +
     '#lxBell.rung{animation:lxRung 1s ease 2}@keyframes lxRung{0%,100%{transform:rotate(0)}20%{transform:rotate(14deg)}40%{transform:rotate(-12deg)}60%{transform:rotate(8deg)}80%{transform:rotate(-5deg)}}' +
     '#lxBell .c{position:absolute;top:-3px;right:-3px;min-width:21px;height:21px;padding:0 6px;border-radius:999px;background:#dc2626;color:#fff;font:800 .74rem/21px system-ui,sans-serif;box-shadow:0 0 0 2px #fff}' +
-    '#lxPanel{position:fixed;top:calc(env(safe-area-inset-top,0px) + 66px);right:12px;z-index:9001;width:min(380px,calc(100vw - 24px));max-height:calc(100vh - 90px);overflow:auto;' +
+    '#lxPanel{position:fixed;top:calc(env(safe-area-inset-top,0px) + 66px);right:12px;z-index:9001;width:min(380px,calc(100vw - 24px));max-height:75vh;overflow:auto;' +
     'background:#fff;color:#13242a;border-radius:18px;box-shadow:0 18px 50px rgba(0,30,45,.30);display:none;font-family:-apple-system,"Segoe UI",Roboto,system-ui,sans-serif}' +
     '#lxPanel.on{display:block}#lxPanel h4{margin:0;padding:14px 16px;font-size:1rem;display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid #e8eef0;position:sticky;top:0;background:#fff;border-radius:18px 18px 0 0}' +
     '#lxPanel h4 button{border:0;background:#eef5f7;border-radius:999px;padding:5px 10px;font-weight:700;cursor:pointer;color:#0e7ba8}' +
